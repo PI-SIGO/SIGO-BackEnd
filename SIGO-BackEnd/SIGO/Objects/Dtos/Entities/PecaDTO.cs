@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SIGO.Objects.Dtos.Entities
 {
-    public class PecaDTO
+    public class PecaDTO //n liga
     {
         public int Id { get; set; }
 
