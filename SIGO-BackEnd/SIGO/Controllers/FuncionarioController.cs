@@ -5,6 +5,7 @@ using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Services.Entities;
 using SIGO.Services.Interfaces;
+using SIGO.Utils;
 
 namespace SIGO.Controllers
 {
@@ -35,8 +36,8 @@ namespace SIGO.Controllers
             return Ok(_response);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> FetFuncionarioById(int id)
+        [HttpGet("id/{id}")]
+        public async Task<IActionResult> GetFuncionarioById(int id)
         {
             var funcionarioDTO = await _funcionarioService.GetById(id);
 
@@ -46,7 +47,7 @@ namespace SIGO.Controllers
             return Ok(funcionarioDTO);
         }
 
-        [HttpGet("{nome}")]
+        [HttpGet("name/{nome}")]
         public async Task<IActionResult> GetFuncionarioByNome(string nome)
         {
             var clientesDto = await _funcionarioService.GetFuncionarioByNome(nome);
@@ -72,6 +73,8 @@ namespace SIGO.Controllers
             try
             {
                 funcionarioDTO.Id = 0;
+                SanitizeFuncionario(funcionarioDTO);
+                await _funcionarioService.ValidarCpf(funcionarioDTO.Cpf);
 
                 await _funcionarioService.Create(funcionarioDTO);
 
@@ -81,15 +84,18 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                _response.Code = ResponseEnum.INVALID;
+                _response.Message = ex.Message;
+                _response.Data = null;
+                return BadRequest(_response);
+            }
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Não foi possível cadastrar o funcionário";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -118,6 +124,10 @@ namespace SIGO.Controllers
                     return NotFound(_response);
                 }
 
+                SanitizeFuncionario(funcionarioDTO);
+
+                await _funcionarioService.ValidarCpf(funcionarioDTO.Cpf, id);
+
                 await _funcionarioService.Update(funcionarioDTO, id);
 
                 _response.Code = ResponseEnum.SUCCESS;
@@ -126,15 +136,18 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                _response.Code = ResponseEnum.INVALID;
+                _response.Message = ex.Message;
+                _response.Data = null;
+                return BadRequest(_response);
+            }
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao tentar atualizar os dados do funcionário";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -161,17 +174,18 @@ namespace SIGO.Controllers
                 _response.Message = "Funcionário deletado com sucesso";
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao deletar o cliente";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace disponível"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
+        }
+
+        private static void SanitizeFuncionario(FuncionarioDTO funcionarioDTO)
+        {
+            funcionarioDTO.Cpf = SanitizeHelper.ApenasDigitos(funcionarioDTO.Cpf);
         }
     }
 }

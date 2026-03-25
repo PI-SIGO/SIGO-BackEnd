@@ -35,7 +35,7 @@ namespace SIGO.Controllers
             return Ok(_response);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id}")]
         public async Task<IActionResult> GetByIdWithDetails(int id)
         {
             var servicoDto = await _servicoService.GetByIdWithDetails(id);
@@ -46,7 +46,7 @@ namespace SIGO.Controllers
             return Ok(servicoDto);
         }
 
-        [HttpGet("{nome}")]
+        [HttpGet("name/{nome}")]
         public async Task<IActionResult> GetByNameWithDetails(string nome)
         {
             var servicoDto = await _servicoService.GetByNameWithDetails(nome);
@@ -81,15 +81,11 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Não foi possível cadastrar o serviço";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -127,15 +123,11 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao tentar atualizar os dados do serviço";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -162,15 +154,11 @@ namespace SIGO.Controllers
                 _response.Message = "Serviço deletado com sucesso";
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao deletar o serviço";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace disponível"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }

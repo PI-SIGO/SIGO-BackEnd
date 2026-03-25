@@ -5,6 +5,7 @@ using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Services.Entities;
 using SIGO.Services.Interfaces;
+using SIGO.Utils;
 
 namespace SIGO.Controllers
 {
@@ -23,7 +24,7 @@ namespace SIGO.Controllers
             _response = new Response();
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id:int}")]
         public async Task<IActionResult> Get(int id)
         {
             var clienteDto = await _telefoneService.GetById(id);
@@ -34,7 +35,7 @@ namespace SIGO.Controllers
             return Ok(clienteDto);
         }
 
-        [HttpGet("{nome}")]
+        [HttpGet("name/{nome}")]
         public async Task<IActionResult> GetByNameWithDetails(string nome)
         {
             var clientesDto = await _telefoneService.GetTelefoneByNome(nome);
@@ -60,6 +61,7 @@ namespace SIGO.Controllers
             try
             {
                 telefoneDTO.Id = 0;
+                SanitizeTelefone(telefoneDTO);
 
                 await _telefoneService.Create(telefoneDTO);
 
@@ -69,15 +71,11 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Não foi possível cadastrar o telefone";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -105,6 +103,8 @@ namespace SIGO.Controllers
                     return NotFound(_response);
                 }
 
+                SanitizeTelefone(telefoneDTO);
+
                 await _telefoneService.Update(telefoneDTO, id);
 
                 _response.Code = ResponseEnum.SUCCESS;
@@ -113,15 +113,11 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao tentar atualizar os dados do telefone";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -148,17 +144,18 @@ namespace SIGO.Controllers
                 _response.Message = "Cliente deletado com sucesso";
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao deletar o cliente";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace disponível"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
+        }
+
+        private static void SanitizeTelefone(TelefoneDTO telefoneDTO)
+        {
+            telefoneDTO.Numero = SanitizeHelper.ApenasDigitos(telefoneDTO.Numero);
         }
     }
 }

@@ -7,5 +7,7 @@ namespace SIGO.Services.Interfaces
     {
         Task<IEnumerable<ClienteDTO>> GetByNameWithDetails(string nome);
         Task<ClienteDTO?> GetByIdWithDetails(int id);
+        Task ValidarCpfCnpj(string? documento, int? ignoreId = null);
+        Task ValidarNomeEmail(string? nome, string? email, int? ignoreId = null);
     }
 }

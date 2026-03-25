@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Refit;
 using SIGO.Data;
 using SIGO.Data.Interfaces;
 using SIGO.Data.Repositories;
+using SIGO.Integracao;
+using SIGO.Integracao.Interfaces;
+using SIGO.Integracao.Prefit;
 using SIGO.Objects.Dtos.Mappings;
 using SIGO.Objects.Models;
 using SIGO.Services.Entities;
@@ -50,6 +54,12 @@ builder.Services.AddScoped<IOficinaRepository, OficinaRepository>();
 
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
+builder.Services.AddScoped<IViaCepIntegracao, ViaCepIntegracao>();
+builder.Services.AddRefitClient<IViaCepIntegracaoRefit>()
+    .ConfigureHttpClient(c =>
+    {
+        c.BaseAddress = new Uri("https://viacep.com.br/");
+    });
 
 var app = builder.Build();
 
