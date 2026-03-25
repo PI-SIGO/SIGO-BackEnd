@@ -37,8 +37,9 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("bairro");
 
-                    b.Property<int>("Cep")
-                        .HasColumnType("integer")
+                    b.Property<string>("Cep")
+                        .IsRequired()
+                        .HasColumnType("text")
                         .HasColumnName("cep");
 
                     b.Property<string>("Cidade")
@@ -276,8 +277,9 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("bairro");
 
-                    b.Property<int>("CNPJ")
-                        .HasColumnType("integer")
+                    b.Property<string>("CNPJ")
+                        .IsRequired()
+                        .HasColumnType("text")
                         .HasColumnName("cnpj");
 
                     b.Property<int>("Cep")

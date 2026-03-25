@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
@@ -31,16 +31,16 @@ namespace SIGO.Controllers
             return Ok(_response);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id}")]
         public async Task<IActionResult> GetById(int id)
         {
             var marcaDto = await _marcaService.GetById(id);
             if (marcaDto is null)
-                return NotFound(new { Message = "Marca n�o encontrada" });
+                return NotFound(new { Message = "Marca não encontrada" });
             return Ok(marcaDto);
         }
 
-        [HttpGet("{nomeMarca}")]
+        [HttpGet("name/{nomeMarca}")]
         public async Task<IActionResult> GetByName(string nomeMarca)
         {
             var marcasDto = await _marcaService.GetByName(nomeMarca);

@@ -2,6 +2,7 @@
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
+using System.Linq;
 
 namespace SIGO.Data.Repositories
 {
@@ -20,6 +21,20 @@ namespace SIGO.Data.Repositories
                 .Where(m => m.Nome.Contains(nomeOficina))
                 .ToListAsync();
         }
+
+        public async Task<bool> ExistsByCnpj(string cnpj, int? ignoreId = null)
+        {
+            var cnpjNormalizado = SomenteDigitos(cnpj);
+
+            return await _context.Oficinas
+                .AnyAsync(o =>
+                    o.CNPJ != null &&
+                    o.CNPJ.Replace(".", "").Replace("-", "").Replace("/", "") == cnpjNormalizado &&
+                    (!ignoreId.HasValue || o.Id != ignoreId.Value));
+        }
+
+        private static string SomenteDigitos(string valor) =>
+            new(valor.Where(char.IsDigit).ToArray());
     }
 }
 

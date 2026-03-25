@@ -6,5 +6,6 @@ namespace SIGO.Services.Interfaces
     public interface IOficinaService : IGenericService<Oficina, OficinaDTO>
     {
         Task<IEnumerable<OficinaDTO>> GetByName(string nomeOficina);
+        Task ValidarCnpj(string? cnpj, int? ignoreId = null);
     }
 }

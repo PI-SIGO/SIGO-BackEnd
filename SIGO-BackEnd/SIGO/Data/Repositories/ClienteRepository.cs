@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
+using System.Linq;
 
 namespace SIGO.Data.Repositories
 {
@@ -46,5 +47,41 @@ namespace SIGO.Data.Repositories
             await _context.SaveChangesAsync();
             return cliente;
         }
+
+        public async Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null)
+        {
+            var documentoNormalizado = SomenteDigitos(cpfCnpj);
+
+            return await _context.Clientes
+                .AnyAsync(c =>
+                    c.Cpf_Cnpj != null &&
+                    c.Cpf_Cnpj.Replace(".", "").Replace("-", "").Replace("/", "") == documentoNormalizado &&
+                    (!ignoreId.HasValue || c.Id != ignoreId.Value));
+        }
+
+        public async Task<bool> ExistsByNome(string nome, int? ignoreId = null)
+        {
+            var nomeNormalizado = nome.Trim().ToLowerInvariant();
+
+            return await _context.Clientes
+                .AnyAsync(c =>
+                    c.Nome != null &&
+                    c.Nome.Trim().ToLower() == nomeNormalizado &&
+                    (!ignoreId.HasValue || c.Id != ignoreId.Value));
+        }
+
+        public async Task<bool> ExistsByEmail(string email, int? ignoreId = null)
+        {
+            var emailNormalizado = email.Trim().ToLowerInvariant();
+
+            return await _context.Clientes
+                .AnyAsync(c =>
+                    c.Email != null &&
+                    c.Email.Trim().ToLower() == emailNormalizado &&
+                    (!ignoreId.HasValue || c.Id != ignoreId.Value));
+        }
+
+        private static string SomenteDigitos(string valor) =>
+            new(valor.Where(char.IsDigit).ToArray());
     }
 }

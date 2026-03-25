@@ -9,7 +9,7 @@ namespace SIGO.Objects.Dtos.Entities
 
         public string Nome { get; set; }
 
-        public int CNPJ { get; set; }
+        public string CNPJ { get; set; }
 
         public string Email { get; set; }
 

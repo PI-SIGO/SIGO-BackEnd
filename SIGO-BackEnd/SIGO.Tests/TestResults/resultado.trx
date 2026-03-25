@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="de4c2cb8-f452-4124-b536-7cc7ee750710" name="ekome@DESKTOP-UVDPKMT 2026-03-25 14:31:05" runUser="DESKTOP-UVDPKMT\ekome" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-03-25T14:31:05.5077833-03:00" queuing="2026-03-25T14:31:05.5077839-03:00" start="2026-03-25T14:31:04.5318523-03:00" finish="2026-03-25T14:31:05.5647241-03:00" />
+  <TestSettings name="default" id="efd98a72-97e9-4d0d-b600-011328983425">
+    <Deployment runDeploymentRoot="ekome_DESKTOP-UVDPKMT_2026-03-25_14_31_05" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="90e55843-c64e-4c07-85b2-5bd5280c217d" testId="8656f415-328a-197f-e83d-6e05083a0987" testName="SIGO.Tests.Controllers.PedidoControllerTests.GetById_DeveRetornarNotFound_QuandoPedidoNaoExiste" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0020605" startTime="2026-03-25T14:31:05.4225851-03:00" endTime="2026-03-25T14:31:05.4225852-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="90e55843-c64e-4c07-85b2-5bd5280c217d" />
+    <UnitTestResult executionId="5e734a35-95af-498e-b250-6fb74ca5d742" testId="17578fa7-0c01-bc0c-5c37-5e506f12cb9c" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;../../../../windows/system32&quot;)" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0008584" startTime="2026-03-25T14:31:05.4666918-03:00" endTime="2026-03-25T14:31:05.4666918-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5e734a35-95af-498e-b250-6fb74ca5d742" />
+    <UnitTestResult executionId="b2816af6-793b-4f04-a6e9-1ad241dc7485" testId="39482668-19c9-8805-45fa-c1f90a117971" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveRetornarBadRequest_QuandoDtoForNulo" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0012103" startTime="2026-03-25T14:31:05.4221652-03:00" endTime="2026-03-25T14:31:05.4221653-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b2816af6-793b-4f04-a6e9-1ad241dc7485" />
+    <UnitTestResult executionId="ebee8ea3-af63-46f8-aec0-121e60862ba1" testId="88cf4cd7-a7b6-102d-124e-3b1a248ea1a8" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;&lt;script&gt;alert('xss')&lt;/script&gt;&quot;)" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0009867" startTime="2026-03-25T14:31:05.4666514-03:00" endTime="2026-03-25T14:31:05.4666515-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ebee8ea3-af63-46f8-aec0-121e60862ba1" />
+    <UnitTestResult executionId="b623ff24-9360-4853-be7e-16cf101092aa" testId="87051b7e-3a41-d575-cbde-80c69fb44d6f" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;'; DROP TABLE pedido; --&quot;)" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0025088" startTime="2026-03-25T14:31:05.4665915-03:00" endTime="2026-03-25T14:31:05.4665915-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b623ff24-9360-4853-be7e-16cf101092aa" />
+    <UnitTestResult executionId="15a2a23c-58c5-4ffc-9075-2785fade497b" testId="f7d936c2-bab7-c043-5c73-30623fbc7536" testName="SIGO.Tests.Services.PedidoServiceTests.Update_DeveForcarIdDoDtoEAtualizar" computerName="DESKTOP-UVDPKMT" duration="00:00:00.1039133" startTime="2026-03-25T14:31:05.4258872-03:00" endTime="2026-03-25T14:31:05.4258877-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="15a2a23c-58c5-4ffc-9075-2785fade497b" />
+    <UnitTestResult executionId="3feef2f1-cec3-4adf-88f5-538ec3bdc024" testId="e3646d67-cbc8-20a1-2774-4e6cc4bc2b4c" testName="SIGO.Tests.Controllers.PedidoControllerTests.Delete_DeveRemover_QuandoPedidoExiste" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0058514" startTime="2026-03-25T14:31:05.4259394-03:00" endTime="2026-03-25T14:31:05.4259395-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3feef2f1-cec3-4adf-88f5-538ec3bdc024" />
+    <UnitTestResult executionId="6ebca0cc-e61e-43fb-b0f9-14ea03627088" testId="a3a1f53b-7346-9d2f-57b6-44a75f25b5ca" testName="SIGO.Tests.Controllers.PedidoControllerTests.Put_NaoDeveAtualizar_QuandoPedidoNaoExiste" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0029153" startTime="2026-03-25T14:31:05.4289564-03:00" endTime="2026-03-25T14:31:05.4289566-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6ebca0cc-e61e-43fb-b0f9-14ea03627088" />
+    <UnitTestResult executionId="843ac814-6f7c-43c5-99fd-45e5e8061e75" testId="9c2939e2-cd5b-0e54-d681-6926e892c8da" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_EmErroInterno_NaoDeveExporDetalhesSensiveis" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0920291" startTime="2026-03-25T14:31:05.4180327-03:00" endTime="2026-03-25T14:31:05.4180608-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="843ac814-6f7c-43c5-99fd-45e5e8061e75" />
+    <UnitTestResult executionId="4d6356cd-ddce-4c35-94c0-23991931488e" testId="cf5b263d-7a79-a3fa-3e82-639951b46992" testName="SIGO.Tests.Services.PedidoServiceTests.Update_DeveLancarExcecao_QuandoPedidoNaoExiste" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0033260" startTime="2026-03-25T14:31:05.4292893-03:00" endTime="2026-03-25T14:31:05.4292894-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4d6356cd-ddce-4c35-94c0-23991931488e" />
+    <UnitTestResult executionId="c2ff0952-14cf-47b7-8693-b575601e9a68" testId="5fa3dc36-6492-3962-ac89-9d5dda2d3d39" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveZerarIdEChamarCreate_QuandoDtoValido" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0024259" startTime="2026-03-25T14:31:05.4314514-03:00" endTime="2026-03-25T14:31:05.4314516-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c2ff0952-14cf-47b7-8693-b575601e9a68" />
+    <UnitTestResult executionId="38823e99-2139-4793-b2c3-116ec3586ee0" testId="e23d8b9d-d3bd-b12a-43bc-b326553d2ad9" testName="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;$(rm -rf /)&quot;)" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0009755" startTime="2026-03-25T14:31:05.4667205-03:00" endTime="2026-03-25T14:31:05.4667205-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="38823e99-2139-4793-b2c3-116ec3586ee0" />
+    <UnitTestResult executionId="6c854581-3381-479d-98e5-2f4d9772205a" testId="d5cca862-b9e8-c57e-bfc9-9e8bfe3e2444" testName="SIGO.Tests.Services.PedidoServiceTests.Create_DeveMapearEAdicionarEntidade" computerName="DESKTOP-UVDPKMT" duration="00:00:00.0033933" startTime="2026-03-25T14:31:05.4664591-03:00" endTime="2026-03-25T14:31:05.4664592-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6c854581-3381-479d-98e5-2f4d9772205a" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SIGO.Tests.Services.PedidoServiceTests.Update_DeveLancarExcecao_QuandoPedidoNaoExiste" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="cf5b263d-7a79-a3fa-3e82-639951b46992">
+      <Execution id="4d6356cd-ddce-4c35-94c0-23991931488e" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Services.PedidoServiceTests" name="Update_DeveLancarExcecao_QuandoPedidoNaoExiste" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Services.PedidoServiceTests.Create_DeveMapearEAdicionarEntidade" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="d5cca862-b9e8-c57e-bfc9-9e8bfe3e2444">
+      <Execution id="6c854581-3381-479d-98e5-2f4d9772205a" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Services.PedidoServiceTests" name="Create_DeveMapearEAdicionarEntidade" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Services.PedidoServiceTests.Update_DeveForcarIdDoDtoEAtualizar" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="f7d936c2-bab7-c043-5c73-30623fbc7536">
+      <Execution id="15a2a23c-58c5-4ffc-9075-2785fade497b" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Services.PedidoServiceTests" name="Update_DeveForcarIdDoDtoEAtualizar" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_EmErroInterno_NaoDeveExporDetalhesSensiveis" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="9c2939e2-cd5b-0e54-d681-6926e892c8da">
+      <Execution id="843ac814-6f7c-43c5-99fd-45e5e8061e75" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_EmErroInterno_NaoDeveExporDetalhesSensiveis" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveRetornarBadRequest_QuandoDtoForNulo" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="39482668-19c9-8805-45fa-c1f90a117971">
+      <Execution id="b2816af6-793b-4f04-a6e9-1ad241dc7485" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_DeveRetornarBadRequest_QuandoDtoForNulo" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;&lt;script&gt;alert('xss')&lt;/script&gt;&quot;)" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="88cf4cd7-a7b6-102d-124e-3b1a248ea1a8">
+      <Execution id="ebee8ea3-af63-46f8-aec0-121e60862ba1" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_DeveProcessarPayloadMaliciosoSemFalha" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Delete_DeveRemover_QuandoPedidoExiste" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="e3646d67-cbc8-20a1-2774-4e6cc4bc2b4c">
+      <Execution id="3feef2f1-cec3-4adf-88f5-538ec3bdc024" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Delete_DeveRemover_QuandoPedidoExiste" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;../../../../windows/system32&quot;)" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="17578fa7-0c01-bc0c-5c37-5e506f12cb9c">
+      <Execution id="5e734a35-95af-498e-b250-6fb74ca5d742" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_DeveProcessarPayloadMaliciosoSemFalha" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveZerarIdEChamarCreate_QuandoDtoValido" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="5fa3dc36-6492-3962-ac89-9d5dda2d3d39">
+      <Execution id="c2ff0952-14cf-47b7-8693-b575601e9a68" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_DeveZerarIdEChamarCreate_QuandoDtoValido" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.GetById_DeveRetornarNotFound_QuandoPedidoNaoExiste" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="8656f415-328a-197f-e83d-6e05083a0987">
+      <Execution id="90e55843-c64e-4c07-85b2-5bd5280c217d" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="GetById_DeveRetornarNotFound_QuandoPedidoNaoExiste" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;'; DROP TABLE pedido; --&quot;)" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="87051b7e-3a41-d575-cbde-80c69fb44d6f">
+      <Execution id="b623ff24-9360-4853-be7e-16cf101092aa" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_DeveProcessarPayloadMaliciosoSemFalha" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Put_NaoDeveAtualizar_QuandoPedidoNaoExiste" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="a3a1f53b-7346-9d2f-57b6-44a75f25b5ca">
+      <Execution id="6ebca0cc-e61e-43fb-b0f9-14ea03627088" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Put_NaoDeveAtualizar_QuandoPedidoNaoExiste" />
+    </UnitTest>
+    <UnitTest name="SIGO.Tests.Controllers.PedidoControllerTests.Post_DeveProcessarPayloadMaliciosoSemFalha(payload: &quot;$(rm -rf /)&quot;)" storage="c:\users\ekome\onedrive\documentos\sigo-backend\sigo-backend\sigo.tests\bin\debug\net8.0\sigo.tests.dll" id="e23d8b9d-d3bd-b12a-43bc-b326553d2ad9">
+      <Execution id="38823e99-2139-4793-b2c3-116ec3586ee0" />
+      <TestMethod codeBase="C:\Users\ekome\OneDrive\Documentos\SIGO-BackEnd\SIGO-BackEnd\SIGO.Tests\bin\Debug\net8.0\SIGO.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SIGO.Tests.Controllers.PedidoControllerTests" name="Post_DeveProcessarPayloadMaliciosoSemFalha" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="8656f415-328a-197f-e83d-6e05083a0987" executionId="90e55843-c64e-4c07-85b2-5bd5280c217d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="17578fa7-0c01-bc0c-5c37-5e506f12cb9c" executionId="5e734a35-95af-498e-b250-6fb74ca5d742" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="39482668-19c9-8805-45fa-c1f90a117971" executionId="b2816af6-793b-4f04-a6e9-1ad241dc7485" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="88cf4cd7-a7b6-102d-124e-3b1a248ea1a8" executionId="ebee8ea3-af63-46f8-aec0-121e60862ba1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87051b7e-3a41-d575-cbde-80c69fb44d6f" executionId="b623ff24-9360-4853-be7e-16cf101092aa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f7d936c2-bab7-c043-5c73-30623fbc7536" executionId="15a2a23c-58c5-4ffc-9075-2785fade497b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e3646d67-cbc8-20a1-2774-4e6cc4bc2b4c" executionId="3feef2f1-cec3-4adf-88f5-538ec3bdc024" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a3a1f53b-7346-9d2f-57b6-44a75f25b5ca" executionId="6ebca0cc-e61e-43fb-b0f9-14ea03627088" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9c2939e2-cd5b-0e54-d681-6926e892c8da" executionId="843ac814-6f7c-43c5-99fd-45e5e8061e75" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf5b263d-7a79-a3fa-3e82-639951b46992" executionId="4d6356cd-ddce-4c35-94c0-23991931488e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5fa3dc36-6492-3962-ac89-9d5dda2d3d39" executionId="c2ff0952-14cf-47b7-8693-b575601e9a68" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e23d8b9d-d3bd-b12a-43bc-b326553d2ad9" executionId="38823e99-2139-4793-b2c3-116ec3586ee0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d5cca862-b9e8-c57e-bfc9-9e8bfe3e2444" executionId="6c854581-3381-479d-98e5-2f4d9772205a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Resultados que não estão em uma lista" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Todos os resultados carregados" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="13" executed="13" passed="13" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.25)&#xD;
+[xUnit.net 00:00:00.12]   Discovering: SIGO.Tests&#xD;
+[xUnit.net 00:00:00.17]   Discovered:  SIGO.Tests&#xD;
+[xUnit.net 00:00:00.18]   Starting:    SIGO.Tests&#xD;
+[xUnit.net 00:00:00.38]   Finished:    SIGO.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

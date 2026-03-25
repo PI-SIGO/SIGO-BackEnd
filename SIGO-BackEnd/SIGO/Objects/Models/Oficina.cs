@@ -13,7 +13,7 @@ namespace SIGO.Objects.Models
         public string Nome { get; set; }
 
         [Column("cnpj")]
-        public int CNPJ { get; set; }
+        public string CNPJ { get; set; }
 
         [Column("email")]
         public string Email { get; set; }
@@ -49,7 +49,7 @@ namespace SIGO.Objects.Models
 
         public Oficina() { }
 
-        public Oficina(int id, string nome, int cnpj, string email, int numero, string rua, string cidade, int cep, string bairro,
+        public Oficina(int id, string nome, string cnpj, string email, int numero, string rua, string cidade, int cep, string bairro,
             string estado, string pais, string complemento, Situacao situacao)
         {
             Id = id;

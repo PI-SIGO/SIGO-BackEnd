@@ -12,8 +12,8 @@ using SIGO.Data;
 namespace SIGO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260309180816_Teste")]
-    partial class Teste
+    [Migration("20260323165610_PrimeiraMigration")]
+    partial class PrimeiraMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -40,8 +40,9 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("bairro");
 
-                    b.Property<int>("Cep")
-                        .HasColumnType("integer")
+                    b.Property<string>("Cep")
+                        .IsRequired()
+                        .HasColumnType("text")
                         .HasColumnName("cep");
 
                     b.Property<string>("Cidade")
@@ -279,8 +280,9 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("bairro");
 
-                    b.Property<int>("CNPJ")
-                        .HasColumnType("integer")
+                    b.Property<string>("CNPJ")
+                        .IsRequired()
+                        .HasColumnType("text")
                         .HasColumnName("cnpj");
 
                     b.Property<int>("Cep")

@@ -7,5 +7,8 @@ namespace SIGO.Data.Interfaces
         Task<IEnumerable<Cliente>> GetByNameWithDetails(string nome);
         Task<Cliente?> GetByIdWithDetails(int id);
         Task<Cliente> Add(Cliente cliente);
+        Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null);
+        Task<bool> ExistsByNome(string nome, int? ignoreId = null);
+        Task<bool> ExistsByEmail(string email, int? ignoreId = null);
     }
 }
