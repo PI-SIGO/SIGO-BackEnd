@@ -4,6 +4,7 @@ using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
 using System.Linq;
+using SIGO.Objects.Contracts;
 
 namespace SIGO.Services.Entities
 {
@@ -17,6 +18,14 @@ namespace SIGO.Services.Entities
         {
             _oficinaRepository = oficinaRepository;
             _mapper = mapper;
+        }
+
+        public async Task<OficinaDTO?> Login(Login login)
+        {
+            var oficina = await _oficinaRepository.Login(login);
+
+            if (oficina is not null) oficina.Senha = "";
+            return _mapper.Map<OficinaDTO?>(oficina);
         }
 
         public async Task<IEnumerable<OficinaDTO>> GetByName(string nomeOficina)

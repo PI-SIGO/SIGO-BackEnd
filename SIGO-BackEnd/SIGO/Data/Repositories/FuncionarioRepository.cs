@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
+using SIGO.Objects.Contracts;
 using System.Linq;
 
 namespace SIGO.Data.Repositories
@@ -12,6 +13,11 @@ namespace SIGO.Data.Repositories
         public FuncionarioRepository(AppDbContext context) : base(context)
         {
             _context = context;
+        }
+
+        public async Task<Funcionario?> Login(Login login)
+        {
+            return await _context.Funcionarios.AsNoTracking().FirstOrDefaultAsync(f => f.Email == login.Email && f.Senha == login.Password);
         }
 
         public async Task<IEnumerable<Funcionario>> GetFuncionarioByNome(string nome)

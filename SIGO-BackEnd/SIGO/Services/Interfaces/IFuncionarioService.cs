@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
+using SIGO.Objects.Contracts;
 
 namespace SIGO.Services.Interfaces
 {
@@ -8,6 +9,8 @@ namespace SIGO.Services.Interfaces
     {
         Task<IEnumerable<FuncionarioDTO>> GetFuncionarioByNome(string nome);
         Task ValidarCpf(string? cpf, int? ignoreId = null);
+
+        Task<FuncionarioDTO?> Login(Login login);
 
     }
 }
