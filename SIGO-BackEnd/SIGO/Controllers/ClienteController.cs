@@ -60,7 +60,7 @@ namespace SIGO.Controllers
             return Ok(clienteDto);
         }
 
-        [HttpGet("{nome}")]
+        [HttpGet("nome/{nome}")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<IActionResult> GetByNameWithDetails(string nome)
         {
@@ -116,7 +116,7 @@ namespace SIGO.Controllers
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("id/{id}")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<IActionResult> Put([FromRoute] int id, [FromBody] ClienteDTO clienteDTO)
         {
@@ -289,6 +289,9 @@ namespace SIGO.Controllers
                 };
 
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
+            }
+        }
+
         private static void SanitizeCliente(ClienteDTO clienteDTO)
         {
             clienteDTO.Cpf_Cnpj = SanitizeHelper.ApenasDigitos(clienteDTO.Cpf_Cnpj);

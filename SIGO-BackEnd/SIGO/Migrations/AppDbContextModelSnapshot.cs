@@ -189,6 +189,11 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("nome");
 
+                    b.Property<string>("Senha")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("senha");
+
                     b.Property<int>("Situacao")
                         .HasColumnType("integer")
                         .HasColumnName("situacao");
@@ -323,6 +328,11 @@ namespace SIGO.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("rua");
+
+                    b.Property<string>("Senha")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("senha");
 
                     b.Property<int>("Situacao")
                         .HasColumnType("integer")

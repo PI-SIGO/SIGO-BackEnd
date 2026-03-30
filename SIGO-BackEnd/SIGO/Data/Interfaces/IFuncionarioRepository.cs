@@ -1,6 +1,7 @@
 ﻿using SIGO.Data.Repositories;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
+using SIGO.Objects.Contracts;
 
 namespace SIGO.Data.Interfaces
 {
@@ -8,6 +9,7 @@ namespace SIGO.Data.Interfaces
     {
         Task<IEnumerable<Funcionario>> GetFuncionarioByNome(string nome);
         Task<bool> ExistsByCpf(string cpf, int? ignoreId = null);
+        Task<Funcionario?> Login(Login login);
 
     }
 }

@@ -12,8 +12,8 @@ using SIGO.Data;
 namespace SIGO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260330143519_concertandoapeca")]
-    partial class concertandoapeca
+    [Migration("20260330173611_Teste")]
+    partial class Teste
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -138,14 +138,16 @@ namespace SIGO.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("cor");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("NomeCor")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nome");
 
                     b.Property<int?>("VeiculoId")
                         .HasColumnType("integer");
@@ -154,7 +156,7 @@ namespace SIGO.Migrations
 
                     b.HasIndex("VeiculoId");
 
-                    b.ToTable("Cores");
+                    b.ToTable("cor");
                 });
 
             modelBuilder.Entity("SIGO.Objects.Models.Funcionario", b =>
@@ -189,6 +191,11 @@ namespace SIGO.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("nome");
+
+                    b.Property<string>("Senha")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("senha");
 
                     b.Property<int>("Situacao")
                         .HasColumnType("integer")
@@ -325,6 +332,11 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("rua");
 
+                    b.Property<string>("Senha")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("senha");
+
                     b.Property<int>("Situacao")
                         .HasColumnType("integer")
                         .HasColumnName("situacao");
@@ -394,7 +406,7 @@ namespace SIGO.Migrations
 
                     b.HasIndex("IdMarca");
 
-                    b.ToTable("Peca");
+                    b.ToTable("peca");
                 });
 
             modelBuilder.Entity("SIGO.Objects.Models.Pedido", b =>

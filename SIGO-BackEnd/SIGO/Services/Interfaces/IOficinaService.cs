@@ -1,5 +1,6 @@
 ﻿using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
+using SIGO.Objects.Contracts;
 
 namespace SIGO.Services.Interfaces
 {
@@ -7,5 +8,6 @@ namespace SIGO.Services.Interfaces
     {
         Task<IEnumerable<OficinaDTO>> GetByName(string nomeOficina);
         Task ValidarCnpj(string? cnpj, int? ignoreId = null);
+        Task<OficinaDTO?> Login(Login login);
     }
 }
