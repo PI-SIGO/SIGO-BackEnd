@@ -17,6 +17,8 @@ namespace SIGO.Objects.Models
         public string Cargo { get; set; }
         [Column("email")]
         public string Email { get; set; }
+        [Column("senha")]
+        public string Senha { get; set; }
         [Column("situacao")]
         public Situacao Situacao { get; set; }
 

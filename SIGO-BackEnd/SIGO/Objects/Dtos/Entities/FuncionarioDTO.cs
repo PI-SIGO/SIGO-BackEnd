@@ -9,6 +9,7 @@ namespace SIGO.Objects.Dtos.Entities
         public string Nome { get; set; }
         public string Cpf { get; set; }
         public string Cargo { get; set; }
+        public string Senha { get; set; }
         public string Email { get; set; }
         public Situacao Situacao { get; set; }
     }

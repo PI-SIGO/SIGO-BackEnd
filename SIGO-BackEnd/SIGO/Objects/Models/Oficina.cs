@@ -42,6 +42,9 @@ namespace SIGO.Objects.Models
         [Column("complemento")]
         public string Complemento { get; set; }
 
+        [Column("senha")]
+        public string Senha { get; set; }
+
         [Column("situacao")]
         public Situacao Situacao { get; set; }
 

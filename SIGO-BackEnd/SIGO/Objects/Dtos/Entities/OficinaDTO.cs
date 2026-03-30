@@ -29,6 +29,8 @@ namespace SIGO.Objects.Dtos.Entities
 
         public string Complemento { get; set; }
 
+        public string Senha { get; set; }
+
         public Situacao Situacao { get; set; }
     }
 }
