@@ -2,6 +2,7 @@
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Models;
+using System.Linq;
 
 namespace SIGO.Data.Repositories
 {
@@ -17,6 +18,8 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Clientes
                 .Include(c => c.Telefones)
+                .Include(c => c.Veiculos)
+                    .ThenInclude(v => v.Cor)
                 .ToListAsync();
         }
 
@@ -24,6 +27,8 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Clientes
                 .Include(c => c.Telefones)
+                .Include(c => c.Veiculos)
+                    .ThenInclude(v => v.Cor)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 
@@ -31,6 +36,8 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Clientes
                 .Include(c => c.Telefones)
+                .Include(c => c.Veiculos)
+                    .ThenInclude(v => v.Cor)
                 .Where(c => c.Nome.Contains(nome))
                 .ToListAsync();
         }
@@ -52,5 +59,40 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Clientes.AsNoTracking().FirstOrDefaultAsync(p => p.Email == login.Email && p.Senha == login.Password);
         }
+        public async Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null)
+        {
+            var documentoNormalizado = SomenteDigitos(cpfCnpj);
+
+            return await _context.Clientes
+                .AnyAsync(c =>
+                    c.Cpf_Cnpj != null &&
+                    c.Cpf_Cnpj.Replace(".", "").Replace("-", "").Replace("/", "") == documentoNormalizado &&
+                    (!ignoreId.HasValue || c.Id != ignoreId.Value));
+        }
+
+        public async Task<bool> ExistsByNome(string nome, int? ignoreId = null)
+        {
+            var nomeNormalizado = nome.Trim().ToLowerInvariant();
+
+            return await _context.Clientes
+                .AnyAsync(c =>
+                    c.Nome != null &&
+                    c.Nome.Trim().ToLower() == nomeNormalizado &&
+                    (!ignoreId.HasValue || c.Id != ignoreId.Value));
+        }
+
+        public async Task<bool> ExistsByEmail(string email, int? ignoreId = null)
+        {
+            var emailNormalizado = email.Trim().ToLowerInvariant();
+
+            return await _context.Clientes
+                .AnyAsync(c =>
+                    c.Email != null &&
+                    c.Email.Trim().ToLower() == emailNormalizado &&
+                    (!ignoreId.HasValue || c.Id != ignoreId.Value));
+        }
+
+        private static string SomenteDigitos(string valor) =>
+            new(valor.Where(char.IsDigit).ToArray());
     }
 }

@@ -13,6 +13,7 @@ namespace SIGO.Objects.Dtos.Entities
         public int Quilometragem { get; set; }
         public string Combustivel { get; set; }
         public string Seguro { get; set; }
+        public int ClienteId { get; set; }
         public Situacao Situacao { get; set; }
         public List<CorDTO> Cores { get; set; } = new();
     }

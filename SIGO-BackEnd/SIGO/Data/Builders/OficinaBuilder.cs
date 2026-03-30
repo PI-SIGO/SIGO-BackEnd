@@ -19,6 +19,7 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Oficina>().Property(o => o.Estado).IsRequired().HasMaxLength(50);
             modelBuilder.Entity<Oficina>().Property(o => o.Pais).IsRequired().HasMaxLength(50);
             modelBuilder.Entity<Oficina>().Property(o => o.Complemento).HasMaxLength(200);
+            modelBuilder.Entity<Oficina>().Property(o => o.Senha).IsRequired();
             modelBuilder.Entity<Oficina>().Property(o => o.Situacao).IsRequired();
         }
     }

@@ -12,6 +12,7 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Funcionario>().Property(f => f.Cargo).IsRequired().HasMaxLength(100);
             modelBuilder.Entity<Funcionario>().Property(f => f.Cpf).IsRequired().HasMaxLength(12);
             modelBuilder.Entity<Funcionario>().Property(f => f.Email).IsRequired().HasMaxLength(100);
+            modelBuilder.Entity<Funcionario>().Property(f => f.Senha).IsRequired();   
             modelBuilder.Entity<Funcionario>().Property(f => f.Situacao).IsRequired();
 
         }

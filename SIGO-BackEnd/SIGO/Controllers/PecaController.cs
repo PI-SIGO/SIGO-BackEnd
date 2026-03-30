@@ -22,7 +22,7 @@ namespace SIGO.Controllers
             _response = new Response();
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id}")]
         public async Task<IActionResult> Get(int id)
         {
             var clienteDto = await _pecaService.GetById(id);
@@ -58,15 +58,11 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Não foi possível cadastrar a peça";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -102,15 +98,11 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao tentar atualizar os dados da peça";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -137,15 +129,11 @@ namespace SIGO.Controllers
                 _response.Message = "Peça deletada com sucesso";
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao deletar a peça";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace disponível"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }

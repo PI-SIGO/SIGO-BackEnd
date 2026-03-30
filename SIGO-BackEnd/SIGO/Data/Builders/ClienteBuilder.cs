@@ -27,6 +27,12 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Cliente>().Property(c => c.Situacao).IsRequired();
             modelBuilder.Entity<Cliente>().Property(c => c.Sexo);
             modelBuilder.Entity<Cliente>().Property(c => c.TipoCliente).IsRequired();
+
+            modelBuilder.Entity<Cliente>()
+                .HasMany(c => c.Veiculos)
+                .WithOne(v => v.Cliente)
+                .HasForeignKey(v => v.ClienteId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

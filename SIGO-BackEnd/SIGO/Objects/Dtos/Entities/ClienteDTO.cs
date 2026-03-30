@@ -20,7 +20,7 @@ namespace SIGO.Objects.Dtos.Entities
         public int Numero { get; set; }
         public string Rua { get; set; }
         public string Cidade { get; set; }
-        public int Cep { get; set; }
+        public string Cep { get; set; }
         public string Bairro { get; set; }
         public string Estado { get; set; }
         public string Pais { get; set; }
@@ -31,6 +31,8 @@ namespace SIGO.Objects.Dtos.Entities
         public int Situacao { get; set; }
 
         public List<TelefoneDTO> Telefones { get; set; } = new();
+
+        public List<VeiculoDTO> Veiculos { get; set; } = new();
 
 
     }

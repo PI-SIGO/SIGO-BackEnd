@@ -43,7 +43,7 @@ namespace SIGO.Objects.Models
         public string Cidade { get; set; }
 
         [Column("cep")]
-        public int Cep { get; set; }
+        public string Cep { get; set; }
 
         [Column("bairro")]
         public string Bairro { get; set; }
@@ -65,13 +65,15 @@ namespace SIGO.Objects.Models
 
         public ICollection<Telefone> Telefones { get; set; } = new List<Telefone>();
 
+        public ICollection<Veiculo> Veiculos { get; set; } = new List<Veiculo>();
+
 
         public Cliente()
         {
 
         }
         public Cliente(int id, string nome, string email, string senha, DateOnly data, Situacao situacao, string razao, Sexo sexo, TipoCliente tipoCliente,
-            int numero, string rua, string cidade, int cep, string bairro, string estado, string pais)
+            int numero, string rua, string cidade, string cep, string bairro, string estado, string pais)
         {
             Id = id;
             Nome = nome;

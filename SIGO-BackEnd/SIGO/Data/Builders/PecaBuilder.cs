@@ -18,18 +18,7 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Peca>().Property(p => p.DataAquisicao).IsRequired();
             modelBuilder.Entity<Peca>().Property(p => p.Fornecedor).IsRequired().HasMaxLength(100);
 
-            modelBuilder.Entity<Peca>()
-                .HasMany(p => p.Marcas)
-                .WithMany(m => m.Pecas)
-                .UsingEntity<Dictionary<string, object>>(
-                    "peca_marca",
-                    j => j.HasOne<Marca>().WithMany().HasForeignKey("id_marca"),
-                    j => j.HasOne<Peca>().WithMany().HasForeignKey("id_peca"),
-                    j =>
-                    {
-                        j.HasKey("id_peca", "id_marca");
-                        j.ToTable("peca_marca");
-                    });
+
         }
     }
 }

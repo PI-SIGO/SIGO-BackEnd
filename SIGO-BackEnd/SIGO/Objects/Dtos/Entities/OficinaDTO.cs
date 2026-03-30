@@ -9,7 +9,7 @@ namespace SIGO.Objects.Dtos.Entities
 
         public string Nome { get; set; }
 
-        public int CNPJ { get; set; }
+        public string CNPJ { get; set; }
 
         public string Email { get; set; }
 
@@ -28,6 +28,8 @@ namespace SIGO.Objects.Dtos.Entities
         public string Pais { get; set; }
 
         public string Complemento { get; set; }
+
+        public string Senha { get; set; }
 
         public Situacao Situacao { get; set; }
     }

@@ -17,6 +17,7 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Veiculo>().Property(v => v.Combustivel).IsRequired().HasMaxLength(30);
             modelBuilder.Entity<Veiculo>().Property(v => v.Seguro).HasMaxLength(100);
             modelBuilder.Entity<Veiculo>().Property(v => v.Status).IsRequired();
+            modelBuilder.Entity<Veiculo>().Property(v => v.ClienteId).IsRequired();
         }
     }
 }

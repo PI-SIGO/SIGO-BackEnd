@@ -21,10 +21,10 @@ namespace SIGO.Objects.Dtos.Entities
 
         public int Unidade { get; set; }
 
+        public int IdMarca { get; set; }
+
         public DateOnly DataAquisicao { get; set; }
 
         public string Fornecedor { get; set; }
-
-        public List<Marca> Marcas { get; set; } = new List<Marca>();
     }
 }

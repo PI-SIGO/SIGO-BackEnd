@@ -14,6 +14,7 @@ using SIGO.Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using SIGO.Utils;
 
 namespace SIGO.Controllers
 {
@@ -87,6 +88,8 @@ namespace SIGO.Controllers
             try
             {
                 clienteDTO.Id = 0;
+                SanitizeCliente(clienteDTO);
+                await _clienteService.ValidarCpfCnpj(clienteDTO.Cpf_Cnpj);
 
                 clienteDTO.senha = GenerateSha256Hash(clienteDTO.senha);
                 await _clienteService.Create(clienteDTO);
@@ -97,15 +100,18 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                _response.Code = ResponseEnum.INVALID;
+                _response.Message = ex.Message;
+                _response.Data = null;
+                return BadRequest(_response);
+            }
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Não foi possível cadastrar o cliente";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -134,7 +140,9 @@ namespace SIGO.Controllers
                     return NotFound(_response);
                 }
 
+                SanitizeCliente(clienteDTO);
 
+                await _clienteService.ValidarCpfCnpj(clienteDTO.Cpf_Cnpj, id);
                 await _clienteService.Update(clienteDTO, id);
 
                 _response.Code = ResponseEnum.SUCCESS;
@@ -143,15 +151,18 @@ namespace SIGO.Controllers
 
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                _response.Code = ResponseEnum.INVALID;
+                _response.Message = ex.Message;
+                _response.Data = null;
+                return BadRequest(_response);
+            }
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao tentar atualizar os dados do cliente";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -179,15 +190,11 @@ namespace SIGO.Controllers
                 _response.Message = "Cliente deletado com sucesso";
                 return Ok(_response);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _response.Code = ResponseEnum.ERROR;
                 _response.Message = "Ocorreu um erro ao deletar o cliente";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace disponível"
-                };
+                _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
@@ -282,6 +289,17 @@ namespace SIGO.Controllers
                 };
 
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
+        private static void SanitizeCliente(ClienteDTO clienteDTO)
+        {
+            clienteDTO.Cpf_Cnpj = SanitizeHelper.ApenasDigitos(clienteDTO.Cpf_Cnpj);
+            clienteDTO.Cep = SanitizeHelper.ApenasDigitos(clienteDTO.Cep);
+
+            if (clienteDTO.Telefones == null)
+                return;
+
+            foreach (var telefone in clienteDTO.Telefones)
+            {
+                telefone.Numero = SanitizeHelper.ApenasDigitos(telefone.Numero);
             }
         }
     }

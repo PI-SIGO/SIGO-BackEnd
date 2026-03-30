@@ -2,7 +2,7 @@
 
 namespace SIGO.Objects.Models
 {
-    [Table("Peca")]
+    [Table("peca")]
     public class Peca
     {
         [Column("id")]
@@ -29,13 +29,15 @@ namespace SIGO.Objects.Models
         [Column("unidade")]
         public int Unidade { get; set; }
 
+        [Column("idmarca")]
+        public int IdMarca { get; set; }
+        public Marca Marca { get; set; }
+
         [Column("dataAquisicao")]
         public DateOnly DataAquisicao { get; set; }
 
         [Column("fornecedor")]
         public string Fornecedor { get; set; }
-
-        public ICollection<Marca> Marcas { get; set; } = new List<Marca>();
 
         public Peca() { }
     

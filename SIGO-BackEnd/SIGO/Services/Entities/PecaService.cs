@@ -6,16 +6,16 @@ using SIGO.Services.Interfaces;
 
 namespace SIGO.Services.Entities
 {
-        public class PecaService : GenericService<Peca, PecaDTO>, IPecaService
-        {
-            private readonly IPecaRepository _pecaRepository;
-            private readonly IMapper _mapper;
+    public class PecaService : GenericService<Peca, PecaDTO>, IPecaService
+    {
+        private readonly IPecaRepository _pecaRepository;
+        private readonly IMapper _mapper;
 
-            public PecaService(IPecaRepository pecaRepositoy, IMapper mapper)
-                : base(pecaRepositoy, mapper)
-            {
-                _pecaRepository = pecaRepositoy;
-                _mapper = mapper;
-            }
+        public PecaService(IPecaRepository pecaRepositoy, IMapper mapper)
+            : base(pecaRepositoy, mapper)
+        {
+            _pecaRepository = pecaRepositoy;
+            _mapper = mapper;
         }
+    }
 }

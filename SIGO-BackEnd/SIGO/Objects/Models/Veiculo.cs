@@ -1,6 +1,5 @@
 ﻿using SIGO.Objects.Enums;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Runtime.ConstrainedExecution;
 
 namespace SIGO.Objects.Models
 {
@@ -37,7 +36,10 @@ namespace SIGO.Objects.Models
         [Column("status")]
         public Status Status { get; set; }
 
-        public ICollection<Cliente> Cliente { get; set; } = new List<Cliente>();
+        [Column("id_cliente")]
+        public int ClienteId { get; set; }
+
+        public Cliente Cliente { get; set; }
 
         public ICollection<Cor> Cor { get; set; } = new List<Cor>();
 

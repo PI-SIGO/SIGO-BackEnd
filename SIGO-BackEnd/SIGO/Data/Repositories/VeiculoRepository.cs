@@ -16,6 +16,7 @@ namespace SIGO.Data.Repositories
         public override async Task<IEnumerable<Veiculo>> Get()
         {
             return await _context.Veiculos
+                .Include(v => v.Cliente)
                 .Include(v => v.Cor) // inclui cores relacionadas
                 .ToListAsync();
         }
@@ -23,6 +24,7 @@ namespace SIGO.Data.Repositories
         public async Task<IEnumerable<Veiculo>> GetByPlaca(string placa)
         {
             return await _context.Veiculos
+                .Include(v => v.Cliente)
                 .Include(v => v.Cor)
                 .Where(v => v.PlacaVeiculo.Contains(placa))
                 .ToListAsync();
@@ -31,6 +33,7 @@ namespace SIGO.Data.Repositories
         public async Task<IEnumerable<Veiculo>> GetByTipo(string tipo)
         {
             return await _context.Veiculos
+                .Include(v => v.Cliente)
                 .Include(v => v.Cor)
                 .Where(v => v.TipoVeiculo.Contains(tipo))
                 .ToListAsync();
@@ -39,6 +42,7 @@ namespace SIGO.Data.Repositories
         public async Task<Veiculo?> GetById(int id)
         {
             return await _context.Veiculos
+                .Include(v => v.Cliente)
                 .Include(v => v.Cor)
                 .FirstOrDefaultAsync(v => v.Id == id);
         }

@@ -11,6 +11,12 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Marca>().Property(m => m.NomeMarca).IsRequired().HasMaxLength(100);
             modelBuilder.Entity<Marca>().Property(m => m.DescMarca).HasMaxLength(500);
             modelBuilder.Entity<Marca>().Property(m => m.TipoMarca).IsRequired().HasMaxLength(50);
+
+            modelBuilder.Entity<Marca>()
+                .HasMany(p => p.Pecas)
+                .WithOne(m => m.Marca)
+                .HasForeignKey(v => v.IdMarca)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

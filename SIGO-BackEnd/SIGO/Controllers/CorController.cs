@@ -31,7 +31,7 @@ namespace SIGO.Controllers
             return Ok(_response);
         }
 
-        [HttpGet("{nome}")]
+        [HttpGet("name/{nome}")]
         public async Task<IActionResult> GetByName(string nome)
         {
             var cores = await _corService.GetByName(nome);

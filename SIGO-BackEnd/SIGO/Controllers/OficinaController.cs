@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Services.Interfaces;
+using SIGO.Utils;
 
 namespace SIGO.Controllers
 {
@@ -32,7 +33,7 @@ namespace SIGO.Controllers
             return Ok(_response);
         }
 
-        [HttpGet("{nome}")]
+        [HttpGet("name/{nome}")]
         public async Task<IActionResult> GetByName(string nome)
         {
             var cores = await _oficinaService.GetByName(nome);
@@ -54,11 +55,20 @@ namespace SIGO.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(OficinaDTO oficinaDto)
         {
-            await _oficinaService.Create(oficinaDto);
-            return Ok(new { Message = "Cor cadastrada com sucesso" });
+            try
+            {
+                SanitizeOficina(oficinaDto);
+                await _oficinaService.ValidarCnpj(oficinaDto.CNPJ);
+                await _oficinaService.Create(oficinaDto);
+                return Ok(new { Message = "Cor cadastrada com sucesso" });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("id/{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] OficinaDTO oficinaDto)
         {
             if (oficinaDto == null)
@@ -74,8 +84,14 @@ namespace SIGO.Controllers
 
             try
             {
+                SanitizeOficina(oficinaDto);
+                await _oficinaService.ValidarCnpj(oficinaDto.CNPJ, id);
                 await _oficinaService.Update(oficinaDto, id);
                 return Ok(new { Message = "Cor atualizada com sucesso" });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
             }
             catch (KeyNotFoundException)
             {
@@ -86,8 +102,20 @@ namespace SIGO.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            await _oficinaService.Remove(id);
-            return Ok(new { Message = "Cor removida com sucesso" });
+            try
+            {
+                await _oficinaService.Remove(id);
+                return Ok(new { Message = "Cor removida com sucesso" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { Message = "Cor não encontrada" });
+            }
+        }
+
+        private static void SanitizeOficina(OficinaDTO oficinaDTO)
+        {
+            oficinaDTO.CNPJ = SanitizeHelper.ApenasDigitos(oficinaDTO.CNPJ);
         }
     }
 }
