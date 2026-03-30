@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
+using SIGO.Objects.Contracts;
 using SIGO.Objects.Models;
 using System.Linq;
 
@@ -54,6 +55,10 @@ namespace SIGO.Data.Repositories
             return cliente;
         }
 
+        public async Task<Cliente> Login(Login login)
+        {
+            return await _context.Clientes.AsNoTracking().FirstOrDefaultAsync(p => p.Email == login.Email && p.Senha == login.Password);
+        }
         public async Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null)
         {
             var documentoNormalizado = SomenteDigitos(cpfCnpj);
