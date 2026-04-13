@@ -19,7 +19,7 @@ namespace SIGO.Controllers
 {
     [Route("api/oficinas")]
     [ApiController]
-    [Authorize(Policy = AuthorizationPolicies.OperationalAccess)]
+    [Authorize(Policy = AuthorizationPolicies.FullAccess)]
     public class OficinaController : ControllerBase
     {
         private readonly IOficinaService _oficinaService;
@@ -65,6 +65,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Create(OficinaDTO oficinaDto)
         {
             try

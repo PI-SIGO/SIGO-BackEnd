@@ -1,14 +1,17 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Security;
 using SIGO.Services.Interfaces;
+using System.Security.Claims;
 
 namespace SIGO.Controllers
 {
     [Route("api/veiculos")]
     [ApiController]
-    [Microsoft.AspNetCore.Authorization.Authorize(Policy = SIGO.Security.AuthorizationPolicies.SelfServiceAccess)]
+    [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
     public class VeiculoController : ControllerBase
     {
         private readonly IVeiculoService _veiculoService;
@@ -21,9 +24,15 @@ namespace SIGO.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Get()
         {
             var veiculos = await _veiculoService.GetAll();
+            if (IsCliente())
+            {
+                var clienteId = GetCurrentUserId();
+                veiculos = veiculos.Where(v => clienteId.HasValue && v.ClienteId == clienteId.Value);
+            }
 
             _response.Code = ResponseEnum.SUCCESS;
             _response.Data = veiculos;
@@ -33,10 +42,15 @@ namespace SIGO.Controllers
         }
 
         [HttpGet("placa/{placa}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetByPlaca(string placa)
         {
-            // Busca por placas que contenham a string fornecida
             var veiculos = await _veiculoService.GetByPlaca(placa);
+            if (IsCliente())
+            {
+                var clienteId = GetCurrentUserId();
+                veiculos = veiculos.Where(v => v is not null && clienteId.HasValue && v.ClienteId == clienteId.Value);
+            }
 
             if (!veiculos.Any())
             {
@@ -53,10 +67,15 @@ namespace SIGO.Controllers
         }
 
         [HttpGet("tipo/{tipo}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetByTipo(string tipo)
         {
-            // Busca por tipos que contenham a string fornecida
             var veiculos = await _veiculoService.GetByTipo(tipo);
+            if (IsCliente())
+            {
+                var clienteId = GetCurrentUserId();
+                veiculos = veiculos.Where(v => clienteId.HasValue && v.ClienteId == clienteId.Value);
+            }
 
             if (!veiculos.Any())
             {
@@ -73,6 +92,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Create(VeiculoDTO veiculoDto)
         {
             await _veiculoService.Create(veiculoDto);
@@ -80,6 +100,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> Update(int id, VeiculoDTO veiculoDto)
         {
             try
@@ -93,12 +114,23 @@ namespace SIGO.Controllers
             }
         }
 
-
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> Delete(int id)
         {
             await _veiculoService.Remove(id);
             return Ok(new { Message = "Veículo removido com sucesso" });
+        }
+
+        private bool IsCliente()
+        {
+            return User.IsInRole(SystemRoles.Cliente);
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out var id) ? id : null;
         }
     }
 }

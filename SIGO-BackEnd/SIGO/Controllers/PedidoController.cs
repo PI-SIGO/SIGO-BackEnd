@@ -1,29 +1,45 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Security;
 using SIGO.Services.Interfaces;
+using System.Security.Claims;
 
 namespace SIGO.Controllers
 {
     [Route("api/pedidos")]
     [ApiController]
-    [Microsoft.AspNetCore.Authorization.Authorize(Policy = SIGO.Security.AuthorizationPolicies.SelfServiceAccess)]
+    [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
     public class PedidoController : ControllerBase
     {
         private readonly IPedidoService _pedidoService;
+        private readonly IServicoService _servicoService;
+        private readonly IFuncionarioService _funcionarioService;
         private readonly Response _response;
 
-        public PedidoController(IPedidoService pedidoService)
+        public PedidoController(
+            IPedidoService pedidoService,
+            IServicoService servicoService,
+            IFuncionarioService funcionarioService)
         {
             _pedidoService = pedidoService;
+            _servicoService = servicoService;
+            _funcionarioService = funcionarioService;
             _response = new Response();
         }
 
         [HttpGet]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetAll()
         {
             var pedidos = await _pedidoService.GetAll();
+            if (IsCliente())
+            {
+                var clienteId = GetCurrentUserId();
+                pedidos = pedidos.Where(p => clienteId.HasValue && p.idCliente == clienteId.Value);
+            }
 
             _response.Code = ResponseEnum.SUCCESS;
             _response.Data = pedidos;
@@ -33,6 +49,7 @@ namespace SIGO.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetById(int id)
         {
             var pedido = await _pedidoService.GetById(id);
@@ -45,13 +62,58 @@ namespace SIGO.Controllers
                 return NotFound(_response);
             }
 
+            if (IsCliente() && GetCurrentUserId() != pedido.idCliente)
+                return Forbid();
+
             _response.Code = ResponseEnum.SUCCESS;
             _response.Data = pedido;
             _response.Message = "Pedido encontrado com sucesso";
             return Ok(_response);
         }
 
+        [HttpGet("me/servicos")]
+        [Authorize(Roles = SystemRoles.Cliente)]
+        public async Task<IActionResult> GetMyServices()
+        {
+            var clienteId = GetCurrentUserId();
+            if (!clienteId.HasValue)
+                return Forbid();
+
+            var pedidos = await _pedidoService.GetAll();
+            var serviceIds = pedidos
+                .Where(p => p.idCliente == clienteId.Value)
+                .SelectMany(p => p.Pedido_Servicos)
+                .Select(ps => ps.IdServico)
+                .Distinct()
+                .ToList();
+
+            var services = await _servicoService.GetAll();
+            var result = services.Where(s => serviceIds.Contains(s.Id)).ToList();
+            return Ok(result);
+        }
+
+        [HttpGet("me/funcionarios")]
+        [Authorize(Roles = SystemRoles.Cliente)]
+        public async Task<IActionResult> GetMyEmployees()
+        {
+            var clienteId = GetCurrentUserId();
+            if (!clienteId.HasValue)
+                return Forbid();
+
+            var pedidos = await _pedidoService.GetAll();
+            var employeeIds = pedidos
+                .Where(p => p.idCliente == clienteId.Value)
+                .Select(p => p.idFuncionario)
+                .Distinct()
+                .ToList();
+
+            var employees = await _funcionarioService.GetAll();
+            var result = employees.Where(f => employeeIds.Contains(f.Id)).ToList();
+            return Ok(result);
+        }
+
         [HttpPost]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Post([FromBody] PedidoDTO pedidoDTO)
         {
             if (pedidoDTO is null)
@@ -82,6 +144,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Put(int id, [FromBody] PedidoDTO pedidoDTO)
         {
             if (pedidoDTO is null)
@@ -120,6 +183,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
@@ -147,6 +211,17 @@ namespace SIGO.Controllers
                 _response.Data = null;
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
+        }
+
+        private bool IsCliente()
+        {
+            return User.IsInRole(SystemRoles.Cliente);
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out var id) ? id : null;
         }
     }
 }

@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Refit;
+using SIGO.Middleware;
 using SIGO.Security;
 using SIGO.Data;
 using SIGO.Data.Interfaces;
@@ -22,6 +25,10 @@ var builder = WebApplication.CreateBuilder(args);
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
 // Add services to the container.
+builder.Logging.ClearProviders();
+builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -77,11 +84,21 @@ builder.Services.AddScoped<IOficinaRepository, OficinaRepository>();
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IViaCepIntegracao, ViaCepIntegracao>();
+builder.Services.AddSingleton<IRequestLogStore, InMemoryRequestLogStore>();
 builder.Services.AddRefitClient<IViaCepIntegracaoRefit>()
     .ConfigureHttpClient(c =>
     {
         c.BaseAddress = new Uri("https://viacep.com.br/");
     });
+builder.Services.AddHttpLogging(options =>
+{
+    options.LoggingFields =
+        HttpLoggingFields.RequestMethod |
+        HttpLoggingFields.RequestPath |
+        HttpLoggingFields.ResponseStatusCode |
+        HttpLoggingFields.Duration;
+    options.CombineLogs = true;
+});
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -104,7 +121,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthorizationPolicies.FullAccess, policy =>
-        policy.RequireRole(SystemRoles.Admin));
+        policy.RequireRole(SystemRoles.Admin, SystemRoles.Oficina));
 
     options.AddPolicy(AuthorizationPolicies.OperationalAccess, policy =>
         policy.RequireRole(SystemRoles.Admin, SystemRoles.Funcionario, SystemRoles.Oficina));
@@ -143,6 +160,33 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var logger = context.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("GlobalExceptionHandler");
+        var exception = context.Features.Get<IExceptionHandlerPathFeature>()?.Error;
+
+        if (exception is not null)
+        {
+            logger.LogError(
+                exception,
+                "Unhandled exception for {Method} {Path}",
+                context.Request.Method,
+                context.Request.Path);
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "Erro interno no servidor."
+        });
+    });
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -151,6 +195,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(FrontendCorsPolicy);
+app.UseHttpLogging();
+app.UseMiddleware<RequestAuditLoggingMiddleware>();
 
 app.UseHttpsRedirection();
 

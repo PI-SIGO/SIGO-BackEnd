@@ -8,7 +8,7 @@ namespace SIGO.Controllers
 {
     [Route("api/marcas")]
     [ApiController]
-    [Microsoft.AspNetCore.Authorization.Authorize(Policy = SIGO.Security.AuthorizationPolicies.OperationalAccess)]
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = SIGO.Security.AuthorizationPolicies.FullAccess)]
     public class MarcaController : ControllerBase
     {
         private readonly IMarcaService _marcaService;

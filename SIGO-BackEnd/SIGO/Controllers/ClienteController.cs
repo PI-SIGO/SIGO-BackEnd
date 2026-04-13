@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +19,7 @@ namespace SIGO.Controllers
 {
     [Route("api/clientes")]
     [ApiController]
-    [Authorize(Policy = AuthorizationPolicies.OperationalAccess)]
+    [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
     public class ClienteController : ControllerBase
     {
         private readonly IClienteService _clienteService;
@@ -37,6 +36,7 @@ namespace SIGO.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> GetAll()
         {
             var clienteDTO = await _clienteService.GetAll();
@@ -49,8 +49,12 @@ namespace SIGO.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetByIdWithDetails(int id)
         {
+            if (IsCliente() && GetCurrentUserId() != id)
+                return Forbid();
+
             var clienteDto = await _clienteService.GetByIdWithDetails(id);
 
             if (clienteDto is null)
@@ -60,6 +64,7 @@ namespace SIGO.Controllers
         }
 
         [HttpGet("nome/{nome}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> GetByNameWithDetails(string nome)
         {
             var clientesDto = await _clienteService.GetByNameWithDetails(nome);
@@ -115,8 +120,12 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Put([FromRoute] int id, [FromBody] ClienteDTO clienteDTO)
         {
+            if (IsCliente() && GetCurrentUserId() != id)
+                return Forbid();
+
             if (clienteDTO is null)
             {
                 _response.Code = ResponseEnum.INVALID;
@@ -165,8 +174,12 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (IsCliente() && GetCurrentUserId() != id)
+                return Forbid();
+
             try
             {
                 var clienteDTO = await _clienteService.GetById(id);
@@ -302,6 +315,17 @@ namespace SIGO.Controllers
             {
                 telefone.Numero = SanitizeHelper.ApenasDigitos(telefone.Numero);
             }
+        }
+
+        private bool IsCliente()
+        {
+            return User.IsInRole(SystemRoles.Cliente);
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out var id) ? id : null;
         }
     }
 }
