@@ -17,6 +17,8 @@ namespace SIGO.Data
         public DbSet<Peca> Pecas { get; set; }
         public DbSet<Oficina> Oficinas { get; set; }
         public DbSet<Pedido> Pedidos { get; set; }
+        public DbSet<RegistroServico> RegistroServicos { get; set; }
+        public DbSet<PecaSubstituida> PecasSubstituidas { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -32,6 +34,8 @@ namespace SIGO.Data
             PecaBuilder.Build(modelBuilder);
             OficinaBuilder.Build(modelBuilder);
             PedidoBuilder.Build(modelBuilder);
+            RegistroServicoBuilder.Build(modelBuilder);
+
 
             modelBuilder.Entity<Funcionario_Servico>()
                 .HasKey(fs => new { fs.IdFuncionario, fs.IdServico });

@@ -381,6 +381,38 @@ namespace SIGO.Migrations
                     b.ToTable("peca");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.PecaSubstituida", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nome")
+                        .HasColumnType("text")
+                        .HasColumnName("nome");
+
+                    b.Property<string>("Observacao")
+                        .HasColumnType("text")
+                        .HasColumnName("observacao");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantidade");
+
+                    b.Property<int>("RegistroServicoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_registro_servico");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegistroServicoId");
+
+                    b.ToTable("peca_substituida");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Pedido", b =>
                 {
                     b.Property<int>("Id")
@@ -516,6 +548,48 @@ namespace SIGO.Migrations
                     b.HasIndex("IdServico");
 
                     b.ToTable("pedido_servico");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.RegistroServico", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataServico")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_servico");
+
+                    b.Property<string>("Descricao")
+                        .HasColumnType("text")
+                        .HasColumnName("descricao");
+
+                    b.Property<int>("Quilometragem")
+                        .HasColumnType("integer")
+                        .HasColumnName("quilometragem");
+
+                    b.Property<string>("Responsavel")
+                        .HasColumnType("text")
+                        .HasColumnName("responsavel");
+
+                    b.Property<int?>("ServicoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_servico");
+
+                    b.Property<int>("VeiculoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_veiculo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServicoId");
+
+                    b.HasIndex("VeiculoId");
+
+                    b.ToTable("registro_servico");
                 });
 
             modelBuilder.Entity("SIGO.Objects.Models.Servico", b =>
@@ -701,6 +775,17 @@ namespace SIGO.Migrations
                     b.Navigation("Marca");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.PecaSubstituida", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.RegistroServico", "RegistroServico")
+                        .WithMany("PecasSubstituidas")
+                        .HasForeignKey("RegistroServicoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RegistroServico");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Pedido", b =>
                 {
                     b.HasOne("SIGO.Objects.Models.Cliente", "Cliente")
@@ -774,6 +859,24 @@ namespace SIGO.Migrations
                     b.Navigation("Servico");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.RegistroServico", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Servico", "Servico")
+                        .WithMany()
+                        .HasForeignKey("ServicoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SIGO.Objects.Models.Veiculo", "Veiculo")
+                        .WithMany("RegistroServicos")
+                        .HasForeignKey("VeiculoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Servico");
+
+                    b.Navigation("Veiculo");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Telefone", b =>
                 {
                     b.HasOne("SIGO.Objects.Models.Cliente", "Clientes")
@@ -833,6 +936,11 @@ namespace SIGO.Migrations
                     b.Navigation("Pedido_Servicos");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.RegistroServico", b =>
+                {
+                    b.Navigation("PecasSubstituidas");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Servico", b =>
                 {
                     b.Navigation("Funcionario_Servicos");
@@ -841,6 +949,8 @@ namespace SIGO.Migrations
             modelBuilder.Entity("SIGO.Objects.Models.Veiculo", b =>
                 {
                     b.Navigation("Marcas");
+
+                    b.Navigation("RegistroServicos");
                 });
 #pragma warning restore 612, 618
         }

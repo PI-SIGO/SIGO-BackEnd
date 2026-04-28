@@ -2,8 +2,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using QuestPDF;
+using QuestPDF.Infrastructure;
 using Refit;
-using SIGO.Security;
 using SIGO.Data;
 using SIGO.Data.Interfaces;
 using SIGO.Data.Repositories;
@@ -12,6 +13,7 @@ using SIGO.Integracao.Interfaces;
 using SIGO.Integracao.Prefit;
 using SIGO.Objects.Dtos.Mappings;
 using SIGO.Objects.Models;
+using SIGO.Security;
 using SIGO.Services.Entities;
 using SIGO.Services.Interfaces;
 using SIGO.Validation;
@@ -20,6 +22,9 @@ using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
+
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
 builder.Services.AddControllers();
@@ -84,6 +89,8 @@ builder.Services.AddScoped<ICpfValidator, CpfValidator>();
 builder.Services.AddScoped<ICnpjValidator, CnpjValidator>();
 builder.Services.AddScoped<ICpfCnpjValidator, CpfCnpjValidator>();
 builder.Services.AddScoped<IViaCepIntegracao, ViaCepIntegracao>();
+builder.Services.AddScoped<IRegistroServicoRepository, RegistroServicoRepository>();
+builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddRefitClient<IViaCepIntegracaoRefit>()
     .ConfigureHttpClient(c =>
     {

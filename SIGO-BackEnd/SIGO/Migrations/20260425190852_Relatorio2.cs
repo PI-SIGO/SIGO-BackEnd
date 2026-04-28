@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SIGO.Migrations
 {
     /// <inheritdoc />
-    public partial class correcaoCliente : Migration
+    public partial class Relatorio2 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -261,6 +261,36 @@ namespace SIGO.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "registro_servico",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id_veiculo = table.Column<int>(type: "integer", nullable: false),
+                    id_servico = table.Column<int>(type: "integer", nullable: true),
+                    data_servico = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    descricao = table.Column<string>(type: "text", nullable: true),
+                    quilometragem = table.Column<int>(type: "integer", nullable: false),
+                    responsavel = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_registro_servico", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_registro_servico_servico_id_servico",
+                        column: x => x.id_servico,
+                        principalTable: "servico",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_registro_servico_veiculo_id_veiculo",
+                        column: x => x.id_veiculo,
+                        principalTable: "veiculo",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "peca",
                 columns: table => new
                 {
@@ -314,6 +344,28 @@ namespace SIGO.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "peca_substituida",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id_registro_servico = table.Column<int>(type: "integer", nullable: false),
+                    nome = table.Column<string>(type: "text", nullable: true),
+                    quantidade = table.Column<int>(type: "integer", nullable: false),
+                    observacao = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_peca_substituida", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_peca_substituida_registro_servico_id_registro_servico",
+                        column: x => x.id_registro_servico,
+                        principalTable: "registro_servico",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "pedido_peca",
                 columns: table => new
                 {
@@ -357,6 +409,11 @@ namespace SIGO.Migrations
                 column: "idmarca");
 
             migrationBuilder.CreateIndex(
+                name: "IX_peca_substituida_id_registro_servico",
+                table: "peca_substituida",
+                column: "id_registro_servico");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_pedido_id_cliente",
                 table: "pedido",
                 column: "id_cliente");
@@ -387,6 +444,16 @@ namespace SIGO.Migrations
                 column: "idServico");
 
             migrationBuilder.CreateIndex(
+                name: "IX_registro_servico_id_servico",
+                table: "registro_servico",
+                column: "id_servico");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_registro_servico_id_veiculo",
+                table: "registro_servico",
+                column: "id_veiculo");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_telefone_clienteid",
                 table: "telefone",
                 column: "clienteid");
@@ -414,6 +481,9 @@ namespace SIGO.Migrations
                 name: "funcionario_servico");
 
             migrationBuilder.DropTable(
+                name: "peca_substituida");
+
+            migrationBuilder.DropTable(
                 name: "pedido_peca");
 
             migrationBuilder.DropTable(
@@ -421,6 +491,9 @@ namespace SIGO.Migrations
 
             migrationBuilder.DropTable(
                 name: "telefone");
+
+            migrationBuilder.DropTable(
+                name: "registro_servico");
 
             migrationBuilder.DropTable(
                 name: "peca");
