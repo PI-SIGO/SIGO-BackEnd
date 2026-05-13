@@ -42,10 +42,12 @@ Main file: `SIGO/Program.cs`
 |---|---|
 | `AddControllers()` | Enables controller-based API endpoints. |
 | `AddEndpointsApiExplorer()` | Lets Swagger discover API endpoints. |
-| `AddSwaggerGen()` | Enables Swagger/OpenAPI documentation. |
+| `AddSwaggerGen(...)` | Enables Swagger/OpenAPI documentation and configures JWT as an HTTP bearer scheme only on authorized operations. |
 | `AddAutoMapper(...)` | Registers AutoMapper profiles for model/DTO conversion. |
 | `AddCors(...)` | Allows frontend requests from `localhost` and `127.0.0.1`. |
 | `AddDbContext<AppDbContext>()` | Connects Entity Framework Core to PostgreSQL using `DefaultConnection`. |
+| `AddHealthChecks()` | Registers liveness and database readiness checks. |
+| `AddRateLimiter(...)` | Registers rate limits for login, public registration, and client sharing code redemption. |
 | `AddAuthentication().AddJwtBearer(...)` | Enables JWT Bearer authentication. |
 | `AddAuthorization(...)` | Defines role-based authorization policies. |
 | `AddRefitClient<IViaCepIntegracaoRefit>()` | Registers the ViaCEP HTTP client. |
@@ -80,12 +82,16 @@ The system registers each service with its repository:
 
 The middleware order is:
 
-1. Swagger only in development.
-2. CORS policy.
-3. HTTPS redirection.
-4. Authentication.
-5. Authorization.
-6. Controller endpoint mapping.
+1. Forwarded headers.
+2. Correlation ID, request logging, and global exception middleware.
+3. Swagger only in development.
+4. HTTPS redirection.
+5. Routing.
+6. CORS policy.
+7. Authentication.
+8. Rate limiting.
+9. Authorization.
+10. Anonymous health checks and controller endpoint mapping.
 
 This order matters because authentication must happen before authorization.
 
@@ -107,14 +113,14 @@ The system has these roles:
 |---|---|
 | `Admin` | Administrator role generated from a funcionario whose `Cargo` is `ADMIN` or `ADMINISTRADOR`. |
 | `Funcionario` | Employee role. Has operational access only. |
-| `Oficina` | Workshop role. Has full access. |
+| `Oficina` | Workshop role. Has operational access where endpoint rules allow it. |
 | `Cliente` | Client role. Has self-service access only. |
 
 ### Policies
 
 | Policy | Allowed roles | Meaning |
 |---|---|---|
-| `FullAccess` | `Admin`, `Oficina` | Can access restricted management areas. |
+| `FullAccess` | `Admin` | Can access restricted management areas. |
 | `OperationalAccess` | `Admin`, `Funcionario`, `Oficina` | Can access operational CRUD areas like clients, parts, services, and vehicles according to endpoint rules. |
 | `SelfServiceAccess` | `Admin`, `Funcionario`, `Oficina`, `Cliente` | Allows authenticated access where clients may only see or change their own data. |
 
@@ -131,6 +137,12 @@ JWT validation checks:
 | Role claim | `ClaimTypes.Role` |
 | Name claim | `ClaimTypes.Name` |
 
+### OpenAPI security contract
+
+Swagger is enabled only in development. The OpenAPI document declares JWT authentication with the HTTP bearer security scheme.
+
+The bearer requirement is added per operation. Endpoints with `[Authorize]` are documented as protected, while endpoints with `[AllowAnonymous]` such as login and public registration are documented without the bearer requirement.
+
 ### Login flow
 
 There are three login endpoints:
@@ -144,7 +156,7 @@ There are three login endpoints:
 Login process:
 
 1. The request sends `Email` and `Password`.
-2. The controller hashes the password using SHA-256.
+2. The service verifies the password through the configured password hasher.
 3. The service checks if a matching user exists in the database.
 4. If no user is found, the API returns `BadRequest` with "Email ou senha incorretos".
 5. If the user is found, the controller generates a JWT token.
@@ -989,7 +1001,7 @@ These notes describe current behavior in the codebase. They are not frontend req
 | Pedido creation logs | There is no custom audit message like "employee registered pedido for vehicle/client" in the current code. |
 | Oficina messages | Some oficina endpoints return messages mentioning "cor/cores" even though they manage oficinas. |
 | Vehicle update | `UpdateVeiculo` only updates selected fields, not the full vehicle DTO. |
-| Passwords | Passwords are hashed using raw SHA-256. |
+| Passwords | Passwords are verified through the configured password hasher. |
 | Client ownership | Controllers use JWT `NameIdentifier` to ensure Cliente can only access own resources. |
 | Funcionario role | A funcionario becomes `Admin` only when `Cargo` is `ADMIN` or `ADMINISTRADOR`. |
 | Public registration | Client and workshop creation endpoints are currently anonymous. |

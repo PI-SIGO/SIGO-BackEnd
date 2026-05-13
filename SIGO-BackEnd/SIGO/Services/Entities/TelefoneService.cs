@@ -24,5 +24,11 @@ namespace SIGO.Services.Entities
             var entities = await _telefoneRepository.GetTelefoneByNome(nome);
             return _mapper.Map<IEnumerable<TelefoneDTO>>(entities);
         }
+
+        public async Task<IEnumerable<TelefoneDTO>> GetTelefoneByNomeForOficina(string nome, int oficinaId)
+        {
+            var entities = await _telefoneRepository.GetTelefoneByNomeForOficina(nome, oficinaId);
+            return _mapper.Map<IEnumerable<TelefoneDTO>>(entities);
+        }
     }
 }

@@ -13,6 +13,7 @@ namespace SIGO.Tests.Controllers
     public class TelefoneControllerTests
     {
         private readonly Mock<ITelefoneService> _telefoneServiceMock = new();
+        private readonly Mock<IClienteService> _clienteServiceMock = new();
         private readonly Mock<IMapper> _mapperMock = new();
         private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
 
@@ -75,6 +76,7 @@ namespace SIGO.Tests.Controllers
         {
             var controller = new TelefoneController(
                 _telefoneServiceMock.Object,
+                _clienteServiceMock.Object,
                 _mapperMock.Object,
                 _currentUserServiceMock.Object);
 

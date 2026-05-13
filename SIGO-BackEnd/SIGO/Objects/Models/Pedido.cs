@@ -20,33 +20,35 @@ namespace SIGO.Objects.Models
         public int idOficina { get; set; }
         public Oficina Oficina { get; set; }
 
+        public ClienteOficina ClienteOficina { get; set; }
+
         [Column("id_veiculo")]
         public int idVeiculo { get; set; }
         public Veiculo Veiculo { get; set; }
 
         [Column("valorTotal")]
-        public float ValorTotal { get; set; }
+        public decimal ValorTotal { get; set; }
 
         [Column("descontoReais")]
-        public float DescontoReais { get; set; }
+        public decimal DescontoReais { get; set; }
 
         [Column("descontoPorcentagem")]
-        public float DescontoPorcentagem { get; set; }
+        public decimal DescontoPorcentagem { get; set; }
 
         [Column("descontoTotalReais")]
-        public float DescontoTotalReais { get; set; }
+        public decimal DescontoTotalReais { get; set; }
 
         [Column("descontoServicoPorcentagem")]
-        public float DescontoServicoPorcentagem { get; set; }
+        public decimal DescontoServicoPorcentagem { get; set; }
 
         [Column("descontoServicoReais")]
-        public float DescontoServicoReais { get; set; }
+        public decimal DescontoServicoReais { get; set; }
 
         [Column("descontoPecaPorcentagem")]
-        public float DescontoPecaPorcentagem { get; set; }
+        public decimal DescontoPecaPorcentagem { get; set; }
 
         [Column("descontoPecaReais")]
-        public float descontoPecaReais { get; set; }
+        public decimal descontoPecaReais { get; set; }
 
         [Column("observacao")]
         public string Observacao { get; set; }
@@ -64,7 +66,7 @@ namespace SIGO.Objects.Models
         {
         }
 
-        public Pedido(int id, int idCliente, Cliente cliente, int idFuncionario, Funcionario funcionario, int idOficina, Oficina oficina, int idVeiculo, Veiculo veiculo, float valorTotal, float descontoReais, float descontoPorcentagem, float descontoTotalReais, float descontoServicoPorcentagem, float descontoServicoReais, float descontoPecaPorcentagem, float descontoPecaReais, string observacao, DateOnly dataInicio, DateOnly dataFim, ICollection<Pedido_Peca> pedido_Pecas, ICollection<Pedido_Servico> pedido_Servicos)
+        public Pedido(int id, int idCliente, Cliente cliente, int idFuncionario, Funcionario funcionario, int idOficina, Oficina oficina, int idVeiculo, Veiculo veiculo, decimal valorTotal, decimal descontoReais, decimal descontoPorcentagem, decimal descontoTotalReais, decimal descontoServicoPorcentagem, decimal descontoServicoReais, decimal descontoPecaPorcentagem, decimal descontoPecaReais, string observacao, DateOnly dataInicio, DateOnly dataFim, ICollection<Pedido_Peca> pedido_Pecas, ICollection<Pedido_Servico> pedido_Servicos)
         {
             Id = id;
             this.idCliente = idCliente;

@@ -18,7 +18,7 @@ namespace SIGO.Objects.Models
         public string Descricao { get; set; }
     
         [Column("valor")]
-        public float Valor { get; set; }
+        public decimal Valor { get; set; }
 
         [Column("quantidade")]
         public int Quantidade { get; set; }
@@ -39,9 +39,13 @@ namespace SIGO.Objects.Models
         [Column("fornecedor")]
         public string Fornecedor { get; set; }
 
+        [Column("id_oficina")]
+        public int? IdOficina { get; set; }
+        public Oficina Oficina { get; set; }
+
         public Peca() { }
     
-        public Peca(int id, string nome, string tipo, string descricao, float valor, int quantidade, DateOnly garantia, 
+        public Peca(int id, string nome, string tipo, string descricao, decimal valor, int quantidade, DateOnly garantia, 
             int unidade, DateOnly dataAquisicao, string fornecedor)
         {
             Id = id;

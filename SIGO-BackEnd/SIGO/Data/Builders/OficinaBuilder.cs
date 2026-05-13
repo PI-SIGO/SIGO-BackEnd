@@ -21,6 +21,16 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Oficina>().Property(o => o.Complemento).HasMaxLength(200);
             modelBuilder.Entity<Oficina>().Property(o => o.Senha).IsRequired();
             modelBuilder.Entity<Oficina>().Property(o => o.Situacao).IsRequired();
+
+            modelBuilder.Entity<Oficina>()
+                .HasIndex(o => o.CNPJ)
+                .IsUnique()
+                .HasDatabaseName("IX_oficina_cnpj");
+
+            modelBuilder.Entity<Oficina>()
+                .HasIndex(o => o.Email)
+                .IsUnique()
+                .HasDatabaseName("IX_oficina_email");
         }
     }
 }

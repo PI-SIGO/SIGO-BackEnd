@@ -31,25 +31,15 @@ namespace SIGO.Data.Repositories
             await SaveChanges();
         }
 
-        public async Task Update(T entity)
+        public virtual async Task Update(T entity)
         {
-            // Recupera a chave primária (supondo que seja 'Id')
             var entityId = _context.Entry(entity).Property("Id").CurrentValue;
+            var existingEntity = await _dbSet.FindAsync(entityId);
 
-            // Verifica se a entidade com o mesmo Id já está sendo rastreada
-            var trackedEntity = _context.ChangeTracker.Entries<T>()
-                .FirstOrDefault(e => e.Property("Id").CurrentValue.Equals(entityId));
+            if (existingEntity == null)
+                throw new KeyNotFoundException($"Entity with id {entityId} not found.");
 
-            // Se a entidade já estiver sendo rastreada, desanexa
-            if (trackedEntity != null)
-            {
-                _context.Entry(trackedEntity.Entity).State = EntityState.Detached;
-            }
-
-            // Anexa a nova entidade e marca como 'Modified'
-            _context.Entry(entity).State = EntityState.Modified;
-
-            // Salva as alterações no banco de dados
+            _context.Entry(existingEntity).CurrentValues.SetValues(entity);
             await SaveChanges();
         }
 

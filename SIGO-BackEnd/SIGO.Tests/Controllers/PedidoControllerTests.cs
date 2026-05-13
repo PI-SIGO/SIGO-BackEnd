@@ -54,7 +54,7 @@ namespace SIGO.Tests.Controllers
                 CriarPedidoDto(id: 3, idCliente: 5)
             };
 
-            _pedidoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(pedidos);
+            _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(pedidos.Where(p => p.idCliente == 5));
 
             var controller = CreateController(userId: 5, roles: SystemRoles.Cliente);
 
@@ -70,11 +70,10 @@ namespace SIGO.Tests.Controllers
         [Fact]
         public async Task GetMyServices_DeveRetornarSomenteServicosDoClienteLogado()
         {
-            _pedidoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<PedidoDTO>
+            _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<PedidoDTO>
             {
                 CriarPedidoDto(idCliente: 5, servicoIds: new[] { 1, 2 }),
                 CriarPedidoDto(idCliente: 5, servicoIds: new[] { 2, 3 }),
-                CriarPedidoDto(idCliente: 8, servicoIds: new[] { 4 })
             });
 
             _servicoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<ServicoDTO>
@@ -97,11 +96,10 @@ namespace SIGO.Tests.Controllers
         [Fact]
         public async Task GetMyEmployees_DeveRetornarSomenteFuncionariosRelacionadosAoClienteLogado()
         {
-            _pedidoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<PedidoDTO>
+            _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<PedidoDTO>
             {
                 CriarPedidoDto(idCliente: 5, idFuncionario: 10),
                 CriarPedidoDto(idCliente: 5, idFuncionario: 11),
-                CriarPedidoDto(idCliente: 8, idFuncionario: 12)
             });
 
             _funcionarioServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<FuncionarioDTO>

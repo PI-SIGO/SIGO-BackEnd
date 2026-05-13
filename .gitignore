@@ -26,6 +26,9 @@ project.fragment.lock.json
 artifacts/
 
 # Dotnet
+.dotnet/
+TestResults/
+*.trx
 *.dbmdl
 *.bak
 *.backup

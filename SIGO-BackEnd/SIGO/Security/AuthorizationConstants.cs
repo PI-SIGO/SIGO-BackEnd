@@ -14,4 +14,18 @@ namespace SIGO.Security
         public const string OperationalAccess = "OperationalAccess";
         public const string SelfServiceAccess = "SelfServiceAccess";
     }
+
+    public static class CustomClaimTypes
+    {
+        public const string OficinaId = "oficina_id";
+    }
+
+    public static class RateLimitPolicies
+    {
+        public const string CompartilhamentoClienteResgate = "CompartilhamentoClienteResgate";
+        public const string ClienteLogin = "ClienteLogin";
+        public const string OficinaLogin = "OficinaLogin";
+        public const string FuncionarioLogin = "FuncionarioLogin";
+        public const string PublicRegistration = "PublicRegistration";
+    }
 }

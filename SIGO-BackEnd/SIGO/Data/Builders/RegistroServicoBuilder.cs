@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
 using SIGO.Objects.Models;
 
 namespace SIGO.Data.Builders
@@ -16,7 +15,7 @@ namespace SIGO.Data.Builders
                 entity.HasOne(r => r.Veiculo)
                     .WithMany(v => v.RegistroServicos)
                     .HasForeignKey(r => r.VeiculoId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(r => r.Servico)
                     .WithMany()
@@ -27,6 +26,10 @@ namespace SIGO.Data.Builders
                     .WithOne(p => p.RegistroServico)
                     .HasForeignKey(p => p.RegistroServicoId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(r => new { r.VeiculoId, r.DataServico })
+                    .IsDescending(false, true)
+                    .HasDatabaseName("IX_registro_servico_veiculo_data");
             });
 
             modelBuilder.Entity<PecaSubstituida>(entity =>

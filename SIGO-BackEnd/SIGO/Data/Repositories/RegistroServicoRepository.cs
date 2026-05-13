@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
 using SIGO.Data;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;

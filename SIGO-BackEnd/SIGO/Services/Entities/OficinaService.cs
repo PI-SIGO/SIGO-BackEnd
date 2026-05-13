@@ -5,6 +5,7 @@ using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
 using System.Linq;
 using SIGO.Objects.Contracts;
+using SIGO.Security;
 using SIGO.Validation;
 
 namespace SIGO.Services.Entities
@@ -13,24 +14,36 @@ namespace SIGO.Services.Entities
     {
         private readonly IOficinaRepository _oficinaRepository;
         private readonly IMapper _mapper;
+        private readonly IPasswordHasher _passwordHasher;
         private readonly ICnpjValidator _cnpjValidator;
 
         public OficinaService(
             IOficinaRepository oficinaRepository,
             IMapper mapper,
-            ICnpjValidator cnpjValidator)
+            ICnpjValidator cnpjValidator,
+            IPasswordHasher passwordHasher)
             : base(oficinaRepository, mapper)
         {
             _oficinaRepository = oficinaRepository;
             _mapper = mapper;
             _cnpjValidator = cnpjValidator;
+            _passwordHasher = passwordHasher;
         }
 
         public async Task<OficinaDTO?> Login(Login login)
         {
-            var oficina = await _oficinaRepository.Login(login);
+            if (string.IsNullOrWhiteSpace(login?.Email) || string.IsNullOrEmpty(login.Password))
+                return null;
 
-            if (oficina is not null) oficina.Senha = "";
+            var oficina = await _oficinaRepository.GetByEmail(login.Email);
+
+            if (oficina is null || !_passwordHasher.Verify(login.Password, oficina.Senha))
+                return null;
+
+            if (_passwordHasher.NeedsRehash(oficina.Senha))
+                await _oficinaRepository.UpdatePasswordHash(oficina.Id, _passwordHasher.Hash(login.Password));
+
+            oficina.Senha = "";
             return _mapper.Map<OficinaDTO?>(oficina);
         }
 
@@ -40,18 +53,53 @@ namespace SIGO.Services.Entities
             return _mapper.Map<IEnumerable<OficinaDTO>>(oficinas);
         }
 
-        public new async Task Create(OficinaDTO oficinaDTO)
+        public async Task Create(OficinaRequestDTO oficinaDTO)
         {
             await ValidateOficina(oficinaDTO);
             oficinaDTO.CNPJ = _cnpjValidator.Normalize(oficinaDTO.CNPJ!);
-            await base.Create(oficinaDTO);
+            oficinaDTO.Senha = _passwordHasher.Hash(oficinaDTO.Senha);
+
+            var oficina = _mapper.Map<Oficina>(oficinaDTO);
+            await _oficinaRepository.Add(oficina);
         }
 
         public override async Task Update(OficinaDTO oficinaDTO, int id)
         {
             await ValidateOficina(oficinaDTO, id);
             oficinaDTO.CNPJ = _cnpjValidator.Normalize(oficinaDTO.CNPJ!);
-            await base.Update(oficinaDTO, id);
+            var existing = await GetExisting(id);
+            ApplyAdminUpdate(existing, oficinaDTO);
+            await _oficinaRepository.SaveChanges();
+        }
+
+        public async Task Update(OficinaRequestDTO oficinaDTO, int id)
+        {
+            await ValidateOficina(oficinaDTO, id);
+            oficinaDTO.CNPJ = _cnpjValidator.Normalize(oficinaDTO.CNPJ!);
+            var existing = await GetExisting(id);
+            ApplyAdminUpdate(existing, oficinaDTO);
+
+            if (!string.IsNullOrWhiteSpace(oficinaDTO.Senha))
+                existing.Senha = _passwordHasher.Hash(oficinaDTO.Senha);
+
+            await _oficinaRepository.SaveChanges();
+        }
+
+        public async Task UpdateSelfProfile(OficinaRequestDTO oficinaDTO, int id)
+        {
+            var existing = await GetExisting(id);
+
+            existing.Nome = oficinaDTO.Nome;
+            existing.Numero = oficinaDTO.Numero;
+            existing.Rua = oficinaDTO.Rua;
+            existing.Cidade = oficinaDTO.Cidade;
+            existing.Cep = oficinaDTO.Cep;
+            existing.Bairro = oficinaDTO.Bairro;
+            existing.Estado = oficinaDTO.Estado;
+            existing.Pais = oficinaDTO.Pais;
+            existing.Complemento = oficinaDTO.Complemento;
+
+            await _oficinaRepository.SaveChanges();
         }
 
         public async Task ValidarCnpj(string? cnpj, int? ignoreId = null)
@@ -86,6 +134,31 @@ namespace SIGO.Services.Entities
         {
             if (errors.Count > 0)
                 throw new BusinessValidationException(errors);
+        }
+
+        private async Task<Oficina> GetExisting(int id)
+        {
+            var existing = await _oficinaRepository.GetById(id);
+            if (existing is null)
+                throw new KeyNotFoundException($"Oficina com id {id} não encontrada.");
+
+            return existing;
+        }
+
+        private static void ApplyAdminUpdate(Oficina existing, OficinaDTO oficinaDTO)
+        {
+            existing.Nome = oficinaDTO.Nome;
+            existing.CNPJ = oficinaDTO.CNPJ;
+            existing.Email = oficinaDTO.Email;
+            existing.Numero = oficinaDTO.Numero;
+            existing.Rua = oficinaDTO.Rua;
+            existing.Cidade = oficinaDTO.Cidade;
+            existing.Cep = oficinaDTO.Cep;
+            existing.Bairro = oficinaDTO.Bairro;
+            existing.Estado = oficinaDTO.Estado;
+            existing.Pais = oficinaDTO.Pais;
+            existing.Complemento = oficinaDTO.Complemento;
+            existing.Situacao = oficinaDTO.Situacao;
         }
 
     }

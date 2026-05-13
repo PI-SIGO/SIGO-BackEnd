@@ -9,5 +9,8 @@ namespace SIGO.Services.Interfaces
         Task<IEnumerable<OficinaDTO>> GetByName(string nomeOficina);
         Task ValidarCnpj(string? cnpj, int? ignoreId = null);
         Task<OficinaDTO?> Login(Login login);
+        Task Create(OficinaRequestDTO oficinaDTO);
+        Task Update(OficinaRequestDTO oficinaDTO, int id);
+        Task UpdateSelfProfile(OficinaRequestDTO oficinaDTO, int id);
     }
 }

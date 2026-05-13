@@ -19,14 +19,13 @@ namespace SIGO.Tests.Controllers
         [Fact]
         public async Task Get_DeveFiltrarVeiculosDoClienteLogado()
         {
-            _veiculoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<VeiculoDTO>
+            _veiculoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<VeiculoDTO>
             {
                 CriarVeiculoDto(id: 1, clienteId: 5),
-                CriarVeiculoDto(id: 2, clienteId: 8),
                 CriarVeiculoDto(id: 3, clienteId: 5)
             });
 
-            var controller = CreateController(userId: 5, SystemRoles.Cliente);
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
 
             var result = await controller.Get();
 
@@ -35,22 +34,22 @@ namespace SIGO.Tests.Controllers
             var data = Assert.IsAssignableFrom<IEnumerable<VeiculoDTO>>(response.Data);
             Assert.All(data, veiculo => Assert.Equal(5, veiculo.ClienteId));
             Assert.Equal(2, data.Count());
+            _veiculoServiceMock.Verify(s => s.GetAll(), Times.Never);
         }
 
         [Fact]
-        public async Task Delete_DevePermitirFuncionarioExcluirVeiculo()
+        public async Task Delete_DeveRetornarForbid_QuandoFuncionarioTentaExcluirVeiculoGlobal()
         {
-            _veiculoServiceMock.Setup(s => s.Remove(4)).Returns(Task.CompletedTask);
-
-            var controller = CreateController(userId: 10, SystemRoles.Funcionario);
+            var controller = CreateController(userId: 10, oficinaId: 2, roles: new[] { SystemRoles.Funcionario });
 
             var result = await controller.Delete(4);
 
-            Assert.IsType<OkObjectResult>(result);
-            _veiculoServiceMock.Verify(s => s.Remove(4), Times.Once);
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(s => s.Remove(It.IsAny<int>()), Times.Never);
+            _veiculoServiceMock.Verify(s => s.GetByIdForOficina(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
-        private VeiculoController CreateController(int? userId = null, params string[] roles)
+        private VeiculoController CreateController(int? userId = null, int? oficinaId = null, params string[] roles)
         {
             var controller = new VeiculoController(
                 _veiculoServiceMock.Object,
@@ -58,6 +57,7 @@ namespace SIGO.Tests.Controllers
                 _currentUserServiceMock.Object);
 
             _currentUserServiceMock.Setup(s => s.UserId).Returns(userId);
+            _currentUserServiceMock.Setup(s => s.OficinaId).Returns(oficinaId);
             _currentUserServiceMock.Setup(s => s.IsInRole(It.IsAny<string>()))
                 .Returns<string>(role => roles.Contains(role));
             return controller;

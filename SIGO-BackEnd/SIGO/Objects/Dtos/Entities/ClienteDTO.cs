@@ -4,15 +4,14 @@ namespace SIGO.Objects.Dtos.Entities
 {
     public class ClienteDTO
     {
-        private string _email;
+        private string _email = string.Empty;
         public int Id { get; set; }
         public string Nome { get; set; }
         public string Email
         {
             get => _email;
-            set => _email = value.ToLower();
+            set => _email = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
         }
-        public string senha { get; set; }
         public string Cpf_Cnpj { get; set; }
         public string Obs { get; set; }
         public string razao { get; set; }

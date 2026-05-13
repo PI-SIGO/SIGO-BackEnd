@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
@@ -42,10 +41,25 @@ namespace SIGO.Controllers
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> GetAll()
         {
-            var clienteDTO = await _clienteService.GetAll();
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                var clienteDTO = await _clienteService.GetAll();
+
+                _response.Code = ResponseEnum.SUCCESS;
+                _response.Data = clienteDTO;
+                _response.Message = "Clientes listados com sucesso";
+
+                return Ok(_response);
+            }
+
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            var clientesOficina = await _clienteService.GetByOficina(oficinaId.Value);
 
             _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = clienteDTO;
+            _response.Data = clientesOficina;
             _response.Message = "Clientes listados com sucesso";
 
             return Ok(_response);
@@ -58,29 +72,76 @@ namespace SIGO.Controllers
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != id)
                 return Forbid();
 
-            var clienteDto = await _clienteService.GetByIdWithDetails(id);
+            if (_currentUserService.IsInRole(SystemRoles.Admin) || _currentUserService.IsInRole(SystemRoles.Cliente))
+            {
+                var clienteDto = await _clienteService.GetByIdWithDetails(id);
+                if (clienteDto is null)
+                    return NotFound(new { Message = "Cliente não encontrado" });
 
-            if (clienteDto is null)
+                return Ok(clienteDto);
+            }
+
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            var clienteOficinaDto = await _clienteService.GetByIdWithDetailsForOficina(id, oficinaId.Value);
+
+            if (clienteOficinaDto is null)
                 return NotFound(new { Message = "Cliente não encontrado" });
 
-            return Ok(clienteDto);
+            return Ok(clienteOficinaDto);
         }
 
         [HttpGet("nome/{nome}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> GetByNameWithDetails(string nome)
         {
-            var clientesDto = await _clienteService.GetByNameWithDetails(nome);
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                var clientesDto = await _clienteService.GetByNameWithDetails(nome);
+                if (!clientesDto.Any())
+                    return NotFound(new { Message = "Nenhum cliente encontrado com esse nome" });
 
-            if (!clientesDto.Any())
+                return Ok(clientesDto);
+            }
+
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            var clientesOficinaDto = await _clienteService.GetByNameWithDetailsForOficina(nome, oficinaId.Value);
+
+            if (!clientesOficinaDto.Any())
                 return NotFound(new { Message = "Nenhum cliente encontrado com esse nome" });
 
-            return Ok(clientesDto);
+            return Ok(clientesOficinaDto);
+        }
+
+        [HttpGet("oficinas/{oficinaId:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        public async Task<IActionResult> GetByOficinaId(int oficinaId)
+        {
+            if (!_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                var currentOficinaId = _currentUserService.OficinaId;
+                if (!currentOficinaId.HasValue || currentOficinaId.Value != oficinaId)
+                    return Forbid();
+            }
+
+            var clientes = await _clienteService.GetByOficina(oficinaId);
+
+            _response.Code = ResponseEnum.SUCCESS;
+            _response.Data = clientes;
+            _response.Message = "Clientes da oficina listados com sucesso";
+
+            return Ok(_response);
         }
 
         [HttpPost]
         [AllowAnonymous]
-        public async Task<IActionResult> Post(ClienteDTO clienteDTO)
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.PublicRegistration)]
+        public async Task<IActionResult> Post(ClienteRequestDTO clienteDTO)
         {
             if (clienteDTO is null)
             {
@@ -96,11 +157,25 @@ namespace SIGO.Controllers
                 clienteDTO.Id = 0;
                 SanitizeCliente(clienteDTO);
 
-                clienteDTO.senha = _passwordHasher.Hash(clienteDTO.senha);
+                if (IsOficinaRegistration())
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    var cliente = await _clienteService.CreateForOficina(clienteDTO, oficinaId.Value);
+
+                    _response.Code = ResponseEnum.SUCCESS;
+                    _response.Data = cliente;
+                    _response.Message = "Cliente cadastrado ou vinculado à oficina com sucesso";
+
+                    return Ok(_response);
+                }
+
                 await _clienteService.Create(clienteDTO);
 
                 _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = clienteDTO;
+                _response.Data = ToResponse(clienteDTO);
                 _response.Message = "Cliente cadastrado com sucesso";
 
                 return Ok(_response);
@@ -112,18 +187,11 @@ namespace SIGO.Controllers
                 _response.Data = ex.Errors;
                 return BadRequest(_response);
             }
-            catch (Exception)
-            {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Não foi possível cadastrar o cliente";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
-        public async Task<IActionResult> Put([FromRoute] int id, [FromBody] ClienteDTO clienteDTO)
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        public async Task<IActionResult> Put([FromRoute] int id, [FromBody] ClienteRequestDTO clienteDTO)
         {
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != id)
                 return Forbid();
@@ -153,7 +221,7 @@ namespace SIGO.Controllers
                 await _clienteService.Update(clienteDTO, id);
 
                 _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = clienteDTO;
+                _response.Data = ToResponse(clienteDTO);
                 _response.Message = "Cliente atualizado com sucesso";
 
                 return Ok(_response);
@@ -165,52 +233,36 @@ namespace SIGO.Controllers
                 _response.Data = ex.Errors;
                 return BadRequest(_response);
             }
-            catch (Exception)
-            {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Ocorreu um erro ao tentar atualizar os dados do cliente";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Delete(int id)
         {
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != id)
                 return Forbid();
 
-            try
+            var clienteDTO = await _clienteService.GetById(id);
+
+            if (clienteDTO is null)
             {
-                var clienteDTO = await _clienteService.GetById(id);
-
-                if (clienteDTO is null)
-                {
-                    _response.Code = ResponseEnum.NOT_FOUND;
-                    _response.Data = null;
-                    _response.Message = "Cliente não encontrado";
-                    return NotFound(_response);
-                }
-
-                await _clienteService.Remove(id);
-
-                _response.Code = ResponseEnum.SUCCESS;
+                _response.Code = ResponseEnum.NOT_FOUND;
                 _response.Data = null;
-                _response.Message = "Cliente deletado com sucesso";
-                return Ok(_response);
+                _response.Message = "Cliente não encontrado";
+                return NotFound(_response);
             }
-            catch (Exception)
-            {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Ocorreu um erro ao deletar o cliente";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
+
+            await _clienteService.Remove(id);
+
+            _response.Code = ResponseEnum.SUCCESS;
+            _response.Data = null;
+            _response.Message = "Cliente deletado com sucesso";
+            return Ok(_response);
         }
 
         [HttpPost("login")]
         [AllowAnonymous]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.ClienteLogin)]
         public async Task<ActionResult> Login([FromBody] Login login)
         {
             if (login is null)
@@ -222,45 +274,29 @@ namespace SIGO.Controllers
                 return BadRequest(_response);
             }
 
-            try
+            var professorDTO = await _clienteService.Login(login);
+
+            if (professorDTO is null)
             {
-                login.Password = _passwordHasher.Hash(login.Password);
-                var professorDTO = await _clienteService.Login(login);
+                _response.Code = ResponseEnum.INVALID;
+                _response.Data = null;
+                _response.Message = "Email ou senha incorretos";
 
-                if (professorDTO is null)
-                {
-                    _response.Code = ResponseEnum.INVALID;
-                    _response.Data = null;
-                    _response.Message = "Email ou senha incorretos";
-
-                    return BadRequest(_response);
-                }
-
-                var token = _jwtTokenService.GenerateToken(new JwtTokenRequest
-                {
-                    UserId = professorDTO.Id,
-                    Name = professorDTO.Nome,
-                    Email = professorDTO.Email,
-                    Role = SystemRoles.Cliente
-                });
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = token;
-                _response.Message = "Login realizado com sucesso";
-
-                return Ok(_response);
+                return BadRequest(_response);
             }
-            catch (Exception ex)
+
+            var token = _jwtTokenService.GenerateToken(new JwtTokenRequest
             {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Não foi possível realizar o login";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
+                UserId = professorDTO.Id,
+                Name = professorDTO.Nome,
+                Email = professorDTO.Email,
+                Role = SystemRoles.Cliente
+            });
+            _response.Code = ResponseEnum.SUCCESS;
+            _response.Data = token;
+            _response.Message = "Login realizado com sucesso";
 
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
+            return Ok(_response);
         }
 
         private static void SanitizeCliente(ClienteDTO clienteDTO)
@@ -275,6 +311,38 @@ namespace SIGO.Controllers
             {
                 telefone.Numero = SanitizeHelper.ApenasDigitos(telefone.Numero);
             }
+        }
+
+        private bool IsOficinaRegistration()
+        {
+            return _currentUserService.IsInRole(SystemRoles.Oficina) ||
+                   _currentUserService.IsInRole(SystemRoles.Funcionario);
+        }
+
+        private static ClienteDTO ToResponse(ClienteDTO clienteDTO)
+        {
+            return new ClienteDTO
+            {
+                Id = clienteDTO.Id,
+                Nome = clienteDTO.Nome,
+                Email = clienteDTO.Email,
+                Cpf_Cnpj = clienteDTO.Cpf_Cnpj,
+                Obs = clienteDTO.Obs,
+                razao = clienteDTO.razao,
+                DataNasc = clienteDTO.DataNasc,
+                Numero = clienteDTO.Numero,
+                Rua = clienteDTO.Rua,
+                Cidade = clienteDTO.Cidade,
+                Cep = clienteDTO.Cep,
+                Bairro = clienteDTO.Bairro,
+                Estado = clienteDTO.Estado,
+                Pais = clienteDTO.Pais,
+                Complemento = clienteDTO.Complemento,
+                Sexo = clienteDTO.Sexo,
+                TipoCliente = clienteDTO.TipoCliente,
+                Situacao = clienteDTO.Situacao,
+                Telefones = clienteDTO.Telefones
+            };
         }
 
     }

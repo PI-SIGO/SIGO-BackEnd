@@ -16,10 +16,14 @@ namespace SIGO.Objects.Models
         public string Descricao { get; set; }
 
         [Column("valor")]
-        public double Valor { get; set; }
+        public decimal Valor { get; set; }
 
         [Column("garantia")]
         public DateOnly Garantia { get; set; }
+
+        [Column("id_oficina")]
+        public int? IdOficina { get; set; }
+        public Oficina Oficina { get; set; }
 
         public ICollection<Funcionario_Servico> Funcionario_Servicos { get; set; } = new List<Funcionario_Servico>();
 
@@ -27,7 +31,7 @@ namespace SIGO.Objects.Models
         {
         }
 
-        public Servico(int id, string nome, string descricao, double valor, DateOnly garantia, ICollection<Funcionario_Servico> funcionario_Servico)
+        public Servico(int id, string nome, string descricao, decimal valor, DateOnly garantia, ICollection<Funcionario_Servico> funcionario_Servico)
         {
             Id = id;
             Nome = nome;

@@ -1,15 +1,16 @@
-﻿using SIGO.Data.Repositories;
 using SIGO.Objects.Models;
-using SIGO.Services.Interfaces;
-using SIGO.Objects.Contracts;
 
 namespace SIGO.Data.Interfaces
 {
     public interface IFuncionarioRepository : IGenericRepository<Funcionario>
     {
         Task<IEnumerable<Funcionario>> GetFuncionarioByNome(string nome);
+        Task<IEnumerable<Funcionario>> GetByOficina(int oficinaId);
+        Task<Funcionario?> GetByIdForOficina(int id, int oficinaId);
+        Task<IEnumerable<Funcionario>> GetFuncionarioByNomeForOficina(string nome, int oficinaId);
         Task<bool> ExistsByCpf(string cpf, int? ignoreId = null);
-        Task<Funcionario?> Login(Login login);
-
+        Task<bool> ExistsInOficina(int funcionarioId, int oficinaId);
+        Task<Funcionario?> GetByEmail(string email);
+        Task UpdatePasswordHash(int id, string passwordHash);
     }
 }

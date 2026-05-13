@@ -1,6 +1,37 @@
 @SIGO_HostAddress = http://localhost:5044
+@AccessToken = paste-jwt-token-here
 
-GET {{SIGO_HostAddress}}/weatherforecast/
+### Health liveness - anonymous
+GET {{SIGO_HostAddress}}/health/live
 Accept: application/json
 
 ###
+
+### Health readiness - anonymous, checks database connectivity
+GET {{SIGO_HostAddress}}/health/ready
+Accept: application/json
+
+###
+
+### Login as cliente - anonymous
+POST {{SIGO_HostAddress}}/api/clientes/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "cliente@example.com",
+  "password": "change-me"
+}
+
+###
+
+### Protected cliente lookup - requires JWT bearer token
+GET {{SIGO_HostAddress}}/api/clientes/1
+Accept: application/json
+Authorization: Bearer {{AccessToken}}
+
+###
+
+### OpenAPI document - development environment only
+GET {{SIGO_HostAddress}}/swagger/v1/swagger.json
+Accept: application/json

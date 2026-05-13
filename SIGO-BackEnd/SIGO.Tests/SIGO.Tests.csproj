@@ -6,9 +6,8 @@
     <IsTestProject>true</IsTestProject>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <NoWarn>$(NoWarn);CS8632;NU1801;NU1900</NoWarn>
-    <NuGetAudit>false</NuGetAudit>
-    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+    <NoWarn>$(NoWarn);CS8632</NoWarn>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <ItemGroup>

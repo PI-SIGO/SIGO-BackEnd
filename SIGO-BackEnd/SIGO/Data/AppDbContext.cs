@@ -16,6 +16,9 @@ namespace SIGO.Data
         public DbSet<Funcionario> Funcionarios { get; set; }
         public DbSet<Peca> Pecas { get; set; }
         public DbSet<Oficina> Oficinas { get; set; }
+        public DbSet<ClienteOficina> ClienteOficinas { get; set; }
+        public DbSet<CompartilhamentoCliente> CompartilhamentosCliente { get; set; }
+        public DbSet<CompartilhamentoClienteTentativa> CompartilhamentosClienteTentativas { get; set; }
         public DbSet<Pedido> Pedidos { get; set; }
         public DbSet<RegistroServico> RegistroServicos { get; set; }
         public DbSet<PecaSubstituida> PecasSubstituidas { get; set; }
@@ -33,6 +36,9 @@ namespace SIGO.Data
             FuncionarioBuilder.Build(modelBuilder);
             PecaBuilder.Build(modelBuilder);
             OficinaBuilder.Build(modelBuilder);
+            ClienteOficinaBuilder.Build(modelBuilder);
+            CompartilhamentoClienteBuilder.Build(modelBuilder);
+            CompartilhamentoClienteTentativaBuilder.Build(modelBuilder);
             PedidoBuilder.Build(modelBuilder);
             RegistroServicoBuilder.Build(modelBuilder);
 
@@ -56,12 +62,14 @@ namespace SIGO.Data
             modelBuilder.Entity<Pedido_Peca>()
                 .HasOne(pp => pp.Pedido)
                 .WithMany(p => p.Pedido_Pecas)
-                .HasForeignKey(pp => pp.IdPedido);
+                .HasForeignKey(pp => pp.IdPedido)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Pedido_Peca>()
                 .HasOne(pp => pp.Peca)
                 .WithMany()
-                .HasForeignKey(pp => pp.IdPeca);
+                .HasForeignKey(pp => pp.IdPeca)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Pedido_Servico>()
                 .HasKey(ps => new { ps.IdPedido, ps.IdServico });
@@ -69,12 +77,14 @@ namespace SIGO.Data
             modelBuilder.Entity<Pedido_Servico>()
                 .HasOne(ps => ps.Pedido)
                 .WithMany(p => p.Pedido_Servicos)
-                .HasForeignKey(ps => ps.IdPedido);
+                .HasForeignKey(ps => ps.IdPedido)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Pedido_Servico>()
                 .HasOne(ps => ps.Servico)
                 .WithMany()
-                .HasForeignKey(ps => ps.IdServico);
+                .HasForeignKey(ps => ps.IdServico)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

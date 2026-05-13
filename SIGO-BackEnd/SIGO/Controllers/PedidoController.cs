@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
+using SIGO.Validation;
 
 namespace SIGO.Controllers
 {
@@ -36,11 +36,26 @@ namespace SIGO.Controllers
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetAll()
         {
-            var pedidos = await _pedidoService.GetAll();
+            IEnumerable<PedidoDTO> pedidos;
             if (_currentUserService.IsInRole(SystemRoles.Cliente))
             {
                 var clienteId = _currentUserService.UserId;
-                pedidos = pedidos.Where(p => clienteId.HasValue && p.idCliente == clienteId.Value);
+                if (!clienteId.HasValue)
+                    return Forbid();
+
+                pedidos = await _pedidoService.GetByCliente(clienteId.Value);
+            }
+            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                pedidos = await _pedidoService.GetByOficina(oficinaId.Value);
+            }
+            else
+            {
+                pedidos = await _pedidoService.GetAll();
             }
 
             _response.Code = ResponseEnum.SUCCESS;
@@ -54,7 +69,20 @@ namespace SIGO.Controllers
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var pedido = await _pedidoService.GetById(id);
+            PedidoDTO? pedido;
+
+            if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                pedido = await _pedidoService.GetByIdForOficina(id, oficinaId.Value);
+            }
+            else
+            {
+                pedido = await _pedidoService.GetById(id);
+            }
 
             if (pedido is null)
             {
@@ -81,9 +109,8 @@ namespace SIGO.Controllers
             if (!clienteId.HasValue)
                 return Forbid();
 
-            var pedidos = await _pedidoService.GetAll();
+            var pedidos = await _pedidoService.GetByCliente(clienteId.Value);
             var serviceIds = pedidos
-                .Where(p => p.idCliente == clienteId.Value)
                 .SelectMany(p => p.Pedido_Servicos)
                 .Select(ps => ps.IdServico)
                 .Distinct()
@@ -102,9 +129,8 @@ namespace SIGO.Controllers
             if (!clienteId.HasValue)
                 return Forbid();
 
-            var pedidos = await _pedidoService.GetAll();
+            var pedidos = await _pedidoService.GetByCliente(clienteId.Value);
             var employeeIds = pedidos
-                .Where(p => p.idCliente == clienteId.Value)
                 .Select(p => p.idFuncionario)
                 .Distinct()
                 .ToList();
@@ -129,19 +155,30 @@ namespace SIGO.Controllers
             try
             {
                 pedidoDTO.Id = 0;
-                await _pedidoService.Create(pedidoDTO);
+                if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    await _pedidoService.CreateForOficina(pedidoDTO, oficinaId.Value);
+                }
+                else
+                {
+                    await _pedidoService.Create(pedidoDTO);
+                }
 
                 _response.Code = ResponseEnum.SUCCESS;
                 _response.Data = pedidoDTO;
                 _response.Message = "Pedido cadastrado com sucesso";
                 return Ok(_response);
             }
-            catch (Exception)
+            catch (BusinessValidationException ex)
             {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Não foi possível cadastrar o pedido";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                _response.Code = ResponseEnum.INVALID;
+                _response.Message = "Dados inválidos";
+                _response.Data = ex.Errors;
+                return BadRequest(_response);
             }
         }
 
@@ -159,7 +196,20 @@ namespace SIGO.Controllers
 
             try
             {
-                var existingPedido = await _pedidoService.GetById(id);
+                PedidoDTO? existingPedido;
+                if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    existingPedido = await _pedidoService.GetByIdForOficina(id, oficinaId.Value);
+                }
+                else
+                {
+                    existingPedido = await _pedidoService.GetById(id);
+                }
+
                 if (existingPedido is null)
                 {
                     _response.Code = ResponseEnum.NOT_FOUND;
@@ -168,19 +218,26 @@ namespace SIGO.Controllers
                     return NotFound(_response);
                 }
 
-                await _pedidoService.Update(pedidoDTO, id);
+                if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                {
+                    await _pedidoService.UpdateForOficina(pedidoDTO, id, existingPedido.idOficina);
+                }
+                else
+                {
+                    await _pedidoService.Update(pedidoDTO, id);
+                }
 
                 _response.Code = ResponseEnum.SUCCESS;
                 _response.Data = pedidoDTO;
                 _response.Message = "Pedido atualizado com sucesso";
                 return Ok(_response);
             }
-            catch (Exception)
+            catch (BusinessValidationException ex)
             {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Ocorreu um erro ao atualizar o pedido";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                _response.Code = ResponseEnum.INVALID;
+                _response.Message = "Dados inválidos";
+                _response.Data = ex.Errors;
+                return BadRequest(_response);
             }
         }
 
@@ -188,31 +245,34 @@ namespace SIGO.Controllers
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)
         {
-            try
+            PedidoDTO? existingPedido;
+            if (_currentUserService.IsInRole(SystemRoles.Oficina))
             {
-                var existingPedido = await _pedidoService.GetById(id);
-                if (existingPedido is null)
-                {
-                    _response.Code = ResponseEnum.NOT_FOUND;
-                    _response.Data = null;
-                    _response.Message = "Pedido não encontrado";
-                    return NotFound(_response);
-                }
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
 
-                await _pedidoService.Remove(id);
-
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = null;
-                _response.Message = "Pedido removido com sucesso";
-                return Ok(_response);
+                existingPedido = await _pedidoService.GetByIdForOficina(id, oficinaId.Value);
             }
-            catch (Exception)
+            else
             {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Ocorreu um erro ao deletar o pedido";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                existingPedido = await _pedidoService.GetById(id);
             }
+
+            if (existingPedido is null)
+            {
+                _response.Code = ResponseEnum.NOT_FOUND;
+                _response.Data = null;
+                _response.Message = "Pedido não encontrado";
+                return NotFound(_response);
+            }
+
+            await _pedidoService.Remove(id);
+
+            _response.Code = ResponseEnum.SUCCESS;
+            _response.Data = null;
+            _response.Message = "Pedido removido com sucesso";
+            return Ok(_response);
         }
 
     }

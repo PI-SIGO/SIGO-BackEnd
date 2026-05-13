@@ -12,21 +12,21 @@
 
         public int idVeiculo { get; set; }
 
-        public float ValorTotal { get; set; }
+        public decimal ValorTotal { get; set; }
 
-        public float DescontoReais { get; set; }
+        public decimal DescontoReais { get; set; }
 
-        public float DescontoPorcentagem { get; set; }
+        public decimal DescontoPorcentagem { get; set; }
 
-        public float DescontoTotalReais { get; set; }
+        public decimal DescontoTotalReais { get; set; }
 
-        public float DescontoServicoPorcentagem { get; set; }
+        public decimal DescontoServicoPorcentagem { get; set; }
 
-        public float DescontoServicoReais { get; set; }
+        public decimal DescontoServicoReais { get; set; }
 
-        public float DescontoPecaPorcentagem { get; set; }
+        public decimal DescontoPecaPorcentagem { get; set; }
 
-        public float descontoPecaReais { get; set; }
+        public decimal descontoPecaReais { get; set; }
 
         public string Observacao { get; set; }
 

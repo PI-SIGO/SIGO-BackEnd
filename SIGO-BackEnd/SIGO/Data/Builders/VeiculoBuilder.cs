@@ -19,6 +19,9 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Veiculo>().Property(v => v.Status).IsRequired();
             modelBuilder.Entity<Veiculo>().Property(v => v.ClienteId).IsRequired();
             modelBuilder.Entity<Veiculo>().Property(v => v.Cor).IsRequired();
+
+            modelBuilder.Entity<Veiculo>()
+                .HasAlternateKey(v => new { v.Id, v.ClienteId });
         }
     }
 }

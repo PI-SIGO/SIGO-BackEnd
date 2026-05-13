@@ -131,6 +131,135 @@ namespace SIGO.Migrations
                     b.ToTable("cliente");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.ClienteOficina", b =>
+                {
+                    b.Property<int>("OficinaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_oficina");
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DadosPermitidos")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("dados_permitidos");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("OficinaId", "ClienteId");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("OficinaId", "Ativo", "ClienteId")
+                        .HasDatabaseName("IX_cliente_oficina_oficina_ativo_cliente");
+
+                    b.ToTable("cliente_oficina");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.CompartilhamentoCliente", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente");
+
+                    b.Property<string>("CodigoHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("codigo_hash");
+
+                    b.Property<string>("DadosPermitidos")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("dados_permitidos");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expira_em");
+
+                    b.Property<DateTime?>("UsadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("usado_em");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("CodigoHash")
+                        .IsUnique()
+                        .HasFilter("ativo AND usado_em IS NULL");
+
+                    b.ToTable("compartilhamento_cliente");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.CompartilhamentoClienteTentativa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("codigo_hash");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("motivo");
+
+                    b.Property<int>("OficinaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_oficina");
+
+                    b.Property<bool>("Sucesso")
+                        .HasColumnType("boolean")
+                        .HasColumnName("sucesso");
+
+                    b.Property<DateTime>("TentadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tentado_em");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OficinaId", "IpAddress", "TentadoEm");
+
+                    b.ToTable("compartilhamento_cliente_tentativa");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Funcionario", b =>
                 {
                     b.Property<int>("Id")
@@ -158,11 +287,23 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("email");
 
+                    b.Property<int?>("IdOficina")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_oficina");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("nome");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Funcionario")
+                        .HasColumnName("role");
 
                     b.Property<string>("Senha")
                         .IsRequired()
@@ -174,6 +315,17 @@ namespace SIGO.Migrations
                         .HasColumnName("situacao");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Cpf")
+                        .IsUnique()
+                        .HasDatabaseName("IX_funcionario_cpf");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("IX_funcionario_email");
+
+                    b.HasIndex("IdOficina", "Nome")
+                        .HasDatabaseName("IX_funcionario_id_oficina_nome");
 
                     b.ToTable("funcionario");
                 });
@@ -315,6 +467,14 @@ namespace SIGO.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CNPJ")
+                        .IsUnique()
+                        .HasDatabaseName("IX_oficina_cnpj");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("IX_oficina_email");
+
                     b.ToTable("oficina");
                 });
 
@@ -350,6 +510,10 @@ namespace SIGO.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("idmarca");
 
+                    b.Property<int?>("IdOficina")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_oficina");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -370,13 +534,17 @@ namespace SIGO.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("unidade");
 
-                    b.Property<float>("Valor")
-                        .HasColumnType("real")
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("valor");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IdMarca");
+
+                    b.HasIndex("IdOficina", "Nome")
+                        .HasDatabaseName("IX_peca_id_oficina_nome");
 
                     b.ToTable("peca");
                 });
@@ -430,28 +598,34 @@ namespace SIGO.Migrations
                         .HasColumnType("date")
                         .HasColumnName("dataInicio");
 
-                    b.Property<float>("DescontoPecaPorcentagem")
-                        .HasColumnType("real")
+                    b.Property<decimal>("DescontoPecaPorcentagem")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
                         .HasColumnName("descontoPecaPorcentagem");
 
-                    b.Property<float>("DescontoPorcentagem")
-                        .HasColumnType("real")
+                    b.Property<decimal>("DescontoPorcentagem")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
                         .HasColumnName("descontoPorcentagem");
 
-                    b.Property<float>("DescontoReais")
-                        .HasColumnType("real")
+                    b.Property<decimal>("DescontoReais")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("descontoReais");
 
-                    b.Property<float>("DescontoServicoPorcentagem")
-                        .HasColumnType("real")
+                    b.Property<decimal>("DescontoServicoPorcentagem")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
                         .HasColumnName("descontoServicoPorcentagem");
 
-                    b.Property<float>("DescontoServicoReais")
-                        .HasColumnType("real")
+                    b.Property<decimal>("DescontoServicoReais")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("descontoServicoReais");
 
-                    b.Property<float>("DescontoTotalReais")
-                        .HasColumnType("real")
+                    b.Property<decimal>("DescontoTotalReais")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("descontoTotalReais");
 
                     b.Property<string>("Observacao")
@@ -459,12 +633,14 @@ namespace SIGO.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("observacao");
 
-                    b.Property<float>("ValorTotal")
-                        .HasColumnType("real")
+                    b.Property<decimal>("ValorTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("valorTotal");
 
-                    b.Property<float>("descontoPecaReais")
-                        .HasColumnType("real")
+                    b.Property<decimal>("descontoPecaReais")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("descontoPecaReais");
 
                     b.Property<int>("idCliente")
@@ -489,9 +665,13 @@ namespace SIGO.Migrations
 
                     b.HasIndex("idFuncionario");
 
-                    b.HasIndex("idOficina");
+                    b.HasIndex("idOficina", "idCliente");
 
-                    b.HasIndex("idVeiculo");
+                    b.HasIndex("idVeiculo", "DataInicio")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_pedido_id_veiculo_dataInicio");
+
+                    b.HasIndex("idVeiculo", "idCliente");
 
                     b.ToTable("pedido");
                 });
@@ -587,7 +767,9 @@ namespace SIGO.Migrations
 
                     b.HasIndex("ServicoId");
 
-                    b.HasIndex("VeiculoId");
+                    b.HasIndex("VeiculoId", "DataServico")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_registro_servico_veiculo_data");
 
                     b.ToTable("registro_servico");
                 });
@@ -610,17 +792,25 @@ namespace SIGO.Migrations
                         .HasColumnType("date")
                         .HasColumnName("garantia");
 
+                    b.Property<int?>("IdOficina")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_oficina");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("nome");
 
-                    b.Property<double>("Valor")
-                        .HasColumnType("double precision")
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
                         .HasColumnName("valor");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdOficina", "Nome")
+                        .HasDatabaseName("IX_servico_id_oficina_nome");
 
                     b.ToTable("servico");
                 });
@@ -738,6 +928,57 @@ namespace SIGO.Migrations
                     b.ToTable("veiculo");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.ClienteOficina", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Cliente", "Cliente")
+                        .WithMany("ClienteOficinas")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SIGO.Objects.Models.Oficina", "Oficina")
+                        .WithMany("ClienteOficinas")
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Oficina");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.CompartilhamentoCliente", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.CompartilhamentoClienteTentativa", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Oficina", "Oficina")
+                        .WithMany()
+                        .HasForeignKey("OficinaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Oficina");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.Funcionario", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Oficina", "Oficina")
+                        .WithMany("Funcionarios")
+                        .HasForeignKey("IdOficina")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Oficina");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Funcionario_Servico", b =>
                 {
                     b.HasOne("SIGO.Objects.Models.Funcionario", "Funcionario")
@@ -769,10 +1010,17 @@ namespace SIGO.Migrations
                     b.HasOne("SIGO.Objects.Models.Marca", "Marca")
                         .WithMany("Pecas")
                         .HasForeignKey("IdMarca")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SIGO.Objects.Models.Oficina", "Oficina")
+                        .WithMany()
+                        .HasForeignKey("IdOficina")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Marca");
+
+                    b.Navigation("Oficina");
                 });
 
             modelBuilder.Entity("SIGO.Objects.Models.PecaSubstituida", b =>
@@ -806,13 +1054,22 @@ namespace SIGO.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SIGO.Objects.Models.ClienteOficina", "ClienteOficina")
+                        .WithMany("Pedidos")
+                        .HasForeignKey("idOficina", "idCliente")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("SIGO.Objects.Models.Veiculo", "Veiculo")
                         .WithMany()
-                        .HasForeignKey("idVeiculo")
+                        .HasForeignKey("idVeiculo", "idCliente")
+                        .HasPrincipalKey("Id", "ClienteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Cliente");
+
+                    b.Navigation("ClienteOficina");
 
                     b.Navigation("Funcionario");
 
@@ -826,7 +1083,7 @@ namespace SIGO.Migrations
                     b.HasOne("SIGO.Objects.Models.Peca", "Peca")
                         .WithMany()
                         .HasForeignKey("IdPeca")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("SIGO.Objects.Models.Pedido", "Pedido")
@@ -851,7 +1108,7 @@ namespace SIGO.Migrations
                     b.HasOne("SIGO.Objects.Models.Servico", "Servico")
                         .WithMany()
                         .HasForeignKey("IdServico")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Pedido");
@@ -869,12 +1126,22 @@ namespace SIGO.Migrations
                     b.HasOne("SIGO.Objects.Models.Veiculo", "Veiculo")
                         .WithMany("RegistroServicos")
                         .HasForeignKey("VeiculoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Servico");
 
                     b.Navigation("Veiculo");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.Servico", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Oficina", "Oficina")
+                        .WithMany()
+                        .HasForeignKey("IdOficina")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Oficina");
                 });
 
             modelBuilder.Entity("SIGO.Objects.Models.Telefone", b =>
@@ -909,9 +1176,16 @@ namespace SIGO.Migrations
 
             modelBuilder.Entity("SIGO.Objects.Models.Cliente", b =>
                 {
+                    b.Navigation("ClienteOficinas");
+
                     b.Navigation("Telefones");
 
                     b.Navigation("Veiculos");
+                });
+
+            modelBuilder.Entity("SIGO.Objects.Models.ClienteOficina", b =>
+                {
+                    b.Navigation("Pedidos");
                 });
 
             modelBuilder.Entity("SIGO.Objects.Models.Funcionario", b =>
@@ -926,6 +1200,10 @@ namespace SIGO.Migrations
 
             modelBuilder.Entity("SIGO.Objects.Models.Oficina", b =>
                 {
+                    b.Navigation("ClienteOficinas");
+
+                    b.Navigation("Funcionarios");
+
                     b.Navigation("Telefones");
                 });
 

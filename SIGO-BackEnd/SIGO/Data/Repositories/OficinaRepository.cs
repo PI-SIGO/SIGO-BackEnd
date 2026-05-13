@@ -1,8 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
-using SIGO.Objects.Contracts;
-using SIGO.Services.Interfaces;
 using System.Linq;
 
 namespace SIGO.Data.Repositories
@@ -16,9 +14,22 @@ namespace SIGO.Data.Repositories
             _context = context;
         }
 
-        public async Task<Oficina?> Login(Login login)
+        public async Task<Oficina?> GetByEmail(string email)
         {
-            return await _context.Oficinas.AsNoTracking().FirstOrDefaultAsync(o => o.Email == login.Email && o.Senha == login.Password);
+            var emailNormalizado = NormalizeEmail(email);
+
+            return await _context.Oficinas
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o =>
+                    o.Email != null &&
+                    o.Email.Trim().ToLower() == emailNormalizado);
+        }
+
+        public async Task UpdatePasswordHash(int id, string passwordHash)
+        {
+            await _context.Oficinas
+                .Where(o => o.Id == id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(o => o.Senha, passwordHash));
         }
 
         public async Task<IEnumerable<Oficina>> GetByName(string nomeOficina)
@@ -41,6 +52,8 @@ namespace SIGO.Data.Repositories
 
         private static string SomenteDigitos(string valor) =>
             new(valor.Where(char.IsDigit).ToArray());
+
+        private static string NormalizeEmail(string email) =>
+            email.Trim().ToLowerInvariant();
     }
 }
-

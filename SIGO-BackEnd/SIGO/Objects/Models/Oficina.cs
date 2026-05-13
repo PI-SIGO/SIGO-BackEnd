@@ -50,6 +50,10 @@ namespace SIGO.Objects.Models
 
         public ICollection<Telefone> Telefones { get; set; } = new List<Telefone>();
 
+        public ICollection<Funcionario> Funcionarios { get; set; } = new List<Funcionario>();
+
+        public ICollection<ClienteOficina> ClienteOficinas { get; set; } = new List<ClienteOficina>();
+
         public Oficina() { }
 
         public Oficina(int id, string nome, string cnpj, string email, int numero, string rua, string cidade, int cep, string bairro,

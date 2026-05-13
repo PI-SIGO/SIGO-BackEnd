@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
@@ -13,13 +12,13 @@ namespace SIGO.Controllers
 {
     [Route("api/funcionarios")]
     [ApiController]
-    [Authorize(Policy = AuthorizationPolicies.FullAccess)]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
     public class FuncionarioController : ControllerBase
     {
         private readonly IFuncionarioService _funcionarioService;
-        private readonly IPasswordHasher _passwordHasher;
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IFuncionarioRoleResolver _funcionarioRoleResolver;
+        private readonly ICurrentUserService _currentUserService;
         private readonly Response _response;
         private readonly IMapper _mapper;
 
@@ -28,20 +27,33 @@ namespace SIGO.Controllers
             IMapper mapper,
             IPasswordHasher passwordHasher,
             IJwtTokenService jwtTokenService,
-            IFuncionarioRoleResolver funcionarioRoleResolver)
+            IFuncionarioRoleResolver funcionarioRoleResolver,
+            ICurrentUserService currentUserService)
         {
             _funcionarioService = funcionarioService;
             _mapper = mapper;
-            _passwordHasher = passwordHasher;
             _jwtTokenService = jwtTokenService;
             _funcionarioRoleResolver = funcionarioRoleResolver;
+            _currentUserService = currentUserService;
             _response = new Response();
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var funcionarioDTO = await _funcionarioService.GetAll();
+            IEnumerable<FuncionarioDTO> funcionarioDTO;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                funcionarioDTO = await _funcionarioService.GetAll();
+            }
+            else
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                funcionarioDTO = await _funcionarioService.GetByOficina(oficinaId.Value);
+            }
 
             _response.Code = ResponseEnum.SUCCESS;
             _response.Data = funcionarioDTO;
@@ -53,7 +65,19 @@ namespace SIGO.Controllers
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetFuncionarioById(int id)
         {
-            var funcionarioDTO = await _funcionarioService.GetById(id);
+            FuncionarioDTO? funcionarioDTO;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                funcionarioDTO = await _funcionarioService.GetById(id);
+            }
+            else
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                funcionarioDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
+            }
 
             if (funcionarioDTO is null)
                 return NotFound(new { Message = "Funcionário não encontrado" });
@@ -64,7 +88,19 @@ namespace SIGO.Controllers
         [HttpGet("nome/{nome}")]
         public async Task<IActionResult> GetFuncionarioByNome(string nome)
         {
-            var clientesDto = await _funcionarioService.GetFuncionarioByNome(nome);
+            IEnumerable<FuncionarioDTO> clientesDto;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                clientesDto = await _funcionarioService.GetFuncionarioByNome(nome);
+            }
+            else
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                clientesDto = await _funcionarioService.GetFuncionarioByNomeForOficina(nome, oficinaId.Value);
+            }
 
             if (!clientesDto.Any())
                 return NotFound(new { Message = "Nenhum funcionário encontrado com esse nome" });
@@ -73,7 +109,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post(FuncionarioDTO funcionarioDTO)
+        public async Task<IActionResult> Post(FuncionarioRequestDTO funcionarioDTO)
         {
             if (funcionarioDTO is null)
             {
@@ -88,14 +124,24 @@ namespace SIGO.Controllers
             {
                 funcionarioDTO.Id = 0;
                 SanitizeFuncionario(funcionarioDTO);
+                if (!_currentUserService.IsInRole(SystemRoles.Admin))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
 
-                // hash da senha antes de salvar
-                funcionarioDTO.Senha = _passwordHasher.Hash(funcionarioDTO.Senha);
+                    funcionarioDTO.IdOficina = oficinaId.Value;
+                    funcionarioDTO.Role = SystemRoles.Funcionario;
+                }
+                else
+                {
+                    funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
+                }
 
                 await _funcionarioService.Create(funcionarioDTO);
 
                 _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = funcionarioDTO;
+                _response.Data = ToResponse(funcionarioDTO);
                 _response.Message = "Funcionário cadastrado com sucesso";
 
                 return Ok(_response);
@@ -107,17 +153,10 @@ namespace SIGO.Controllers
                 _response.Data = ex.Errors;
                 return BadRequest(_response);
             }
-            catch (Exception)
-            {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Não foi possível cadastrar o funcionário";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
         }
 
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> Put(int id, FuncionarioDTO funcionarioDTO)
+        public async Task<IActionResult> Put(int id, FuncionarioRequestDTO funcionarioDTO)
         {
             if (funcionarioDTO is null)
             {
@@ -131,7 +170,23 @@ namespace SIGO.Controllers
             try
             {
 
-                var existingFuncionarioDTO = await _funcionarioService.GetById(id);
+                FuncionarioDTO? existingFuncionarioDTO;
+                if (_currentUserService.IsInRole(SystemRoles.Admin))
+                {
+                    existingFuncionarioDTO = await _funcionarioService.GetById(id);
+                    funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
+                }
+                else
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    existingFuncionarioDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
+                    funcionarioDTO.IdOficina = oficinaId.Value;
+                    funcionarioDTO.Role = SystemRoles.Funcionario;
+                }
+
                 if (existingFuncionarioDTO is null)
                 {
                     _response.Code = ResponseEnum.NOT_FOUND;
@@ -145,7 +200,7 @@ namespace SIGO.Controllers
                 await _funcionarioService.Update(funcionarioDTO, id);
 
                 _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = funcionarioDTO;
+                _response.Data = ToResponse(funcionarioDTO);
                 _response.Message = "Funcionário atualizado com sucesso";
 
                 return Ok(_response);
@@ -157,47 +212,43 @@ namespace SIGO.Controllers
                 _response.Data = ex.Errors;
                 return BadRequest(_response);
             }
-            catch (Exception)
-            {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Ocorreu um erro ao tentar atualizar os dados do funcionário";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
         }
 
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteFuncionario(int id)
         {
-            try
+            FuncionarioDTO? clienteDTO;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                var clienteDTO = await _funcionarioService.GetById(id);
-
-                if (clienteDTO is null)
-                {
-                    _response.Code = ResponseEnum.NOT_FOUND;
-                    _response.Data = null;
-                    _response.Message = "Funcionário não encontrado";
-                    return NotFound(_response);
-                }
-                await _funcionarioService.Remove(id);
-
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = null;
-                _response.Message = "Funcionário deletado com sucesso";
-                return Ok(_response);
+                clienteDTO = await _funcionarioService.GetById(id);
             }
-            catch (Exception)
+            else
             {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Ocorreu um erro ao deletar o cliente";
-                _response.Data = null;
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                clienteDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
             }
+
+            if (clienteDTO is null)
+            {
+                _response.Code = ResponseEnum.NOT_FOUND;
+                _response.Data = null;
+                _response.Message = "Funcionário não encontrado";
+                return NotFound(_response);
+            }
+            await _funcionarioService.Remove(id);
+
+            _response.Code = ResponseEnum.SUCCESS;
+            _response.Data = null;
+            _response.Message = "Funcionário deletado com sucesso";
+            return Ok(_response);
         }
 
         [HttpPost("login")]
         [AllowAnonymous]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.FuncionarioLogin)]
         public async Task<ActionResult> Login([FromBody] Login login)
         {
             if (login is null)
@@ -209,50 +260,66 @@ namespace SIGO.Controllers
                 return BadRequest(_response);
             }
 
-            try
+            var funcionarioDTO = await _funcionarioService.Login(login);
+
+            if (funcionarioDTO is null)
             {
-                login.Password = _passwordHasher.Hash(login.Password);
-                var funcionarioDTO = await _funcionarioService.Login(login);
+                _response.Code = ResponseEnum.INVALID;
+                _response.Data = null;
+                _response.Message = "Email ou senha incorretos";
 
-                if (funcionarioDTO is null)
-                {
-                    _response.Code = ResponseEnum.INVALID;
-                    _response.Data = null;
-                    _response.Message = "Email ou senha incorretos";
-
-                    return BadRequest(_response);
-                }
-
-                var token = _jwtTokenService.GenerateToken(new JwtTokenRequest
-                {
-                    UserId = funcionarioDTO.Id,
-                    Name = funcionarioDTO.Nome,
-                    Email = funcionarioDTO.Email,
-                    Role = _funcionarioRoleResolver.Resolve(funcionarioDTO.Cargo)
-                });
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = token;
-                _response.Message = "Login realizado com sucesso";
-
-                return Ok(_response);
+                return BadRequest(_response);
             }
-            catch (Exception ex)
+
+            var role = _funcionarioRoleResolver.Resolve(funcionarioDTO.Role);
+            if (role == SystemRoles.Funcionario && !funcionarioDTO.IdOficina.HasValue)
             {
-                _response.Code = ResponseEnum.ERROR;
-                _response.Message = "Não foi possível realizar o login";
-                _response.Data = new
-                {
-                    ErrorMessage = ex.Message,
-                    StackTrace = ex.StackTrace ?? "No stack trace available"
-                };
-
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                _response.Code = ResponseEnum.INVALID;
+                _response.Data = null;
+                _response.Message = "Funcionário sem oficina vinculada";
+                return BadRequest(_response);
             }
+
+            var token = _jwtTokenService.GenerateToken(new JwtTokenRequest
+            {
+                UserId = funcionarioDTO.Id,
+                Name = funcionarioDTO.Nome,
+                Email = funcionarioDTO.Email,
+                Role = role,
+                OficinaId = funcionarioDTO.IdOficina
+            });
+            _response.Code = ResponseEnum.SUCCESS;
+            _response.Data = token;
+            _response.Message = "Login realizado com sucesso";
+
+            return Ok(_response);
         }
 
-        private static void SanitizeFuncionario(FuncionarioDTO funcionarioDTO)
+        private static void SanitizeFuncionario(FuncionarioRequestDTO funcionarioDTO)
         {
             funcionarioDTO.Cpf = SanitizeHelper.ApenasDigitos(funcionarioDTO.Cpf);
+        }
+
+        private static string NormalizeRole(string? role)
+        {
+            return string.Equals(role, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase)
+                ? SystemRoles.Admin
+                : SystemRoles.Funcionario;
+        }
+
+        private static FuncionarioDTO ToResponse(FuncionarioDTO funcionarioDTO)
+        {
+            return new FuncionarioDTO
+            {
+                Id = funcionarioDTO.Id,
+                Nome = funcionarioDTO.Nome,
+                Cpf = funcionarioDTO.Cpf,
+                Cargo = funcionarioDTO.Cargo,
+                Email = funcionarioDTO.Email,
+                Situacao = funcionarioDTO.Situacao,
+                IdOficina = funcionarioDTO.IdOficina,
+                Role = funcionarioDTO.Role
+            };
         }
     }
 }

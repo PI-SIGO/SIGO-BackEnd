@@ -13,7 +13,7 @@ namespace SIGO.Objects.Dtos.Entities
 
         public string Descricao { get; set; }
 
-        public float Valor { get; set; }
+        public decimal Valor { get; set; }
 
         public int Quantidade { get; set; }
 
@@ -26,5 +26,7 @@ namespace SIGO.Objects.Dtos.Entities
         public DateOnly DataAquisicao { get; set; }
 
         public string Fornecedor { get; set; }
+
+        public int? IdOficina { get; set; }
     }
 }

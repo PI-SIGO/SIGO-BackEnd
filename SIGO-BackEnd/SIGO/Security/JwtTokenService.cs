@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -8,17 +8,18 @@ namespace SIGO.Security
 {
     public class JwtTokenService : IJwtTokenService
     {
-        private readonly IConfiguration _configuration;
+        private readonly JwtOptions _jwtOptions;
 
-        public JwtTokenService(IConfiguration configuration)
+        public JwtTokenService(IOptions<JwtOptions> options)
         {
-            _configuration = configuration;
+            _jwtOptions = options?.Value
+                ?? throw new InvalidOperationException("Jwt options are not configured.");
         }
 
         public string GenerateToken(JwtTokenRequest request)
         {
             var securityKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])
+                Encoding.UTF8.GetBytes(_jwtOptions.Key)
             );
 
             var credentials = new SigningCredentials(
@@ -26,7 +27,7 @@ namespace SIGO.Security
                 SecurityAlgorithms.HmacSha256
             );
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, request.UserId.ToString()),
                 new Claim(ClaimTypes.Name, request.Name),
@@ -35,11 +36,14 @@ namespace SIGO.Security
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
+            if (request.OficinaId.HasValue)
+                claims.Add(new Claim(CustomClaimTypes.OficinaId, request.OficinaId.Value.ToString()));
+
             var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
+                issuer: _jwtOptions.Issuer,
+                audience: _jwtOptions.Audience,
                 claims: claims,
-                expires: DateTime.Now.AddHours(2),
+                expires: DateTime.UtcNow.AddHours(2),
                 signingCredentials: credentials
             );
 

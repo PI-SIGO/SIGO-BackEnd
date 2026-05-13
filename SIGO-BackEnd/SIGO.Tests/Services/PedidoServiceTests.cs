@@ -4,6 +4,7 @@ using SIGO.Data.Interfaces;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Services.Entities;
+using SIGO.Validation;
 using Xunit;
 
 namespace SIGO.Tests.Services
@@ -12,6 +13,9 @@ namespace SIGO.Tests.Services
     {
         private readonly Mock<IPedidoRepository> _repositoryMock = new();
         private readonly Mock<IMapper> _mapperMock = new();
+        private readonly Mock<IClienteRepository> _clienteRepositoryMock = new();
+        private readonly Mock<IFuncionarioRepository> _funcionarioRepositoryMock = new();
+        private readonly Mock<IVeiculoRepository> _veiculoRepositoryMock = new();
 
         [Fact]
         public async Task Create_DeveMapearEAdicionarEntidade()
@@ -43,7 +47,7 @@ namespace SIGO.Tests.Services
             await service.Update(dto, id);
 
             Assert.Equal(id, dto.Id);
-            _repositoryMock.Verify(r => r.Update(It.Is<Pedido>(p => p.Id == id)), Times.Once);
+            _repositoryMock.Verify(r => r.SaveChanges(), Times.Once);
         }
 
         [Fact]
@@ -57,6 +61,35 @@ namespace SIGO.Tests.Services
             var service = new PedidoService(_repositoryMock.Object, _mapperMock.Object);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Update(dto, id));
+        }
+
+        [Fact]
+        public async Task CreateForOficina_DeveRejeitarVeiculoDeOutroCliente()
+        {
+            var dto = new PedidoDTO
+            {
+                idCliente = 10,
+                idFuncionario = 5,
+                idVeiculo = 99
+            };
+
+            _clienteRepositoryMock.Setup(r => r.ExistsInOficina(10, 3)).ReturnsAsync(true);
+            _funcionarioRepositoryMock.Setup(r => r.ExistsInOficina(5, 3)).ReturnsAsync(true);
+            _veiculoRepositoryMock.Setup(r => r.GetById(99)).ReturnsAsync(new Veiculo { Id = 99, ClienteId = 11 });
+
+            var service = new PedidoService(
+                _repositoryMock.Object,
+                _mapperMock.Object,
+                _clienteRepositoryMock.Object,
+                _funcionarioRepositoryMock.Object,
+                _veiculoRepositoryMock.Object);
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() => service.CreateForOficina(dto, 3));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.idVeiculo) &&
+                error.Message == "Veículo não pertence ao cliente informado.");
+            _repositoryMock.Verify(r => r.Add(It.IsAny<Pedido>()), Times.Never);
         }
     }
 }

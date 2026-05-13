@@ -16,7 +16,7 @@ namespace SIGO.Data.Builders
                 .HasMany(p => p.Pecas)
                 .WithOne(m => m.Marca)
                 .HasForeignKey(v => v.IdMarca)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

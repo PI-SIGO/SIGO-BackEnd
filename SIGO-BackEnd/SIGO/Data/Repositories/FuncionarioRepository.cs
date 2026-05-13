@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
-using SIGO.Objects.Contracts;
 using System.Linq;
 
 namespace SIGO.Data.Repositories
@@ -15,9 +14,22 @@ namespace SIGO.Data.Repositories
             _context = context;
         }
 
-        public async Task<Funcionario?> Login(Login login)
+        public async Task<Funcionario?> GetByEmail(string email)
         {
-            return await _context.Funcionarios.AsNoTracking().FirstOrDefaultAsync(f => f.Email == login.Email && f.Senha == login.Password);
+            var emailNormalizado = NormalizeEmail(email);
+
+            return await _context.Funcionarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f =>
+                    f.Email != null &&
+                    f.Email.Trim().ToLower() == emailNormalizado);
+        }
+
+        public async Task UpdatePasswordHash(int id, string passwordHash)
+        {
+            await _context.Funcionarios
+                .Where(f => f.Id == id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(f => f.Senha, passwordHash));
         }
 
         public async Task<IEnumerable<Funcionario>> GetFuncionarioByNome(string nome)
@@ -25,6 +37,26 @@ namespace SIGO.Data.Repositories
             return await _context.Funcionarios
             .Where(f => f.Nome.Contains(nome))
             .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Funcionario>> GetByOficina(int oficinaId)
+        {
+            return await _context.Funcionarios
+                .Where(f => f.IdOficina == oficinaId)
+                .ToListAsync();
+        }
+
+        public async Task<Funcionario?> GetByIdForOficina(int id, int oficinaId)
+        {
+            return await _context.Funcionarios
+                .FirstOrDefaultAsync(f => f.Id == id && f.IdOficina == oficinaId);
+        }
+
+        public async Task<IEnumerable<Funcionario>> GetFuncionarioByNomeForOficina(string nome, int oficinaId)
+        {
+            return await _context.Funcionarios
+                .Where(f => f.IdOficina == oficinaId && f.Nome.Contains(nome))
+                .ToListAsync();
         }
 
         public async Task<bool> ExistsByCpf(string cpf, int? ignoreId = null)
@@ -38,7 +70,16 @@ namespace SIGO.Data.Repositories
                     (!ignoreId.HasValue || f.Id != ignoreId.Value));
         }
 
+        public async Task<bool> ExistsInOficina(int funcionarioId, int oficinaId)
+        {
+            return await _context.Funcionarios
+                .AnyAsync(f => f.Id == funcionarioId && f.IdOficina == oficinaId);
+        }
+
         private static string SomenteDigitos(string valor) =>
             new(valor.Where(char.IsDigit).ToArray());
+
+        private static string NormalizeEmail(string email) =>
+            email.Trim().ToLowerInvariant();
     }
 }

@@ -1,0 +1,68 @@
+name: .NET CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SOLUTION_PATH: SIGO.sln
+  TEST_PROJECT_PATH: SIGO.Tests/SIGO.Tests.csproj
+  TEST_RESULTS_DIR: ../.dotnet/TestResults
+
+jobs:
+  build-test-audit:
+    name: Restore, build, test, audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: SIGO-BackEnd
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore and audit dependencies
+        run: >
+          dotnet restore "$SOLUTION_PATH"
+          --force-evaluate
+          -p:NuGetAudit=true
+          -p:NuGetAuditMode=all
+          -p:NuGetAuditLevel=low
+          -p:RestoreIgnoreFailedSources=false
+          -p:WarningsAsErrors=NU1901%3BNU1902%3BNU1903%3BNU1904
+
+      - name: Build
+        run: dotnet build "$SOLUTION_PATH" --configuration Release --no-restore
+
+      - name: Test SIGO.Tests
+        run: >
+          dotnet test "$TEST_PROJECT_PATH"
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=sigo-tests.trx"
+          --results-directory "$TEST_RESULTS_DIR"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigo-test-results
+          path: .dotnet/TestResults/*.trx
+          if-no-files-found: ignore

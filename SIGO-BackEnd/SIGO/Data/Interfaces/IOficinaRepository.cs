@@ -1,5 +1,4 @@
 ﻿using SIGO.Objects.Models;
-using SIGO.Objects.Contracts;
 
 namespace SIGO.Data.Interfaces
 {
@@ -7,6 +6,7 @@ namespace SIGO.Data.Interfaces
     {
         Task<IEnumerable<Oficina>> GetByName(string nomeMarca);
         Task<bool> ExistsByCnpj(string cnpj, int? ignoreId = null);
-        Task<Oficina?> Login(Login login);
+        Task<Oficina?> GetByEmail(string email);
+        Task UpdatePasswordHash(int id, string passwordHash);
     }
 }
