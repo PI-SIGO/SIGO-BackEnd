@@ -15,7 +15,7 @@ namespace SIGO.Data.Repositories
         public override async Task<IEnumerable<Servico>> Get()
         {
             return await _context.Servicos
-                .Include(s => s.Funcionario_Servicos)
+                .AsNoTracking()
                 .ToListAsync();
         }
 
@@ -23,6 +23,7 @@ namespace SIGO.Data.Repositories
         public async Task<Servico?> GetByIdWithDetails(int id)
         {
             return await _context.Servicos
+                .AsNoTracking()
                 .Include(s => s.Funcionario_Servicos)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
@@ -30,6 +31,7 @@ namespace SIGO.Data.Repositories
         public async Task<IEnumerable<Servico>> GetByNameWithDetails(string nome)
         {
             return await _context.Servicos
+                .AsNoTracking()
                 .Include(s => s.Funcionario_Servicos)
                 .Where(c => c.Nome.Contains(nome))
                 .ToListAsync();
@@ -37,7 +39,7 @@ namespace SIGO.Data.Repositories
 
         public async Task<IEnumerable<Servico>> GetByNameWithDetailsForOficina(string nome, int oficinaId)
         {
-            return await ServicosDaOficina(oficinaId)
+            return await ServicosDaOficinaComDetalhes(oficinaId)
                 .Where(c => c.Nome.Contains(nome))
                 .ToListAsync();
         }
@@ -50,7 +52,7 @@ namespace SIGO.Data.Repositories
 
         public async Task<Servico?> GetByIdWithDetailsForOficina(int id, int oficinaId)
         {
-            return await ServicosDaOficina(oficinaId)
+            return await ServicosDaOficinaComDetalhes(oficinaId)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 
@@ -75,8 +77,14 @@ namespace SIGO.Data.Repositories
         private IQueryable<Servico> ServicosDaOficina(int oficinaId)
         {
             return _context.Servicos
-                .Include(s => s.Funcionario_Servicos)
+                .AsNoTracking()
                 .Where(s => s.IdOficina == oficinaId);
+        }
+
+        private IQueryable<Servico> ServicosDaOficinaComDetalhes(int oficinaId)
+        {
+            return ServicosDaOficina(oficinaId)
+                .Include(s => s.Funcionario_Servicos);
         }
     }
 }

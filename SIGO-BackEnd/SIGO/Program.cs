@@ -276,7 +276,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthorizationPolicies.FullAccess, policy =>
-        policy.RequireRole(SystemRoles.Admin));
+        policy.RequireRole(SystemRoles.Admin, SystemRoles.Oficina));
 
     options.AddPolicy(AuthorizationPolicies.OperationalAccess, policy =>
         policy.RequireRole(SystemRoles.Admin, SystemRoles.Funcionario, SystemRoles.Oficina));

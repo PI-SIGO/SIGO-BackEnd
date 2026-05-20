@@ -152,7 +152,7 @@ namespace SIGO.Controllers
                 return BadRequest(_response);
             }
 
-                try
+            try
             {
                 clienteDTO.Id = 0;
                 SanitizeCliente(clienteDTO);
@@ -190,7 +190,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}, {SystemRoles.Oficina}")]
         public async Task<IActionResult> Put([FromRoute] int id, [FromBody] ClienteRequestDTO clienteDTO)
         {
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != id)
@@ -236,7 +236,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}, {SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)
         {
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != id)
