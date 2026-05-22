@@ -16,5 +16,6 @@ namespace SIGO.Objects.Dtos.Entities
         public string Cor { get; set; }
         public int ClienteId { get; set; }
         public Situacao Situacao { get; set; }
+        public ICollection<VeiculoImagemDTO> Imagens { get; set; } = new List<VeiculoImagemDTO>();
     }
 }

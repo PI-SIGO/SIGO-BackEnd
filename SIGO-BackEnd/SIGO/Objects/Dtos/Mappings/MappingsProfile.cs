@@ -16,10 +16,12 @@ namespace SIGO.Objects.Dtos.Mappings
 
             CreateMap<Telefone, TelefoneDTO>().ReverseMap();
             CreateMap<MarcaDTO, Marca>().ReverseMap();
+            CreateMap<VeiculoImagem, VeiculoImagemDTO>();
 
             CreateMap<VeiculoDTO, Veiculo>()
                 .ForMember(dest => dest.Cliente, opt => opt.Ignore())
                 .ForMember(dest => dest.Marcas, opt => opt.Ignore())
+                .ForMember(dest => dest.Imagens, opt => opt.Ignore())
                 .ReverseMap();
 
             CreateMap<Servico, ServicoDTO>().ReverseMap();

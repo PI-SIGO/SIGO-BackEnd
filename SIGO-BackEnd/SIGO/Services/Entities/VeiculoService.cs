@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
@@ -9,19 +10,23 @@ namespace SIGO.Services.Entities
 {
     public class VeiculoService : GenericService<Veiculo, VeiculoDTO>, IVeiculoService
     {
+        private const int MaxImagesPerRequest = 5;
         private readonly IVeiculoRepository _veiculoRepository;
         private readonly IMapper _mapper;
         private readonly IClienteRepository? _clienteRepository;
+        private readonly IVeiculoImagemStorageService _imagemStorageService;
 
         public VeiculoService(
             IVeiculoRepository veiculoRepository,
             IMapper mapper,
-            IClienteRepository? clienteRepository = null)
+            IClienteRepository? clienteRepository,
+            IVeiculoImagemStorageService imagemStorageService)
             : base(veiculoRepository, mapper)
         {
             _veiculoRepository = veiculoRepository;
             _mapper = mapper;
             _clienteRepository = clienteRepository;
+            _imagemStorageService = imagemStorageService;
         }
 
         public async Task<IEnumerable<VeiculoDTO>> GetByPlaca(string placa)
@@ -102,12 +107,67 @@ namespace SIGO.Services.Entities
             await base.Create(veiculoDto);
         }
 
+        public async Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagens(
+            int veiculoId,
+            IReadOnlyCollection<IFormFile> imagens,
+            CancellationToken cancellationToken = default)
+        {
+            var veiculo = await _veiculoRepository.GetByIdWithImagens(veiculoId);
+            return await AddImagensToVeiculo(veiculo, veiculoId, imagens, cancellationToken);
+        }
+
+        public async Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagensForCliente(
+            int veiculoId,
+            int clienteId,
+            IReadOnlyCollection<IFormFile> imagens,
+            CancellationToken cancellationToken = default)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForCliente(veiculoId, clienteId);
+            return await AddImagensToVeiculo(veiculo, veiculoId, imagens, cancellationToken);
+        }
+
+        public async Task RemoveImagem(int veiculoId, int imagemId)
+        {
+            var veiculo = await _veiculoRepository.GetByIdWithImagens(veiculoId);
+            await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
+        }
+
+        public async Task<VeiculoImagemArquivoDTO> GetImagemArquivo(int veiculoId, string nomeArquivo)
+        {
+            var veiculo = await _veiculoRepository.GetByIdWithImagens(veiculoId);
+            return OpenImagemFromVeiculo(veiculo, veiculoId, nomeArquivo);
+        }
+
+        public async Task<VeiculoImagemArquivoDTO> GetImagemArquivoForCliente(
+            int veiculoId,
+            int clienteId,
+            string nomeArquivo)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForCliente(veiculoId, clienteId);
+            return OpenImagemFromVeiculo(veiculo, veiculoId, nomeArquivo);
+        }
+
+        public async Task<VeiculoImagemArquivoDTO> GetImagemArquivoForOficina(
+            int veiculoId,
+            int oficinaId,
+            string nomeArquivo)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            return OpenImagemFromVeiculo(veiculo, veiculoId, nomeArquivo);
+        }
+
+        public async Task RemoveImagemForCliente(int veiculoId, int clienteId, int imagemId)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForCliente(veiculoId, clienteId);
+            await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
+        }
+
         public async Task UpdateVeiculo(VeiculoDTO veiculoDto, int id)
         {
             var existingEntity = await _veiculoRepository.GetById(id);
 
             if (existingEntity == null)
-                throw new KeyNotFoundException($"Veículo com id {id} não encontrado.");
+                throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
             ApplyUpdate(existingEntity, veiculoDto, preserveClienteIdWhenMissing: true);
             await _veiculoRepository.SaveChanges();
@@ -118,7 +178,7 @@ namespace SIGO.Services.Entities
             var existingEntity = await _veiculoRepository.GetByIdForCliente(id, clienteId);
 
             if (existingEntity == null)
-                throw new KeyNotFoundException($"Veículo com id {id} não encontrado.");
+                throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
             veiculoDto.ClienteId = clienteId;
             ApplyUpdate(existingEntity, veiculoDto, preserveClienteIdWhenMissing: false);
@@ -130,7 +190,7 @@ namespace SIGO.Services.Entities
             var existingEntity = await _veiculoRepository.GetByIdForOficina(id, oficinaId);
 
             if (existingEntity == null)
-                throw new KeyNotFoundException($"Veículo com id {id} não encontrado.");
+                throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
             await EnsureClienteVinculado(veiculoDto.ClienteId, oficinaId);
 
@@ -148,7 +208,94 @@ namespace SIGO.Services.Entities
             {
                 throw new BusinessValidationException(new[]
                 {
-                    new ValidationError(nameof(VeiculoDTO.ClienteId), "Cliente não está vinculado à oficina autenticada.")
+                    new ValidationError(nameof(VeiculoDTO.ClienteId), "Cliente nao esta vinculado a oficina autenticada.")
+                });
+            }
+        }
+
+        private async Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagensToVeiculo(
+            Veiculo? veiculo,
+            int veiculoId,
+            IReadOnlyCollection<IFormFile> imagens,
+            CancellationToken cancellationToken)
+        {
+            if (veiculo == null)
+                throw new KeyNotFoundException($"Veiculo com id {veiculoId} nao encontrado.");
+
+            ValidateUploadRequest(imagens);
+
+            var imagensSalvas = new List<VeiculoImagem>();
+
+            try
+            {
+                foreach (var imagem in imagens)
+                {
+                    var imagemSalva = await _imagemStorageService.SaveAsync(veiculoId, imagem, cancellationToken);
+                    imagensSalvas.Add(imagemSalva);
+                    veiculo.Imagens.Add(imagemSalva);
+                }
+
+                await _veiculoRepository.SaveChanges();
+            }
+            catch
+            {
+                foreach (var imagemSalva in imagensSalvas)
+                    _imagemStorageService.Delete(imagemSalva);
+
+                throw;
+            }
+
+            return _mapper.Map<IReadOnlyCollection<VeiculoImagemDTO>>(imagensSalvas);
+        }
+
+        private VeiculoImagemArquivoDTO OpenImagemFromVeiculo(Veiculo? veiculo, int veiculoId, string nomeArquivo)
+        {
+            if (veiculo == null)
+                throw new KeyNotFoundException($"Veiculo com id {veiculoId} nao encontrado.");
+
+            var imagem = veiculo.Imagens.FirstOrDefault(i =>
+                i.NomeArquivo.Equals(nomeArquivo, StringComparison.OrdinalIgnoreCase));
+
+            if (imagem == null)
+                throw new KeyNotFoundException($"Imagem {nomeArquivo} nao encontrada.");
+
+            return new VeiculoImagemArquivoDTO
+            {
+                Conteudo = _imagemStorageService.OpenRead(imagem),
+                ContentType = imagem.ContentType,
+                NomeOriginal = imagem.NomeOriginal
+            };
+        }
+
+        private async Task RemoveImagemFromVeiculo(Veiculo? veiculo, int veiculoId, int imagemId)
+        {
+            if (veiculo == null)
+                throw new KeyNotFoundException($"Veiculo com id {veiculoId} nao encontrado.");
+
+            var imagem = veiculo.Imagens.FirstOrDefault(i => i.Id == imagemId);
+            if (imagem == null)
+                throw new KeyNotFoundException($"Imagem com id {imagemId} nao encontrada.");
+
+            veiculo.Imagens.Remove(imagem);
+            await _veiculoRepository.SaveChanges();
+            _imagemStorageService.Delete(imagem);
+        }
+
+        private static void ValidateUploadRequest(IReadOnlyCollection<IFormFile> imagens)
+        {
+            if (imagens == null || imagens.Count == 0)
+            {
+                throw new BusinessValidationException(new[]
+                {
+                    new ValidationError("imagens", "Envie pelo menos uma imagem.")
+                });
+            }
+
+            if (imagens.Count > MaxImagesPerRequest)
+            {
+                throw new BusinessValidationException(new[]
+                {
+                    new ValidationError("imagens", $"Envie no maximo {MaxImagesPerRequest} imagens por requisicao.")
                 });
             }
         }
@@ -168,6 +315,5 @@ namespace SIGO.Services.Entities
             if (!preserveClienteIdWhenMissing || veiculoDto.ClienteId > 0)
                 existing.ClienteId = veiculoDto.ClienteId;
         }
-
     }
 }

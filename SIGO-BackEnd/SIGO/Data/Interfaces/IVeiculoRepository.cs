@@ -12,6 +12,7 @@ namespace SIGO.Data.Interfaces
         Task<IEnumerable<Veiculo>> GetByTipoForOficina(string tipo, int oficinaId);
         Task<IEnumerable<Veiculo>> GetByCliente(int clienteId);
         Task<IEnumerable<Veiculo>> GetByOficina(int oficinaId);
+        Task<Veiculo?> GetByIdWithImagens(int id);
         Task<Veiculo?> GetByIdForCliente(int id, int clienteId);
         Task<Veiculo?> GetByIdForOficina(int id, int oficinaId);
         Task UpdateVeiculo(Veiculo veiculo);

@@ -201,6 +201,7 @@ builder.Services.AddScoped<IMarcaRepository, MarcaRepository>();
 
 builder.Services.AddScoped<IVeiculoService, VeiculoService>();
 builder.Services.AddScoped<IVeiculoRepository, VeiculoRepository>();
+builder.Services.AddScoped<IVeiculoImagemStorageService, LocalVeiculoImagemStorageService>();
 
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<IFuncionarioRepository, FuncionarioRepository>();

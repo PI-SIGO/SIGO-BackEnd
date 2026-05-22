@@ -17,6 +17,7 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Veiculos
                 .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
                 .ToListAsync();
         }
 
@@ -24,6 +25,7 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Veiculos
                 .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
                 .Where(v => v.PlacaVeiculo.Contains(placa))
                 .ToListAsync();
         }
@@ -46,6 +48,7 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Veiculos
                 .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
                 .Where(v => v.TipoVeiculo.Contains(tipo))
                 .ToListAsync();
         }
@@ -78,6 +81,15 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Veiculos
                 .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
+                .FirstOrDefaultAsync(v => v.Id == id);
+        }
+
+        public async Task<Veiculo?> GetByIdWithImagens(int id)
+        {
+            return await _context.Veiculos
+                .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
@@ -114,6 +126,7 @@ namespace SIGO.Data.Repositories
         {
             return _context.Veiculos
                 .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
                 .Where(v => v.ClienteId == clienteId);
         }
 
@@ -121,6 +134,7 @@ namespace SIGO.Data.Repositories
         {
             return _context.Veiculos
                 .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
                 .Where(v => v.Cliente.ClienteOficinas.Any(co =>
                     co.OficinaId == oficinaId &&
                     co.Ativo &&

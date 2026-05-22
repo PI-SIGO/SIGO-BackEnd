@@ -171,6 +171,127 @@ namespace SIGO.Controllers
             }
         }
 
+        [HttpPost("{id:int}/imagens")]
+        [Consumes("multipart/form-data")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        public async Task<IActionResult> AddImagens(
+            int id,
+            [FromForm] List<IFormFile> imagens,
+            CancellationToken cancellationToken)
+        {
+            if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
+                return Forbid();
+
+            try
+            {
+                IReadOnlyCollection<VeiculoImagemDTO> imagensSalvas;
+
+                if (_currentUserService.IsInRole(SystemRoles.Admin))
+                {
+                    imagensSalvas = await _veiculoService.AddImagens(id, imagens, cancellationToken);
+                }
+                else
+                {
+                    var clienteId = _currentUserService.UserId;
+                    if (!clienteId.HasValue)
+                        return Forbid();
+
+                    imagensSalvas = await _veiculoService.AddImagensForCliente(
+                        id,
+                        clienteId.Value,
+                        imagens,
+                        cancellationToken);
+                }
+
+                _response.Code = ResponseEnum.SUCCESS;
+                _response.Data = imagensSalvas;
+                _response.Message = "Imagens do veiculo cadastradas com sucesso";
+
+                return Ok(_response);
+            }
+            catch (BusinessValidationException ex)
+            {
+                return BadRequest(new { Message = "Dados inválidos", Errors = ex.Errors });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { Message = "Veiculo nao encontrado." });
+            }
+        }
+
+        [HttpGet("{veiculoId:int}/imagens/{nomeArquivo}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
+        public async Task<IActionResult> GetImagemArquivo(int veiculoId, string nomeArquivo)
+        {
+            try
+            {
+                VeiculoImagemArquivoDTO arquivo;
+
+                if (_currentUserService.IsInRole(SystemRoles.Cliente))
+                {
+                    var clienteId = _currentUserService.UserId;
+                    if (!clienteId.HasValue)
+                        return Forbid();
+
+                    arquivo = await _veiculoService.GetImagemArquivoForCliente(veiculoId, clienteId.Value, nomeArquivo);
+                }
+                else if (_currentUserService.IsInRole(SystemRoles.Oficina) || _currentUserService.IsInRole(SystemRoles.Funcionario))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    arquivo = await _veiculoService.GetImagemArquivoForOficina(veiculoId, oficinaId.Value, nomeArquivo);
+                }
+                else
+                {
+                    arquivo = await _veiculoService.GetImagemArquivo(veiculoId, nomeArquivo);
+                }
+
+                var result = File(arquivo.Conteudo, arquivo.ContentType);
+                result.EnableRangeProcessing = true;
+                return result;
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { Message = "Imagem do veiculo nao encontrada." });
+            }
+            catch (FileNotFoundException)
+            {
+                return NotFound(new { Message = "Imagem do veiculo nao encontrada." });
+            }
+        }
+
+        [HttpDelete("{veiculoId:int}/imagens/{imagemId:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        public async Task<IActionResult> DeleteImagem(int veiculoId, int imagemId)
+        {
+            if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
+                return Forbid();
+
+            try
+            {
+                if (_currentUserService.IsInRole(SystemRoles.Admin))
+                {
+                    await _veiculoService.RemoveImagem(veiculoId, imagemId);
+                }
+                else
+                {
+                    var clienteId = _currentUserService.UserId;
+                    if (!clienteId.HasValue)
+                        return Forbid();
+
+                    await _veiculoService.RemoveImagemForCliente(veiculoId, clienteId.Value, imagemId);
+                }
+
+                return Ok(new { Message = "Imagem do veiculo removida com sucesso" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { Message = "Imagem do veiculo nao encontrada." });
+            }
+        }
+
         [HttpPut("{id:int}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Update(int id, VeiculoDTO veiculoDto)

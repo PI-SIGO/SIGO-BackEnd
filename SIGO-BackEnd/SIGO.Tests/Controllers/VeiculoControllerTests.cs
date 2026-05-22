@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using SIGO.Controllers;
@@ -49,6 +50,97 @@ namespace SIGO.Tests.Controllers
             _veiculoServiceMock.Verify(s => s.GetByIdForOficina(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
+        [Fact]
+        public async Task AddImagens_DeveCadastrarImagemNoVeiculoDoClienteLogado()
+        {
+            var imagens = new List<IFormFile> { CriarImagem() };
+            var imagensSalvas = new List<VeiculoImagemDTO>
+            {
+                new()
+                {
+                    Id = 8,
+                    VeiculoId = 4,
+                    Url = "/api/veiculos/4/imagens/foto.png",
+                    NomeOriginal = "foto.png",
+                    ContentType = "image/png",
+                    TamanhoBytes = 12,
+                    CriadoEm = DateTime.UtcNow
+                }
+            };
+            _veiculoServiceMock
+                .Setup(s => s.AddImagensForCliente(
+                    4,
+                    5,
+                    It.Is<IReadOnlyCollection<IFormFile>>(files => files.Count == 1),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(imagensSalvas);
+
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.AddImagens(4, imagens, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<Response>(ok.Value);
+            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoImagemDTO>>(response.Data);
+            Assert.Single(data);
+            Assert.Equal(ResponseEnum.SUCCESS, response.Code);
+            _veiculoServiceMock.Verify(s => s.AddImagens(It.IsAny<int>(), It.IsAny<IReadOnlyCollection<IFormFile>>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AddImagens_DeveRetornarForbid_QuandoClienteNaoTemUserId()
+        {
+            var controller = CreateController(roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.AddImagens(4, new List<IFormFile> { CriarImagem() }, CancellationToken.None);
+
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(s => s.AddImagensForCliente(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<IReadOnlyCollection<IFormFile>>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteImagem_DeveRemoverImagemDoVeiculoDoClienteLogado()
+        {
+            _veiculoServiceMock
+                .Setup(s => s.RemoveImagemForCliente(4, 5, 8))
+                .Returns(Task.CompletedTask);
+
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.DeleteImagem(4, 8);
+
+            Assert.IsType<OkObjectResult>(result);
+            _veiculoServiceMock.Verify(s => s.RemoveImagemForCliente(4, 5, 8), Times.Once);
+            _veiculoServiceMock.Verify(s => s.RemoveImagem(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetImagemArquivo_DeveRetornarArquivoDoVeiculoDoClienteLogado()
+        {
+            var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            _veiculoServiceMock
+                .Setup(s => s.GetImagemArquivoForCliente(4, 5, "foto.png"))
+                .ReturnsAsync(new VeiculoImagemArquivoDTO
+                {
+                    Conteudo = stream,
+                    ContentType = "image/png",
+                    NomeOriginal = "foto.png"
+                });
+
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.GetImagemArquivo(4, "foto.png");
+
+            var file = Assert.IsType<FileStreamResult>(result);
+            Assert.Equal("image/png", file.ContentType);
+            Assert.True(file.EnableRangeProcessing);
+            _veiculoServiceMock.Verify(s => s.GetImagemArquivo(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+        }
+
         private VeiculoController CreateController(int? userId = null, int? oficinaId = null, params string[] roles)
         {
             var controller = new VeiculoController(
@@ -78,6 +170,23 @@ namespace SIGO.Tests.Controllers
                 Seguro = "Ativo",
                 Cor = "Preto",
                 ClienteId = clienteId
+            };
+        }
+
+        private static IFormFile CriarImagem()
+        {
+            var bytes = new byte[]
+            {
+                0x89, 0x50, 0x4E, 0x47,
+                0x0D, 0x0A, 0x1A, 0x0A,
+                0x00, 0x00, 0x00, 0x00
+            };
+            var stream = new MemoryStream(bytes);
+
+            return new FormFile(stream, 0, bytes.Length, "imagens", "foto.png")
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = "image/png"
             };
         }
     }
