@@ -12,7 +12,7 @@ namespace SIGO.Controllers
 {
     [Route("api/funcionarios")]
     [ApiController]
-    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+    [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
     public class FuncionarioController : ControllerBase
     {
         private readonly IFuncionarioService _funcionarioService;

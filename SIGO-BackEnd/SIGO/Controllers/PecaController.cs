@@ -74,7 +74,7 @@ namespace SIGO.Controllers
 
 
         [HttpPost]
-        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}, {SystemRoles.Funcionario}")]
         public async Task<IActionResult> Post(PecaDTO pecaDTO)
         {
             if (pecaDTO is null)
@@ -119,7 +119,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}, {SystemRoles.Funcionario}")]
         public async Task<IActionResult> Put(int id, PecaDTO pecaDTO)
         {
             if (pecaDTO is null)
@@ -181,7 +181,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}, {SystemRoles.Funcionario}")]
         public async Task<IActionResult> Delete(int id)
         {
             PecaDTO? clienteDTO;

@@ -98,7 +98,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPost]
-        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> Post(ServicoDTO serviceDTO)
         {
             if (serviceDTO is null)
@@ -143,7 +143,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}, {SystemRoles.Funcionario}")]
         public async Task<IActionResult> Put(int id, ServicoDTO servicoDTO)
         {
             if (servicoDTO is null)
@@ -207,7 +207,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> Delete(int id)
         {
             ServicoDTO? servicoDTO;

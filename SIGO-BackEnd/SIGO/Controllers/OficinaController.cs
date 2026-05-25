@@ -86,7 +86,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}, {SystemRoles.Funcionario}")]
         public async Task<IActionResult> Update(int id, [FromBody] OficinaRequestDTO oficinaDto)
         {
             if (oficinaDto == null)
@@ -133,7 +133,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = SystemRoles.Admin)]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
