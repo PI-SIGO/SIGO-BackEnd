@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
 using SIGO.Security;
-using SIGO.Utils;
 
 namespace SIGO.Services.Entities
 {
@@ -127,8 +126,7 @@ namespace SIGO.Services.Entities
                     v.Id == veiculoId &&
                     v.Cliente.ClienteOficinas.Any(co =>
                         co.OficinaId == oficinaId.Value &&
-                        co.Ativo &&
-                        co.DadosPermitidos.Contains($"\"{ClienteCompartilhamentoCampos.Veiculos}\"")));
+                        co.Ativo));
             }
 
             return false;
@@ -152,8 +150,7 @@ namespace SIGO.Services.Entities
             return await _context.ClienteOficinas.AnyAsync(co =>
                 co.ClienteId == vehicle.ClienteId &&
                 co.OficinaId == oficinaId.Value &&
-                co.Ativo &&
-                co.DadosPermitidos.Contains($"\"{ClienteCompartilhamentoCampos.CpfCnpj}\""));
+                co.Ativo);
         }
 
         private class ReportEntry

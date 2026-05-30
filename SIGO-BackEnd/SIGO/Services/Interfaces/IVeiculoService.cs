@@ -27,6 +27,11 @@ namespace SIGO.Services.Interfaces
             int clienteId,
             IReadOnlyCollection<IFormFile> imagens,
             CancellationToken cancellationToken = default);
+        Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagensForOficina(
+            int veiculoId,
+            int oficinaId,
+            IReadOnlyCollection<IFormFile> imagens,
+            CancellationToken cancellationToken = default);
         Task<VeiculoImagemArquivoDTO> GetImagemArquivo(int veiculoId, string nomeArquivo);
         Task<VeiculoImagemArquivoDTO> GetImagemArquivoForCliente(int veiculoId, int clienteId, string nomeArquivo);
         Task<VeiculoImagemArquivoDTO> GetImagemArquivoForOficina(int veiculoId, int oficinaId, string nomeArquivo);

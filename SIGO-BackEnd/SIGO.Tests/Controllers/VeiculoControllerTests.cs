@@ -51,6 +51,35 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public async Task Create_DeveCadastrarVeiculoParaClienteVinculadoDaOficina()
+        {
+            var veiculo = CriarVeiculoDto(id: 0, clienteId: 5);
+            _veiculoServiceMock
+                .Setup(s => s.CreateForOficina(veiculo, 2))
+                .Returns(Task.CompletedTask);
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.Create(veiculo);
+
+            Assert.IsType<OkObjectResult>(result);
+            _veiculoServiceMock.Verify(s => s.CreateForOficina(veiculo, 2), Times.Once);
+            _veiculoServiceMock.Verify(s => s.CreateForCliente(It.IsAny<VeiculoDTO>(), It.IsAny<int>()), Times.Never);
+            _veiculoServiceMock.Verify(s => s.Create(It.IsAny<VeiculoDTO>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Create_DeveRetornarForbid_QuandoOficinaNaoTemOficinaId()
+        {
+            var controller = CreateController(roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.Create(CriarVeiculoDto(id: 0, clienteId: 5));
+
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(s => s.CreateForOficina(It.IsAny<VeiculoDTO>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
         public async Task AddImagens_DeveCadastrarImagemNoVeiculoDoClienteLogado()
         {
             var imagens = new List<IFormFile> { CriarImagem() };
@@ -88,6 +117,46 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public async Task AddImagens_DeveCadastrarImagemNoVeiculoDaOficina()
+        {
+            var imagens = new List<IFormFile> { CriarImagem() };
+            var imagensSalvas = new List<VeiculoImagemDTO>
+            {
+                new()
+                {
+                    Id = 8,
+                    VeiculoId = 4,
+                    Url = "/api/veiculos/4/imagens/foto.png",
+                    NomeOriginal = "foto.png",
+                    ContentType = "image/png",
+                    TamanhoBytes = 12,
+                    CriadoEm = DateTime.UtcNow
+                }
+            };
+            _veiculoServiceMock
+                .Setup(s => s.AddImagensForOficina(
+                    4,
+                    2,
+                    It.Is<IReadOnlyCollection<IFormFile>>(files => files.Count == 1),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(imagensSalvas);
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.AddImagens(4, imagens, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<Response>(ok.Value);
+            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoImagemDTO>>(response.Data);
+            Assert.Single(data);
+            _veiculoServiceMock.Verify(s => s.AddImagensForOficina(
+                4,
+                2,
+                It.IsAny<IReadOnlyCollection<IFormFile>>(),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
         public async Task AddImagens_DeveRetornarForbid_QuandoClienteNaoTemUserId()
         {
             var controller = CreateController(roles: new[] { SystemRoles.Cliente });
@@ -100,6 +169,24 @@ namespace SIGO.Tests.Controllers
                 It.IsAny<int>(),
                 It.IsAny<IReadOnlyCollection<IFormFile>>(),
                 It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Update_DeveAtualizarVeiculoDaOficina()
+        {
+            var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
+            _veiculoServiceMock
+                .Setup(s => s.UpdateVeiculoForOficina(veiculo, 4, 2))
+                .Returns(Task.CompletedTask);
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.Update(4, veiculo);
+
+            Assert.IsType<OkObjectResult>(result);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(veiculo, 4, 2), Times.Once);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForCliente(It.IsAny<VeiculoDTO>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculo(It.IsAny<VeiculoDTO>(), It.IsAny<int>()), Times.Never);
         }
 
         [Fact]

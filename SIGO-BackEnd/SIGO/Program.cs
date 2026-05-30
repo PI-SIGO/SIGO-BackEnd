@@ -15,6 +15,7 @@ using Refit;
 using SIGO.Data;
 using SIGO.Data.Interfaces;
 using SIGO.Data.Repositories;
+using SIGO.Data.Seed;
 using SIGO.Errors;
 using SIGO.Filters;
 using SIGO.Integracao;
@@ -224,6 +225,7 @@ builder.Services.AddScoped<ICpfCnpjValidator, CpfCnpjValidator>();
 builder.Services.AddScoped<IViaCepIntegracao, ViaCepIntegracao>();
 builder.Services.AddScoped<IRegistroServicoRepository, RegistroServicoRepository>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 builder.Services.AddRefitClient<IViaCepIntegracaoRefit>()
     .ConfigureHttpClient(c =>
     {
@@ -287,6 +289,16 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+if (args.Contains("--seed", StringComparer.OrdinalIgnoreCase))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider
+        .GetRequiredService<DevelopmentDatabaseSeeder>()
+        .SeedAsync();
+
+    return;
+}
 
 app.UseForwardedHeaders();
 

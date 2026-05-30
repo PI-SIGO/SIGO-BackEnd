@@ -341,7 +341,8 @@ namespace SIGO.Controllers
                 Sexo = clienteDTO.Sexo,
                 TipoCliente = clienteDTO.TipoCliente,
                 Situacao = clienteDTO.Situacao,
-                Telefones = clienteDTO.Telefones
+                Telefones = clienteDTO.Telefones,
+                Veiculos = clienteDTO.Veiculos
             };
         }
 

@@ -5,6 +5,7 @@ using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Security;
 using SIGO.Services.Entities;
+using SIGO.Services.Interfaces;
 using SIGO.Validation;
 using Xunit;
 
@@ -242,6 +243,77 @@ namespace SIGO.Tests.Services
             Assert.Equal("Atualizado", pedido.Observacao);
         }
 
+        [Fact]
+        public async Task VeiculoUpdateForOficina_DevePreservarClienteId_QuandoDtoNaoEnviaClienteId()
+        {
+            var veiculo = new Veiculo
+            {
+                Id = 2,
+                ClienteId = 5,
+                NomeVeiculo = "Original",
+                TipoVeiculo = "Hatch",
+                PlacaVeiculo = "ABC1234",
+                ChassiVeiculo = "CHASSI123",
+                AnoFab = 2020,
+                Quilometragem = 1000,
+                Combustivel = "Gasolina",
+                Seguro = "Ativo",
+                Cor = "Preto"
+            };
+            var veiculoRepository = new Mock<IVeiculoRepository>();
+            veiculoRepository.Setup(r => r.GetByIdForOficina(2, 7)).ReturnsAsync(veiculo);
+            veiculoRepository.Setup(r => r.SaveChanges()).ReturnsAsync(1);
+
+            var clienteRepository = new Mock<IClienteRepository>();
+            clienteRepository.Setup(r => r.ExistsInOficina(5, 7)).ReturnsAsync(true);
+            var service = CreateVeiculoService(veiculoRepository.Object, clienteRepository.Object);
+
+            await service.UpdateVeiculoForOficina(new VeiculoDTO
+            {
+                ClienteId = 0,
+                NomeVeiculo = "Atualizado",
+                TipoVeiculo = "Sedan",
+                PlacaVeiculo = "DEF5678",
+                ChassiVeiculo = "CHASSI456",
+                AnoFab = 2021,
+                Quilometragem = 2000,
+                Combustivel = "Flex",
+                Seguro = "Ativo",
+                Cor = "Branco"
+            }, 2, 7);
+
+            Assert.Equal(5, veiculo.ClienteId);
+            Assert.Equal("Atualizado", veiculo.NomeVeiculo);
+            clienteRepository.Verify(r => r.ExistsInOficina(5, 7), Times.Once);
+            veiculoRepository.Verify(r => r.SaveChanges(), Times.Once);
+        }
+
+        [Fact]
+        public async Task VeiculoUpdateForOficina_DeveRejeitarTrocaDeCliente()
+        {
+            var veiculo = new Veiculo { Id = 2, ClienteId = 5 };
+            var veiculoRepository = new Mock<IVeiculoRepository>();
+            veiculoRepository.Setup(r => r.GetByIdForOficina(2, 7)).ReturnsAsync(veiculo);
+            var clienteRepository = new Mock<IClienteRepository>();
+            var service = CreateVeiculoService(veiculoRepository.Object, clienteRepository.Object);
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() => service.UpdateVeiculoForOficina(
+                new VeiculoDTO
+                {
+                    ClienteId = 99,
+                    NomeVeiculo = "Atualizado"
+                },
+                2,
+                7));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(VeiculoDTO.ClienteId) &&
+                error.Message == "Cliente do veiculo nao pode ser alterado.");
+            Assert.Equal(5, veiculo.ClienteId);
+            clienteRepository.Verify(r => r.ExistsInOficina(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+            veiculoRepository.Verify(r => r.SaveChanges(), Times.Never);
+        }
+
         private static ClienteService CreateClienteService(
             IClienteRepository clienteRepository,
             ITelefoneRepository telefoneRepository = null,
@@ -260,6 +332,17 @@ namespace SIGO.Tests.Services
                 Mock.Of<IClienteOficinaRepository>(),
                 null,
                 passwordHasher ?? Mock.Of<IPasswordHasher>());
+        }
+
+        private static VeiculoService CreateVeiculoService(
+            IVeiculoRepository veiculoRepository,
+            IClienteRepository clienteRepository)
+        {
+            return new VeiculoService(
+                veiculoRepository,
+                Mock.Of<IMapper>(),
+                clienteRepository,
+                Mock.Of<IVeiculoImagemStorageService>());
         }
     }
 }

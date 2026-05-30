@@ -13,7 +13,6 @@ namespace SIGO.Data.Interfaces
         Task<Cliente?> GetByEmail(string email);
         Task UpdatePasswordHash(int id, string passwordHash);
         Task<bool> ExistsInOficina(int clienteId, int oficinaId);
-        Task<bool> AllowsFieldInOficina(int clienteId, int oficinaId, string campo);
         Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null);
         Task<bool> ExistsByNome(string nome, int? ignoreId = null);
         Task<bool> ExistsByEmail(string email, int? ignoreId = null);

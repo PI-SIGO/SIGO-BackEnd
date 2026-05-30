@@ -149,11 +149,6 @@ namespace SIGO.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("DadosPermitidos")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("dados_permitidos");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -190,11 +185,6 @@ namespace SIGO.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("codigo_hash");
-
-                    b.Property<string>("DadosPermitidos")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("dados_permitidos");
 
                     b.Property<DateTime>("ExpiraEm")
                         .HasColumnType("timestamp with time zone")

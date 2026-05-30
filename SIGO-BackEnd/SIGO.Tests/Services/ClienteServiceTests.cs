@@ -5,7 +5,6 @@ using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Security;
 using SIGO.Services.Entities;
-using SIGO.Utils;
 using SIGO.Validation;
 using Xunit;
 
@@ -45,7 +44,7 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task GetByIdWithDetailsForOficina_DeveRetornarSomenteCamposPermitidos()
+        public async Task GetByIdWithDetailsForOficina_DeveRetornarDadosCompletos_QuandoClienteEstaVinculado()
         {
             var service = CreateService();
             var cliente = new Cliente
@@ -61,8 +60,7 @@ namespace SIGO.Tests.Services
                     {
                         OficinaId = 2,
                         ClienteId = 7,
-                        Ativo = true,
-                        DadosPermitidos = ClienteCompartilhamentoCampos.Serializar(new[] { ClienteCompartilhamentoCampos.Nome })
+                        Ativo = true
                     }
                 },
                 Telefones = new List<Telefone>
@@ -76,16 +74,22 @@ namespace SIGO.Tests.Services
             };
 
             _clienteRepositoryMock.Setup(r => r.GetByIdWithDetailsForOficina(7, 2)).ReturnsAsync(cliente);
+            _mapperMock
+                .Setup(m => m.Map<List<TelefoneDTO>>(cliente.Telefones))
+                .Returns(new List<TelefoneDTO> { new() { Id = 1, DDD = 11, Numero = "999999999", ClienteId = 7 } });
+            _mapperMock
+                .Setup(m => m.Map<List<VeiculoDTO>>(cliente.Veiculos))
+                .Returns(new List<VeiculoDTO> { new() { Id = 1, ClienteId = 7, NomeVeiculo = "Carro" } });
 
             var result = await service.GetByIdWithDetailsForOficina(7, 2);
 
             Assert.NotNull(result);
             Assert.Equal(7, result!.Id);
             Assert.Equal("Cliente Permitido", result.Nome);
-            Assert.Null(result.Email);
-            Assert.Null(result.Cpf_Cnpj);
-            Assert.Null(result.Telefones);
-            Assert.Null(result.Veiculos);
+            Assert.Equal("cliente@test.com", result.Email);
+            Assert.Equal("12345678901", result.Cpf_Cnpj);
+            Assert.Single(result.Telefones!);
+            Assert.Single(result.Veiculos!);
         }
 
         [Fact]
@@ -108,23 +112,14 @@ namespace SIGO.Tests.Services
                 .Setup(m => m.Map<ClienteDTO>(clienteExistente))
                 .Returns(new ClienteDTO { Id = 10, Nome = dto.Nome, Email = dto.Email, Cpf_Cnpj = dto.Cpf_Cnpj });
             _clienteOficinaRepositoryMock
-                .Setup(r => r.AddOrUpdatePermissoesAsync(3, 10, It.IsAny<string>()))
+                .Setup(r => r.AddOrUpdateVinculoAsync(3, 10))
                 .Returns(Task.CompletedTask);
 
             var result = await service.CreateForOficina(dto, 3);
 
             Assert.Equal(10, result.Id);
             _clienteRepositoryMock.Verify(r => r.Add(It.IsAny<Cliente>()), Times.Never);
-            _clienteOficinaRepositoryMock.Verify(r => r.AddOrUpdatePermissoesAsync(
-                3,
-                10,
-                It.Is<string>(dados =>
-                    dados.Contains(ClienteCompartilhamentoCampos.Nome) &&
-                    dados.Contains(ClienteCompartilhamentoCampos.Email) &&
-                    dados.Contains(ClienteCompartilhamentoCampos.CpfCnpj) &&
-                    dados.Contains(ClienteCompartilhamentoCampos.Telefones) &&
-                    dados.Contains(ClienteCompartilhamentoCampos.Veiculos))),
-                Times.Once);
+            _clienteOficinaRepositoryMock.Verify(r => r.AddOrUpdateVinculoAsync(3, 10), Times.Once);
         }
 
         [Fact]
@@ -146,10 +141,9 @@ namespace SIGO.Tests.Services
 
             await Assert.ThrowsAsync<BusinessValidationException>(() => service.CreateForOficina(dto, 3));
 
-            _clienteOficinaRepositoryMock.Verify(r => r.AddOrUpdatePermissoesAsync(
+            _clienteOficinaRepositoryMock.Verify(r => r.AddOrUpdateVinculoAsync(
                 It.IsAny<int>(),
-                It.IsAny<int>(),
-                It.IsAny<string>()),
+                It.IsAny<int>()),
                 Times.Never);
         }
 

@@ -142,25 +142,34 @@ namespace SIGO.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Create(VeiculoDTO veiculoDto)
         {
-            if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
-                return Forbid();
-
             try
             {
                 if (_currentUserService.IsInRole(SystemRoles.Admin))
                 {
                     await _veiculoService.Create(veiculoDto);
                 }
-                else
+                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
                 {
                     var clienteId = _currentUserService.UserId;
                     if (!clienteId.HasValue)
                         return Forbid();
 
                     await _veiculoService.CreateForCliente(veiculoDto, clienteId.Value);
+                }
+                else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    await _veiculoService.CreateForOficina(veiculoDto, oficinaId.Value);
+                }
+                else
+                {
+                    return Forbid();
                 }
 
                 return Ok(new { Message = "Veículo cadastrado com sucesso" });
@@ -173,15 +182,12 @@ namespace SIGO.Controllers
 
         [HttpPost("{id:int}/imagens")]
         [Consumes("multipart/form-data")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
         public async Task<IActionResult> AddImagens(
             int id,
             [FromForm] List<IFormFile> imagens,
             CancellationToken cancellationToken)
         {
-            if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
-                return Forbid();
-
             try
             {
                 IReadOnlyCollection<VeiculoImagemDTO> imagensSalvas;
@@ -190,7 +196,7 @@ namespace SIGO.Controllers
                 {
                     imagensSalvas = await _veiculoService.AddImagens(id, imagens, cancellationToken);
                 }
-                else
+                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
                 {
                     var clienteId = _currentUserService.UserId;
                     if (!clienteId.HasValue)
@@ -201,6 +207,22 @@ namespace SIGO.Controllers
                         clienteId.Value,
                         imagens,
                         cancellationToken);
+                }
+                else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    imagensSalvas = await _veiculoService.AddImagensForOficina(
+                        id,
+                        oficinaId.Value,
+                        imagens,
+                        cancellationToken);
+                }
+                else
+                {
+                    return Forbid();
                 }
 
                 _response.Code = ResponseEnum.SUCCESS;
@@ -275,7 +297,7 @@ namespace SIGO.Controllers
                 {
                     await _veiculoService.RemoveImagem(veiculoId, imagemId);
                 }
-                else
+                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
                 {
                     var clienteId = _currentUserService.UserId;
                     if (!clienteId.HasValue)
@@ -293,25 +315,34 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Update(int id, VeiculoDTO veiculoDto)
         {
-            if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
-                return Forbid();
-
             try
             {
                 if (_currentUserService.IsInRole(SystemRoles.Admin))
                 {
                     await _veiculoService.UpdateVeiculo(veiculoDto, id);
                 }
-                else
+                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
                 {
                     var clienteId = _currentUserService.UserId;
                     if (!clienteId.HasValue)
                         return Forbid();
 
                     await _veiculoService.UpdateVeiculoForCliente(veiculoDto, id, clienteId.Value);
+                }
+                else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                {
+                    var oficinaId = _currentUserService.OficinaId;
+                    if (!oficinaId.HasValue)
+                        return Forbid();
+
+                    await _veiculoService.UpdateVeiculoForOficina(veiculoDto, id, oficinaId.Value);
+                }
+                else
+                {
+                    return Forbid();
                 }
 
                 return Ok(new { Message = "Veículo atualizado com sucesso" });

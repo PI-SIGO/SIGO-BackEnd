@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
-using SIGO.Utils;
 
 namespace SIGO.Data.Repositories
 {
@@ -31,7 +30,6 @@ namespace SIGO.Data.Repositories
                 OficinaId = oficinaId,
                 ClienteId = clienteId,
                 Ativo = true,
-                DadosPermitidos = ClienteCompartilhamentoCampos.Serializar(new[] { ClienteCompartilhamentoCampos.Nome }),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             });
@@ -39,7 +37,7 @@ namespace SIGO.Data.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task AddOrUpdatePermissoesAsync(int oficinaId, int clienteId, string dadosPermitidos)
+        public async Task AddOrUpdateVinculoAsync(int oficinaId, int clienteId)
         {
             var agora = DateTime.UtcNow;
             var relacionamento = await _context.ClienteOficinas
@@ -52,7 +50,6 @@ namespace SIGO.Data.Repositories
                     OficinaId = oficinaId,
                     ClienteId = clienteId,
                     Ativo = true,
-                    DadosPermitidos = dadosPermitidos,
                     CreatedAt = agora,
                     UpdatedAt = agora
                 });
@@ -60,7 +57,6 @@ namespace SIGO.Data.Repositories
             else
             {
                 relacionamento.Ativo = true;
-                relacionamento.DadosPermitidos = dadosPermitidos;
                 relacionamento.UpdatedAt = agora;
             }
 

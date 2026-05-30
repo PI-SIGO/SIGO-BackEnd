@@ -12,8 +12,8 @@ using SIGO.Data;
 namespace SIGO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260508133248_SyncModelSnapshot")]
-    partial class SyncModelSnapshot
+    [Migration("20260527163546_AtualizandoOBanco")]
+    partial class AtualizandoOBanco
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -931,6 +931,63 @@ namespace SIGO.Migrations
                     b.ToTable("veiculo");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.VeiculoImagem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("NomeArquivo")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<string>("NomeOriginal")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nome_original");
+
+                    b.Property<long>("TamanhoBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tamanho_bytes");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("url");
+
+                    b.Property<int>("VeiculoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_veiculo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NomeArquivo")
+                        .IsUnique()
+                        .HasDatabaseName("IX_veiculo_imagem_nome_arquivo");
+
+                    b.HasIndex("VeiculoId", "CriadoEm")
+                        .HasDatabaseName("IX_veiculo_imagem_veiculo_criado_em");
+
+                    b.ToTable("veiculo_imagem");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.ClienteOficina", b =>
                 {
                     b.HasOne("SIGO.Objects.Models.Cliente", "Cliente")
@@ -1177,6 +1234,17 @@ namespace SIGO.Migrations
                     b.Navigation("Cliente");
                 });
 
+            modelBuilder.Entity("SIGO.Objects.Models.VeiculoImagem", b =>
+                {
+                    b.HasOne("SIGO.Objects.Models.Veiculo", "Veiculo")
+                        .WithMany("Imagens")
+                        .HasForeignKey("VeiculoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Veiculo");
+                });
+
             modelBuilder.Entity("SIGO.Objects.Models.Cliente", b =>
                 {
                     b.Navigation("ClienteOficinas");
@@ -1229,6 +1297,8 @@ namespace SIGO.Migrations
 
             modelBuilder.Entity("SIGO.Objects.Models.Veiculo", b =>
                 {
+                    b.Navigation("Imagens");
+
                     b.Navigation("Marcas");
 
                     b.Navigation("RegistroServicos");

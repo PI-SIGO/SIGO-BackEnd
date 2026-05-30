@@ -99,17 +99,6 @@ namespace SIGO.Data.Repositories
                 .AnyAsync(co => co.ClienteId == clienteId && co.OficinaId == oficinaId && co.Ativo);
         }
 
-        public async Task<bool> AllowsFieldInOficina(int clienteId, int oficinaId, string campo)
-        {
-            var campoJson = $"\"{campo}\"";
-            return await _context.ClienteOficinas
-                .AnyAsync(co =>
-                    co.ClienteId == clienteId &&
-                    co.OficinaId == oficinaId &&
-                    co.Ativo &&
-                    co.DadosPermitidos.Contains(campoJson));
-        }
-
         public async Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null)
         {
             var documentoNormalizado = SomenteDigitos(cpfCnpj);

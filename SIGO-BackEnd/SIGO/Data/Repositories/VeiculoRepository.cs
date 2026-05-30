@@ -137,8 +137,7 @@ namespace SIGO.Data.Repositories
                 .Include(v => v.Imagens)
                 .Where(v => v.Cliente.ClienteOficinas.Any(co =>
                     co.OficinaId == oficinaId &&
-                    co.Ativo &&
-                    co.DadosPermitidos.Contains("\"Veiculos\"")));
+                    co.Ativo));
         }
     }
 }

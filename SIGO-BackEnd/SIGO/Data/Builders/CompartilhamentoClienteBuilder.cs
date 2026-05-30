@@ -9,7 +9,6 @@ namespace SIGO.Data.Builders
         {
             modelBuilder.Entity<CompartilhamentoCliente>().HasKey(c => c.Id);
             modelBuilder.Entity<CompartilhamentoCliente>().Property(c => c.CodigoHash).IsRequired().HasMaxLength(128);
-            modelBuilder.Entity<CompartilhamentoCliente>().Property(c => c.DadosPermitidos).IsRequired();
             modelBuilder.Entity<CompartilhamentoCliente>().Property(c => c.ExpiraEm).IsRequired();
             modelBuilder.Entity<CompartilhamentoCliente>().Property(c => c.Ativo).IsRequired();
 

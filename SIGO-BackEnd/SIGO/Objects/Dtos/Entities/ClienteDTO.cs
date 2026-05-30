@@ -30,6 +30,7 @@ namespace SIGO.Objects.Dtos.Entities
         public int Situacao { get; set; }
 
         public List<TelefoneDTO> Telefones { get; set; } = new();
+        public List<VeiculoDTO> Veiculos { get; set; } = new();
 
     }
 }

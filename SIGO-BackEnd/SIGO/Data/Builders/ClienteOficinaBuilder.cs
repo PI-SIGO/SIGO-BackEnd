@@ -9,7 +9,6 @@ namespace SIGO.Data.Builders
         {
             modelBuilder.Entity<ClienteOficina>().HasKey(co => new { co.OficinaId, co.ClienteId });
             modelBuilder.Entity<ClienteOficina>().Property(co => co.Ativo).IsRequired();
-            modelBuilder.Entity<ClienteOficina>().Property(co => co.DadosPermitidos).IsRequired();
             modelBuilder.Entity<ClienteOficina>().Property(co => co.CreatedAt).IsRequired();
             modelBuilder.Entity<ClienteOficina>().Property(co => co.UpdatedAt).IsRequired();
 

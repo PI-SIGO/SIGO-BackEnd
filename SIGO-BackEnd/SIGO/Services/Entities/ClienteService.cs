@@ -6,7 +6,6 @@ using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
-using SIGO.Utils;
 using SIGO.Validation;
 using System.Linq;
 
@@ -164,11 +163,6 @@ namespace SIGO.Services.Entities
             return await _clienteRepository.ExistsInOficina(clienteId, oficinaId);
         }
 
-        public async Task<bool> AllowsFieldInOficina(int clienteId, int oficinaId, string campo)
-        {
-            return await _clienteRepository.AllowsFieldInOficina(clienteId, oficinaId, campo);
-        }
-
         public async Task ValidarCpfCnpj(string? documento, int? ignoreId = null)
         {
             var errors = new List<ValidationError>();
@@ -250,10 +244,7 @@ namespace SIGO.Services.Entities
                 cliente = await _clienteRepository.Add(cliente);
             }
 
-            await _clienteOficinaRepository.AddOrUpdatePermissoesAsync(
-                oficinaId,
-                cliente.Id,
-                ClienteCompartilhamentoCampos.Serializar(ClienteCompartilhamentoCampos.Todos));
+            await _clienteOficinaRepository.AddOrUpdateVinculoAsync(oficinaId, cliente.Id);
 
             return _mapper.Map<ClienteDTO>(cliente);
         }
@@ -444,28 +435,29 @@ namespace SIGO.Services.Entities
             if (relacionamento is null)
                 return null;
 
-            var campos = ClienteCompartilhamentoCampos.Deserializar(relacionamento.DadosPermitidos);
-            var dto = new ClienteOficinaDTO
+            return new ClienteOficinaDTO
             {
-                Id = cliente.Id
+                Id = cliente.Id,
+                Nome = cliente.Nome,
+                Email = cliente.Email,
+                Cpf_Cnpj = cliente.Cpf_Cnpj,
+                Obs = cliente.Obs,
+                razao = cliente.Razao,
+                DataNasc = cliente.DataNasc,
+                Numero = cliente.Numero,
+                Rua = cliente.Rua,
+                Cidade = cliente.Cidade,
+                Cep = cliente.Cep,
+                Bairro = cliente.Bairro,
+                Estado = cliente.Estado,
+                Pais = cliente.Pais,
+                Complemento = cliente.Complemento,
+                Sexo = (int)cliente.Sexo,
+                TipoCliente = (int)cliente.TipoCliente,
+                Situacao = (int)cliente.Situacao,
+                Telefones = _mapper.Map<List<TelefoneDTO>>(cliente.Telefones),
+                Veiculos = _mapper.Map<List<VeiculoDTO>>(cliente.Veiculos)
             };
-
-            if (campos.Contains(ClienteCompartilhamentoCampos.Nome))
-                dto.Nome = cliente.Nome;
-
-            if (campos.Contains(ClienteCompartilhamentoCampos.Email))
-                dto.Email = cliente.Email;
-
-            if (campos.Contains(ClienteCompartilhamentoCampos.CpfCnpj))
-                dto.Cpf_Cnpj = cliente.Cpf_Cnpj;
-
-            if (campos.Contains(ClienteCompartilhamentoCampos.Telefones))
-                dto.Telefones = _mapper.Map<List<TelefoneDTO>>(cliente.Telefones);
-
-            if (campos.Contains(ClienteCompartilhamentoCampos.Veiculos))
-                dto.Veiculos = _mapper.Map<List<VeiculoDTO>>(cliente.Veiculos);
-
-            return dto;
         }
 
         private static void ApplyUpdate(Cliente existing, ClienteDTO clienteDTO)

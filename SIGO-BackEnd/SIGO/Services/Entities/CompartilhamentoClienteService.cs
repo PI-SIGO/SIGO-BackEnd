@@ -4,7 +4,6 @@ using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
-using SIGO.Utils;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -39,7 +38,7 @@ namespace SIGO.Services.Entities
 
         public async Task<CompartilhamentoClienteCodigoDTO> CriarCodigo(int clienteId, CriarCompartilhamentoClienteDTO dto)
         {
-            var campos = ClienteCompartilhamentoCampos.Normalizar(dto?.DadosPermitidos);
+            _ = dto;
             var codigo = await GerarCodigoUnico();
             var expiraEm = DateTime.UtcNow.AddMinutes(15);
 
@@ -47,7 +46,6 @@ namespace SIGO.Services.Entities
             {
                 ClienteId = clienteId,
                 CodigoHash = HashCodigo(codigo),
-                DadosPermitidos = ClienteCompartilhamentoCampos.Serializar(campos),
                 ExpiraEm = expiraEm,
                 Ativo = true
             });
@@ -92,13 +90,9 @@ namespace SIGO.Services.Entities
                 var compartilhamento = await _compartilhamentoRepository.RedeemValidByCodeHashAsync(codigoHash, agora);
                 if (compartilhamento is not null)
                 {
-                    var campos = ClienteCompartilhamentoCampos.Normalizar(
-                        ClienteCompartilhamentoCampos.Deserializar(compartilhamento.DadosPermitidos));
-
-                    await _clienteOficinaRepository.AddOrUpdatePermissoesAsync(
+                    await _clienteOficinaRepository.AddOrUpdateVinculoAsync(
                         oficinaId,
-                        compartilhamento.ClienteId,
-                        ClienteCompartilhamentoCampos.Serializar(campos));
+                        compartilhamento.ClienteId);
 
                     await RegistrarTentativa(oficinaId, codigoHash, ipAddress, true, "Sucesso");
                     await transaction.CommitAsync();
@@ -106,7 +100,7 @@ namespace SIGO.Services.Entities
                     return new CompartilhamentoClienteResultadoDTO
                     {
                         ClienteId = compartilhamento.ClienteId,
-                        Dados = FiltrarDados(compartilhamento.Cliente, campos)
+                        Dados = MapearDadosCompletos(compartilhamento.Cliente)
                     };
                 }
             }
@@ -127,51 +121,48 @@ namespace SIGO.Services.Entities
             throw new InvalidOperationException("Não foi possível gerar um código único.");
         }
 
-        private static Dictionary<string, object?> FiltrarDados(Cliente cliente, IEnumerable<string> campos)
+        private static Dictionary<string, object?> MapearDadosCompletos(Cliente cliente)
         {
-            var dados = new Dictionary<string, object?>();
-
-            foreach (var campo in campos)
+            return new Dictionary<string, object?>
             {
-                switch (campo)
+                ["Nome"] = cliente.Nome,
+                ["Email"] = cliente.Email,
+                ["Cpf_Cnpj"] = cliente.Cpf_Cnpj,
+                ["Obs"] = cliente.Obs,
+                ["Razao"] = cliente.Razao,
+                ["DataNasc"] = cliente.DataNasc,
+                ["Numero"] = cliente.Numero,
+                ["Rua"] = cliente.Rua,
+                ["Cidade"] = cliente.Cidade,
+                ["Cep"] = cliente.Cep,
+                ["Bairro"] = cliente.Bairro,
+                ["Estado"] = cliente.Estado,
+                ["Pais"] = cliente.Pais,
+                ["Complemento"] = cliente.Complemento,
+                ["Sexo"] = cliente.Sexo,
+                ["TipoCliente"] = cliente.TipoCliente,
+                ["Situacao"] = cliente.Situacao,
+                ["Telefones"] = cliente.Telefones.Select(t => new
                 {
-                    case ClienteCompartilhamentoCampos.Nome:
-                        dados[campo] = cliente.Nome;
-                        break;
-                    case ClienteCompartilhamentoCampos.Email:
-                        dados[campo] = cliente.Email;
-                        break;
-                    case ClienteCompartilhamentoCampos.CpfCnpj:
-                        dados[campo] = cliente.Cpf_Cnpj;
-                        break;
-                    case ClienteCompartilhamentoCampos.Telefones:
-                        dados[campo] = cliente.Telefones.Select(t => new
-                        {
-                            t.Id,
-                            t.DDD,
-                            t.Numero
-                        }).ToList();
-                        break;
-                    case ClienteCompartilhamentoCampos.Veiculos:
-                        dados[campo] = cliente.Veiculos.Select(v => new
-                        {
-                            v.Id,
-                            v.NomeVeiculo,
-                            v.TipoVeiculo,
-                            v.PlacaVeiculo,
-                            v.ChassiVeiculo,
-                            v.AnoFab,
-                            v.Quilometragem,
-                            v.Combustivel,
-                            v.Seguro,
-                            v.Cor,
-                            v.Status
-                        }).ToList();
-                        break;
-                }
-            }
-
-            return dados;
+                    t.Id,
+                    t.DDD,
+                    t.Numero
+                }).ToList(),
+                ["Veiculos"] = cliente.Veiculos.Select(v => new
+                {
+                    v.Id,
+                    v.NomeVeiculo,
+                    v.TipoVeiculo,
+                    v.PlacaVeiculo,
+                    v.ChassiVeiculo,
+                    v.AnoFab,
+                    v.Quilometragem,
+                    v.Combustivel,
+                    v.Seguro,
+                    v.Cor,
+                    v.Status
+                }).ToList()
+            };
         }
 
         private async Task RegistrarTentativa(int oficinaId, string codigoHash, string? ipAddress, bool sucesso, string motivo)

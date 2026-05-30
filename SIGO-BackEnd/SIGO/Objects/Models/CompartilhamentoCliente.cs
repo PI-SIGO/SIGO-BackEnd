@@ -16,9 +16,6 @@ namespace SIGO.Objects.Models
         [Column("codigo_hash")]
         public string CodigoHash { get; set; }
 
-        [Column("dados_permitidos")]
-        public string DadosPermitidos { get; set; }
-
         [Column("expira_em")]
         public DateTime ExpiraEm { get; set; }
 

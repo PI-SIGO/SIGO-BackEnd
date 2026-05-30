@@ -74,11 +74,88 @@ namespace SIGO.Tests.Services
             Assert.Equal(0, repository.TransactionsCommitted);
         }
 
+        [Fact]
+        public async Task ResgatarCodigo_DeveVincularClienteComAcessoCompleto_QuandoCodigoForValido()
+        {
+            var repository = new FakeCompartilhamentoClienteRepository
+            {
+                CompartilhamentoParaResgate = new CompartilhamentoCliente
+                {
+                    ClienteId = 12,
+                    Cliente = new Cliente
+                    {
+                        Id = 12,
+                        Nome = "Cliente Vinculado",
+                        Email = "cliente@test.com",
+                        Cpf_Cnpj = "52998224725",
+                        Obs = "Observacao",
+                        Razao = "Cliente Vinculado",
+                        DataNasc = new DateOnly(1990, 1, 1),
+                        Numero = 10,
+                        Rua = "Rua Teste",
+                        Cidade = "Sao Paulo",
+                        Cep = "01001000",
+                        Bairro = "Centro",
+                        Estado = "SP",
+                        Pais = "Brasil",
+                        Complemento = "Apto 1",
+                        Telefones = new List<Telefone>
+                        {
+                            new() { Id = 1, DDD = 11, Numero = "999999999", ClienteId = 12 }
+                        },
+                        Veiculos = new List<Veiculo>
+                        {
+                            new() { Id = 7, ClienteId = 12, NomeVeiculo = "Carro" }
+                        }
+                    }
+                }
+            };
+            var clienteOficinaRepository = new FakeClienteOficinaRepository();
+            var service = CreateService(repository, clienteOficinaRepository);
+
+            var result = await service.ResgatarCodigo(
+                3,
+                new ResgatarCompartilhamentoClienteDTO { Codigo = "123456" },
+                "203.0.113.10");
+
+            Assert.Equal(12, result.ClienteId);
+            Assert.Equal(3, clienteOficinaRepository.OficinaVinculada);
+            Assert.Equal(12, clienteOficinaRepository.ClienteVinculado);
+            Assert.Contains("Nome", result.Dados.Keys);
+            Assert.Contains("Email", result.Dados.Keys);
+            Assert.Contains("Cpf_Cnpj", result.Dados.Keys);
+            Assert.Contains("Obs", result.Dados.Keys);
+            Assert.Contains("Razao", result.Dados.Keys);
+            Assert.Contains("DataNasc", result.Dados.Keys);
+            Assert.Contains("Numero", result.Dados.Keys);
+            Assert.Contains("Rua", result.Dados.Keys);
+            Assert.Contains("Cidade", result.Dados.Keys);
+            Assert.Contains("Cep", result.Dados.Keys);
+            Assert.Contains("Bairro", result.Dados.Keys);
+            Assert.Contains("Estado", result.Dados.Keys);
+            Assert.Contains("Pais", result.Dados.Keys);
+            Assert.Contains("Complemento", result.Dados.Keys);
+            Assert.Contains("Sexo", result.Dados.Keys);
+            Assert.Contains("TipoCliente", result.Dados.Keys);
+            Assert.Contains("Situacao", result.Dados.Keys);
+            Assert.Contains("Telefones", result.Dados.Keys);
+            Assert.Contains("Veiculos", result.Dados.Keys);
+            Assert.DoesNotContain("Senha", result.Dados.Keys);
+            Assert.Equal(1, repository.TransactionsCommitted);
+        }
+
         private static CompartilhamentoClienteService CreateService(FakeCompartilhamentoClienteRepository repository)
+        {
+            return CreateService(repository, new FakeClienteOficinaRepository());
+        }
+
+        private static CompartilhamentoClienteService CreateService(
+            FakeCompartilhamentoClienteRepository repository,
+            FakeClienteOficinaRepository clienteOficinaRepository)
         {
             return new CompartilhamentoClienteService(
                 repository,
-                new FakeClienteOficinaRepository(),
+                clienteOficinaRepository,
                 Options.Create(new CompartilhamentoClienteOptions
                 {
                     CodigoHmacSecret = "12345678901234567890123456789012"
@@ -94,6 +171,7 @@ namespace SIGO.Tests.Services
             public int RedeemValidCalls { get; private set; }
             public int TransactionsCommitted { get; private set; }
             public int TransactionsRolledBack { get; private set; }
+            public CompartilhamentoCliente? CompartilhamentoParaResgate { get; set; }
 
             public IReadOnlyList<CompartilhamentoClienteTentativa> TentativasPersistidas => _tentativasPersistidas;
 
@@ -129,7 +207,7 @@ namespace SIGO.Tests.Services
             public Task<CompartilhamentoCliente?> RedeemValidByCodeHashAsync(string codigoHash, DateTime agoraUtc)
             {
                 RedeemValidCalls++;
-                return Task.FromResult<CompartilhamentoCliente?>(null);
+                return Task.FromResult(CompartilhamentoParaResgate);
             }
 
             public Task AddTentativaAsync(CompartilhamentoClienteTentativa tentativa)
@@ -202,6 +280,9 @@ namespace SIGO.Tests.Services
 
         private sealed class FakeClienteOficinaRepository : IClienteOficinaRepository
         {
+            public int? OficinaVinculada { get; private set; }
+            public int? ClienteVinculado { get; private set; }
+
             public Task<bool> ExistsAsync(int oficinaId, int clienteId)
             {
                 throw new NotSupportedException();
@@ -212,10 +293,13 @@ namespace SIGO.Tests.Services
                 throw new NotSupportedException();
             }
 
-            public Task AddOrUpdatePermissoesAsync(int oficinaId, int clienteId, string dadosPermitidos)
+            public Task AddOrUpdateVinculoAsync(int oficinaId, int clienteId)
             {
-                throw new NotSupportedException();
+                OficinaVinculada = oficinaId;
+                ClienteVinculado = clienteId;
+                return Task.CompletedTask;
             }
+
         }
     }
 }

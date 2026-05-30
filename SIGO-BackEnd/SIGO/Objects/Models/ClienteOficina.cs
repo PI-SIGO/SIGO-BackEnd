@@ -18,9 +18,6 @@ namespace SIGO.Objects.Models
         [Column("ativo")]
         public bool Ativo { get; set; } = true;
 
-        [Column("dados_permitidos")]
-        public string DadosPermitidos { get; set; } = string.Empty;
-
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

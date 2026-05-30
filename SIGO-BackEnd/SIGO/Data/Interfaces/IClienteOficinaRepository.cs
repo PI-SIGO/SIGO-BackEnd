@@ -4,6 +4,6 @@ namespace SIGO.Data.Interfaces
     {
         Task<bool> ExistsAsync(int oficinaId, int clienteId);
         Task AddIfNotExistsAsync(int oficinaId, int clienteId);
-        Task AddOrUpdatePermissoesAsync(int oficinaId, int clienteId, string dadosPermitidos);
+        Task AddOrUpdateVinculoAsync(int oficinaId, int clienteId);
     }
 }

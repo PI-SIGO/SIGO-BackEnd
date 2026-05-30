@@ -213,7 +213,7 @@ namespace SIGO.Controllers
         {
             var oficinaId = _currentUserService.OficinaId;
             return oficinaId.HasValue &&
-                await _clienteService.AllowsFieldInOficina(clienteId, oficinaId.Value, ClienteCompartilhamentoCampos.Telefones);
+                await _clienteService.ExistsInOficina(clienteId, oficinaId.Value);
         }
 
     }

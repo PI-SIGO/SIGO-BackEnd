@@ -12,8 +12,8 @@ using SIGO.Data;
 namespace SIGO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260521191400_AddVeiculoImagens")]
-    partial class AddVeiculoImagens
+    [Migration("20260527164512_FixPedidoClienteOficinaFk")]
+    partial class FixPedidoClienteOficinaFk
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

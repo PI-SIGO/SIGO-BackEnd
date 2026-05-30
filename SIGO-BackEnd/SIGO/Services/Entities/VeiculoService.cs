@@ -126,6 +126,16 @@ namespace SIGO.Services.Entities
             return await AddImagensToVeiculo(veiculo, veiculoId, imagens, cancellationToken);
         }
 
+        public async Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagensForOficina(
+            int veiculoId,
+            int oficinaId,
+            IReadOnlyCollection<IFormFile> imagens,
+            CancellationToken cancellationToken = default)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            return await AddImagensToVeiculo(veiculo, veiculoId, imagens, cancellationToken);
+        }
+
         public async Task RemoveImagem(int veiculoId, int imagemId)
         {
             var veiculo = await _veiculoRepository.GetByIdWithImagens(veiculoId);
@@ -169,7 +179,8 @@ namespace SIGO.Services.Entities
             if (existingEntity == null)
                 throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
-            ApplyUpdate(existingEntity, veiculoDto, preserveClienteIdWhenMissing: true);
+            ValidateClienteIdNaoAlterado(existingEntity, veiculoDto);
+            ApplyUpdate(existingEntity, veiculoDto);
             await _veiculoRepository.SaveChanges();
         }
 
@@ -180,8 +191,8 @@ namespace SIGO.Services.Entities
             if (existingEntity == null)
                 throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
-            veiculoDto.ClienteId = clienteId;
-            ApplyUpdate(existingEntity, veiculoDto, preserveClienteIdWhenMissing: false);
+            ValidateClienteIdNaoAlterado(existingEntity, veiculoDto);
+            ApplyUpdate(existingEntity, veiculoDto);
             await _veiculoRepository.SaveChanges();
         }
 
@@ -192,9 +203,10 @@ namespace SIGO.Services.Entities
             if (existingEntity == null)
                 throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
-            await EnsureClienteVinculado(veiculoDto.ClienteId, oficinaId);
+            ValidateClienteIdNaoAlterado(existingEntity, veiculoDto);
+            await EnsureClienteVinculado(existingEntity.ClienteId, oficinaId);
 
-            ApplyUpdate(existingEntity, veiculoDto, preserveClienteIdWhenMissing: false);
+            ApplyUpdate(existingEntity, veiculoDto);
             await _veiculoRepository.SaveChanges();
         }
 
@@ -300,7 +312,18 @@ namespace SIGO.Services.Entities
             }
         }
 
-        private static void ApplyUpdate(Veiculo existing, VeiculoDTO veiculoDto, bool preserveClienteIdWhenMissing)
+        private static void ValidateClienteIdNaoAlterado(Veiculo existing, VeiculoDTO veiculoDto)
+        {
+            if (veiculoDto.ClienteId > 0 && veiculoDto.ClienteId != existing.ClienteId)
+            {
+                throw new BusinessValidationException(new[]
+                {
+                    new ValidationError(nameof(VeiculoDTO.ClienteId), "Cliente do veiculo nao pode ser alterado.")
+                });
+            }
+        }
+
+        private static void ApplyUpdate(Veiculo existing, VeiculoDTO veiculoDto)
         {
             existing.NomeVeiculo = veiculoDto.NomeVeiculo;
             existing.TipoVeiculo = veiculoDto.TipoVeiculo;
@@ -311,9 +334,6 @@ namespace SIGO.Services.Entities
             existing.Combustivel = veiculoDto.Combustivel;
             existing.Seguro = veiculoDto.Seguro;
             existing.Cor = veiculoDto.Cor;
-
-            if (!preserveClienteIdWhenMissing || veiculoDto.ClienteId > 0)
-                existing.ClienteId = veiculoDto.ClienteId;
         }
     }
 }

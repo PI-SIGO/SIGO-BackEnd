@@ -13,7 +13,6 @@ namespace SIGO.Services.Interfaces
         Task<ClienteOficinaDTO?> GetByIdWithDetailsForOficina(int id, int oficinaId);
         Task<ClienteDTO?> Login(Login login);
         Task<bool> ExistsInOficina(int clienteId, int oficinaId);
-        Task<bool> AllowsFieldInOficina(int clienteId, int oficinaId, string campo);
         Task ValidarCpfCnpj(string? documento, int? ignoreId = null);
         Task ValidarNomeEmail(string? nome, string? email, int? ignoreId = null);
         Task Create(ClienteRequestDTO clienteDTO);

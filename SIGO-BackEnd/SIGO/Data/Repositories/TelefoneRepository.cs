@@ -35,8 +35,7 @@ namespace SIGO.Data.Repositories
                     t.Clientes.Nome.Contains(nome) &&
                     t.Clientes.ClienteOficinas.Any(co =>
                         co.OficinaId == oficinaId &&
-                        co.Ativo &&
-                        co.DadosPermitidos.Contains("\"Telefones\"")))
+                        co.Ativo))
                 .Select(t => new TelefoneDTO
                 {
                     Id = t.Id,
