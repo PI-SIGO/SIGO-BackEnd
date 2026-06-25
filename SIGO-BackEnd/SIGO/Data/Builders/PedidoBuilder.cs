@@ -47,7 +47,7 @@ namespace SIGO.Data.Builders
 
             modelBuilder.Entity<Pedido>()
                 .HasOne(p => p.Veiculo)
-                .WithMany()
+                .WithMany(v => v.Pedidos)
                 .HasForeignKey(p => new { p.idVeiculo, p.idCliente })
                 .HasPrincipalKey(v => new { v.Id, v.ClienteId })
                 .OnDelete(DeleteBehavior.Restrict);

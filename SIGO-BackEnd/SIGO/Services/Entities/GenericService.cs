@@ -21,7 +21,7 @@ namespace SIGO.Services.Entities
             return _mapper.Map<IEnumerable<TDto>>(entities);
         }
 
-        public async Task<TDto> GetById(int id)
+        public virtual async Task<TDto> GetById(int id)
         {
             var entity = await _repository.GetById(id);
             return _mapper.Map<TDto>(entity);

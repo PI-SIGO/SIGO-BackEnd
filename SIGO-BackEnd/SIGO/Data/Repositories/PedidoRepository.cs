@@ -36,6 +36,12 @@ namespace SIGO.Data.Repositories
                 .ToListAsync();
         }
 
+        public async Task<Pedido?> GetByIdWithDetails(int id)
+        {
+            return await PedidosComDetalhes()
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
         public async Task<Pedido?> GetByIdForOficina(int id, int oficinaId)
         {
             return await PedidosComDetalhes()
@@ -53,6 +59,7 @@ namespace SIGO.Data.Repositories
         private IQueryable<Pedido> PedidosComDetalhes()
         {
             return _context.Pedidos
+                .AsSplitQuery()
                 .Include(p => p.Cliente)
                 .Include(p => p.Veiculo)
                 .Include(p => p.Oficina)

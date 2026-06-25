@@ -82,7 +82,7 @@ namespace SIGO.Services.Entities
                 .Cast<ClienteOficinaDTO>();
         }
 
-        public async Task<ClienteDTO?> GetById(int id)
+        public override async Task<ClienteDTO?> GetById(int id)
         {
             var entity = await _clienteRepository.GetById(id);
             return _mapper.Map<ClienteDTO?>(entity);

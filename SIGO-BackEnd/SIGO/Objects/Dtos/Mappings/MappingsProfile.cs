@@ -18,12 +18,20 @@ namespace SIGO.Objects.Dtos.Mappings
             CreateMap<Telefone, TelefoneDTO>().ReverseMap();
             CreateMap<MarcaDTO, Marca>().ReverseMap();
             CreateMap<VeiculoImagem, VeiculoImagemDTO>();
+            CreateMap<PecaSubstituida, PecaSubstituidaDTO>().ReverseMap();
+            CreateMap<RegistroServico, RegistroServicoDTO>().ReverseMap();
 
+            CreateMap<Veiculo, VeiculoDTO>()
+                .ForMember(dest => dest.Imagens, opt => opt.MapFrom(src => src.Imagens))
+                .ForMember(dest => dest.Marcas, opt => opt.MapFrom(src => src.Marcas))
+                .ForMember(dest => dest.RegistroServicos, opt => opt.MapFrom(src => src.RegistroServicos))
+                .ForMember(dest => dest.Pedidos, opt => opt.MapFrom(src => src.Pedidos));
             CreateMap<VeiculoDTO, Veiculo>()
                 .ForMember(dest => dest.Cliente, opt => opt.Ignore())
                 .ForMember(dest => dest.Marcas, opt => opt.Ignore())
                 .ForMember(dest => dest.Imagens, opt => opt.Ignore())
-                .ReverseMap();
+                .ForMember(dest => dest.RegistroServicos, opt => opt.Ignore())
+                .ForMember(dest => dest.Pedidos, opt => opt.Ignore());
 
             CreateMap<Servico, ServicoDTO>().ReverseMap();
             CreateMap<Funcionario_Servico, Funcionario_ServicoDTO>().ReverseMap();

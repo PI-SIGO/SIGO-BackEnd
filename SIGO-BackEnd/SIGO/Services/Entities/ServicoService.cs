@@ -42,7 +42,7 @@ namespace SIGO.Services.Entities
             return _mapper.Map<IEnumerable<ServicoDTO>>(entities);
         }
 
-        public async Task<ServicoDTO?> GetById(int id)
+        public override async Task<ServicoDTO?> GetById(int id)
         {
             var entity = await _servicoRepository.GetById(id);
             return _mapper.Map<ServicoDTO?>(entity);

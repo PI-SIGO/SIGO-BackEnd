@@ -68,6 +68,29 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public async Task GetAll_DeveRetornarPedidoComPecasEServicos()
+        {
+            var pedidos = new List<PedidoDTO>
+            {
+                CriarPedidoDto(id: 1, servicoIds: new[] { 10, 11 }, pecaIds: new[] { 20 })
+            };
+
+            _pedidoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(pedidos);
+
+            var controller = CreateController(roles: SystemRoles.Admin);
+
+            var result = await controller.GetAll();
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<Response>(ok.Value);
+            var data = Assert.IsAssignableFrom<IEnumerable<PedidoDTO>>(response.Data);
+            var pedido = Assert.Single(data);
+
+            Assert.Equal(new[] { 10, 11 }, pedido.Pedido_Servicos.Select(ps => ps.IdServico).OrderBy(id => id));
+            Assert.Equal(new[] { 20 }, pedido.Pedido_Pecas.Select(pp => pp.IdPeca));
+        }
+
+        [Fact]
         public async Task GetMyServices_DeveRetornarSomenteServicosDoClienteLogado()
         {
             _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<PedidoDTO>
@@ -190,7 +213,8 @@ namespace SIGO.Tests.Controllers
             int id = 1,
             int idCliente = 1,
             int idFuncionario = 1,
-            int[]? servicoIds = null)
+            int[]? servicoIds = null,
+            int[]? pecaIds = null)
         {
             return new PedidoDTO
             {
@@ -215,6 +239,15 @@ namespace SIGO.Tests.Controllers
                     IdPedido = id,
                     IdServico = idServico,
                     QuantVezes = 1
+                }).ToList(),
+                Pedido_Pecas = (pecaIds ?? Array.Empty<int>()).Select(idPeca => new Pedido_PecaDTO
+                {
+                    IdPedido = id,
+                    IdPeca = idPeca,
+                    Quantidade = 1,
+                    DataInstalacao = DateOnly.FromDateTime(DateTime.Today),
+                    Estado = "novo",
+                    Observacao = "teste"
                 }).ToList()
             };
         }

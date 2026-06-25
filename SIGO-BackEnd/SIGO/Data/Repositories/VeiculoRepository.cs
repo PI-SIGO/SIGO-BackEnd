@@ -15,17 +15,12 @@ namespace SIGO.Data.Repositories
 
         public override async Task<IEnumerable<Veiculo>> Get()
         {
-            return await _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
-                .ToListAsync();
+            return await VeiculosComDetalhes().ToListAsync();
         }
 
         public async Task<IEnumerable<Veiculo>> GetByPlaca(string placa)
         {
-            return await _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
+            return await VeiculosComDetalhes()
                 .Where(v => v.PlacaVeiculo.Contains(placa))
                 .ToListAsync();
         }
@@ -46,9 +41,7 @@ namespace SIGO.Data.Repositories
 
         public async Task<IEnumerable<Veiculo>> GetByTipo(string tipo)
         {
-            return await _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
+            return await VeiculosComDetalhes()
                 .Where(v => v.TipoVeiculo.Contains(tipo))
                 .ToListAsync();
         }
@@ -79,17 +72,13 @@ namespace SIGO.Data.Repositories
 
         public async Task<Veiculo?> GetById(int id)
         {
-            return await _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
+            return await VeiculosComDetalhes()
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
         public async Task<Veiculo?> GetByIdWithImagens(int id)
         {
-            return await _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
+            return await VeiculosComDetalhes()
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
@@ -124,20 +113,29 @@ namespace SIGO.Data.Repositories
 
         private IQueryable<Veiculo> VeiculosDoCliente(int clienteId)
         {
-            return _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
+            return VeiculosComDetalhes()
                 .Where(v => v.ClienteId == clienteId);
         }
 
         private IQueryable<Veiculo> VeiculosDaOficina(int oficinaId)
         {
-            return _context.Veiculos
-                .Include(v => v.Cliente)
-                .Include(v => v.Imagens)
+            return VeiculosComDetalhes()
                 .Where(v => v.Cliente.ClienteOficinas.Any(co =>
                     co.OficinaId == oficinaId &&
                     co.Ativo));
+        }
+
+        private IQueryable<Veiculo> VeiculosComDetalhes()
+        {
+            return _context.Veiculos
+                .AsSplitQuery()
+                .Include(v => v.Cliente)
+                .Include(v => v.Marcas)
+                .Include(v => v.Imagens)
+                .Include(v => v.RegistroServicos).ThenInclude(r => r.Servico)
+                .Include(v => v.RegistroServicos).ThenInclude(r => r.PecasSubstituidas)
+                .Include(v => v.Pedidos).ThenInclude(p => p.Pedido_Servicos).ThenInclude(ps => ps.Servico)
+                .Include(v => v.Pedidos).ThenInclude(p => p.Pedido_Pecas).ThenInclude(pp => pp.Peca);
         }
     }
 }

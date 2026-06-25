@@ -64,6 +64,48 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task GetById_DeveBuscarPedidoComPecasEServicos()
+        {
+            var pedido = new Pedido
+            {
+                Id = 3,
+                Pedido_Pecas = new List<Pedido_Peca>
+                {
+                    new() { IdPedido = 3, IdPeca = 7, Quantidade = 2 }
+                },
+                Pedido_Servicos = new List<Pedido_Servico>
+                {
+                    new() { IdPedido = 3, IdServico = 11, QuantVezes = 1 }
+                }
+            };
+
+            var dto = new PedidoDTO
+            {
+                Id = 3,
+                Pedido_Pecas = new List<Pedido_PecaDTO>
+                {
+                    new() { IdPedido = 3, IdPeca = 7, Quantidade = 2 }
+                },
+                Pedido_Servicos = new List<Pedido_ServicoDTO>
+                {
+                    new() { IdPedido = 3, IdServico = 11, QuantVezes = 1 }
+                }
+            };
+
+            _repositoryMock.Setup(r => r.GetByIdWithDetails(3)).ReturnsAsync(pedido);
+            _mapperMock.Setup(m => m.Map<PedidoDTO>(pedido)).Returns(dto);
+
+            var service = new PedidoService(_repositoryMock.Object, _mapperMock.Object);
+
+            var result = await service.GetById(3);
+
+            Assert.Single(result.Pedido_Pecas);
+            Assert.Single(result.Pedido_Servicos);
+            _repositoryMock.Verify(r => r.GetByIdWithDetails(3), Times.Once);
+            _repositoryMock.Verify(r => r.GetById(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
         public async Task CreateForOficina_DeveRejeitarVeiculoDeOutroCliente()
         {
             var dto = new PedidoDTO

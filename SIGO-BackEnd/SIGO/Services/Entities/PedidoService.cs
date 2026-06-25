@@ -42,6 +42,12 @@ namespace SIGO.Services.Entities
             return _mapper.Map<IEnumerable<PedidoDTO>>(pedidos);
         }
 
+        public override async Task<PedidoDTO> GetById(int id)
+        {
+            var pedido = await _pedidoRepository.GetByIdWithDetails(id);
+            return _mapper.Map<PedidoDTO>(pedido);
+        }
+
         public async Task<PedidoDTO?> GetByIdForOficina(int id, int oficinaId)
         {
             var pedido = await _pedidoRepository.GetByIdForOficina(id, oficinaId);

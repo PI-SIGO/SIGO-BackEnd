@@ -77,7 +77,7 @@ namespace SIGO.Services.Entities
             return _mapper.Map<IEnumerable<VeiculoDTO>>(entities);
         }
 
-        public async Task<VeiculoDTO?> GetById(int id)
+        public override async Task<VeiculoDTO?> GetById(int id)
         {
             var entity = await _veiculoRepository.GetById(id);
             return _mapper.Map<VeiculoDTO?>(entity);

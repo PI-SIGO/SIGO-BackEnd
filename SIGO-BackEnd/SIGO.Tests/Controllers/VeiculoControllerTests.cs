@@ -39,6 +39,58 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public async Task Get_DeveRetornarVeiculoComDadosAtrelados()
+        {
+            var veiculo = CriarVeiculoDto(id: 1, clienteId: 5);
+            veiculo.Imagens.Add(new VeiculoImagemDTO { Id = 10, VeiculoId = 1, NomeOriginal = "frente.png" });
+            veiculo.Marcas.Add(new MarcaDTO { Id = 20, Nome = "Fiat", Desc = "Marca", TipoMarca = "Automovel" });
+            veiculo.RegistroServicos.Add(new RegistroServicoDTO
+            {
+                Id = 30,
+                VeiculoId = 1,
+                Descricao = "Revisao",
+                Responsavel = "Mecanico",
+                PecasSubstituidas = new List<PecaSubstituidaDTO>
+                {
+                    new() { Id = 40, RegistroServicoId = 30, Nome = "Filtro", Quantidade = 1 }
+                }
+            });
+            veiculo.Pedidos.Add(new PedidoDTO
+            {
+                Id = 50,
+                idCliente = 5,
+                idVeiculo = 1,
+                Pedido_Pecas = new List<Pedido_PecaDTO>
+                {
+                    new() { IdPedido = 50, IdPeca = 60, Quantidade = 1 }
+                },
+                Pedido_Servicos = new List<Pedido_ServicoDTO>
+                {
+                    new() { IdPedido = 50, IdServico = 70, QuantVezes = 1 }
+                }
+            });
+
+            _veiculoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<VeiculoDTO> { veiculo });
+
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.Get();
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<Response>(ok.Value);
+            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoDTO>>(response.Data);
+            var item = Assert.Single(data);
+
+            Assert.Single(item.Imagens);
+            Assert.Single(item.Marcas);
+            Assert.Single(item.RegistroServicos);
+            Assert.Single(item.RegistroServicos.Single().PecasSubstituidas);
+            Assert.Single(item.Pedidos);
+            Assert.Single(item.Pedidos.Single().Pedido_Pecas);
+            Assert.Single(item.Pedidos.Single().Pedido_Servicos);
+        }
+
+        [Fact]
         public async Task Delete_DeveRetornarForbid_QuandoFuncionarioTentaExcluirVeiculoGlobal()
         {
             var controller = CreateController(userId: 10, oficinaId: 2, roles: new[] { SystemRoles.Funcionario });

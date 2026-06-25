@@ -17,5 +17,8 @@ namespace SIGO.Objects.Dtos.Entities
         public int ClienteId { get; set; }
         public Situacao Situacao { get; set; }
         public ICollection<VeiculoImagemDTO> Imagens { get; set; } = new List<VeiculoImagemDTO>();
+        public ICollection<MarcaDTO> Marcas { get; set; } = new List<MarcaDTO>();
+        public ICollection<RegistroServicoDTO> RegistroServicos { get; set; } = new List<RegistroServicoDTO>();
+        public ICollection<PedidoDTO> Pedidos { get; set; } = new List<PedidoDTO>();
     }
 }
