@@ -6,7 +6,7 @@ using SIGO.Services.Interfaces;
 namespace SIGO.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/relatorios")]
     [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
     public class ReportController : ControllerBase
     {
@@ -17,7 +17,7 @@ namespace SIGO.Controllers
             _reportService = reportService;
         }
 
-        [HttpGet("vehicle/{veiculoId}")]
+        [HttpGet("veiculos/{veiculoId:int}")]
         public async Task<IActionResult> GetVehicleHistoryPdf(int veiculoId, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] string? tipo = null)
         {
             if (!await _reportService.CanAccessVehicleHistoryAsync(veiculoId))

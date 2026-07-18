@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using SIGO.Controllers;
@@ -11,244 +13,256 @@ namespace SIGO.Tests.Controllers
 {
     public class PedidoControllerTests
     {
-        private readonly Mock<IPedidoService> _pedidoServiceMock = new();
-        private readonly Mock<IServicoService> _servicoServiceMock = new();
-        private readonly Mock<IFuncionarioService> _funcionarioServiceMock = new();
-        private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+        private readonly Mock<IPedidoService> _pedidoService = new();
+        private readonly Mock<IServicoService> _servicoService = new();
+        private readonly Mock<IFuncionarioService> _funcionarioService = new();
+        private readonly Mock<ICurrentUserService> _currentUser = new();
 
         [Fact]
-        public async Task GetById_DeveRetornarNotFound_QuandoPedidoNaoExiste()
+        public async Task GetById_RetornaNotFound_QuandoPedidoNaoExiste()
         {
-            _pedidoServiceMock.Setup(s => s.GetById(1))
-                .ReturnsAsync((PedidoDTO)null!);
+            _pedidoService.Setup(service => service.GetById(1)).ReturnsAsync((PedidoDTO)null!);
 
-            var controller = CreateController();
+            var result = await CreateController(roles: SystemRoles.Admin).GetById(1);
 
-            var result = await controller.GetById(1);
-
-            var notFound = Assert.IsType<NotFoundObjectResult>(result);
-            var response = Assert.IsType<Response>(notFound.Value);
-            Assert.Equal(ResponseEnum.NOT_FOUND, response.Code);
+            var notFound = Assert.IsType<ObjectResult>(result.Result);
+            Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
+            Assert.IsType<ProblemDetails>(notFound.Value);
         }
 
         [Fact]
-        public async Task GetById_DeveRetornarForbid_QuandoClienteTentaAcessarPedidoDeOutroCliente()
+        public async Task GetById_RetornaForbid_QuandoClienteNaoEProprietario()
         {
-            _pedidoServiceMock.Setup(s => s.GetById(10))
-                .ReturnsAsync(CriarPedidoDto(idCliente: 99));
+            _pedidoService.Setup(service => service.GetById(10))
+                .ReturnsAsync(CreateOrder(clienteId: 99));
 
-            var controller = CreateController(userId: 5, roles: SystemRoles.Cliente);
+            var result = await CreateController(userId: 5, roles: SystemRoles.Cliente).GetById(10);
 
-            var result = await controller.GetById(10);
-
-            Assert.IsType<ForbidResult>(result);
+            Assert.IsType<ForbidResult>(result.Result);
         }
 
         [Fact]
-        public async Task GetAll_DeveFiltrarPedidosDoClienteLogado()
+        public async Task GetAll_AplicaEscopoDoClienteEPaginacao()
         {
-            var pedidos = new List<PedidoDTO>
+            _pedidoService.Setup(service => service.GetByCliente(5)).ReturnsAsync(new[]
             {
-                CriarPedidoDto(id: 1, idCliente: 5),
-                CriarPedidoDto(id: 2, idCliente: 9),
-                CriarPedidoDto(id: 3, idCliente: 5)
-            };
-
-            _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(pedidos.Where(p => p.idCliente == 5));
-
-            var controller = CreateController(userId: 5, roles: SystemRoles.Cliente);
-
-            var result = await controller.GetAll();
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<PedidoDTO>>(response.Data);
-            Assert.All(data, pedido => Assert.Equal(5, pedido.idCliente));
-            Assert.Equal(2, data.Count());
-        }
-
-        [Fact]
-        public async Task GetAll_DeveRetornarPedidoComPecasEServicos()
-        {
-            var pedidos = new List<PedidoDTO>
-            {
-                CriarPedidoDto(id: 1, servicoIds: new[] { 10, 11 }, pecaIds: new[] { 20 })
-            };
-
-            _pedidoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(pedidos);
-
-            var controller = CreateController(roles: SystemRoles.Admin);
-
-            var result = await controller.GetAll();
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<PedidoDTO>>(response.Data);
-            var pedido = Assert.Single(data);
-
-            Assert.Equal(new[] { 10, 11 }, pedido.Pedido_Servicos.Select(ps => ps.IdServico).OrderBy(id => id));
-            Assert.Equal(new[] { 20 }, pedido.Pedido_Pecas.Select(pp => pp.IdPeca));
-        }
-
-        [Fact]
-        public async Task GetMyServices_DeveRetornarSomenteServicosDoClienteLogado()
-        {
-            _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<PedidoDTO>
-            {
-                CriarPedidoDto(idCliente: 5, servicoIds: new[] { 1, 2 }),
-                CriarPedidoDto(idCliente: 5, servicoIds: new[] { 2, 3 }),
+                CreateOrder(id: 1, clienteId: 5),
+                CreateOrder(id: 2, clienteId: 5),
+                CreateOrder(id: 3, clienteId: 5)
             });
 
-            _servicoServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<ServicoDTO>
-            {
-                new() { Id = 1, Nome = "Troca de oleo" },
-                new() { Id = 2, Nome = "Alinhamento" },
-                new() { Id = 3, Nome = "Balanceamento" },
-                new() { Id = 4, Nome = "Lavagem" }
-            });
+            var result = await CreateController(userId: 5, roles: SystemRoles.Cliente)
+                .GetAll(new PaginationRequest { Page = 2, PageSize = 2 });
 
-            var controller = CreateController(userId: 5, roles: SystemRoles.Cliente);
-
-            var result = await controller.GetMyServices();
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var data = Assert.IsAssignableFrom<IEnumerable<ServicoDTO>>(ok.Value);
-            Assert.Equal(new[] { 1, 2, 3 }, data.Select(x => x.Id).OrderBy(x => x));
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var page = Assert.IsType<PagedResponse<PedidoDTO>>(ok.Value);
+            Assert.Equal(3, page.TotalItems);
+            Assert.Equal(2, page.TotalPages);
+            Assert.Equal(3, Assert.Single(page.Items).Id);
+            Assert.All(page.Items, order => Assert.Equal(5, order.idCliente));
         }
 
         [Fact]
-        public async Task GetMyEmployees_DeveRetornarSomenteFuncionariosRelacionadosAoClienteLogado()
+        public async Task GetAll_FuncionarioConsultaSomentePedidosDaPropriaOficina()
         {
-            _pedidoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new List<PedidoDTO>
-            {
-                CriarPedidoDto(idCliente: 5, idFuncionario: 10),
-                CriarPedidoDto(idCliente: 5, idFuncionario: 11),
-            });
+            _pedidoService.Setup(service => service.GetByOficina(7))
+                .ReturnsAsync(new[] { CreateOrder(id: 1) });
 
-            _funcionarioServiceMock.Setup(s => s.GetAll()).ReturnsAsync(new List<FuncionarioDTO>
-            {
-                new() { Id = 10, Nome = "Funcionario 10" },
-                new() { Id = 11, Nome = "Funcionario 11" },
-                new() { Id = 12, Nome = "Funcionario 12" }
-            });
+            var result = await CreateController(oficinaId: 7, roles: SystemRoles.Funcionario)
+                .GetAll(new PaginationRequest());
 
-            var controller = CreateController(userId: 5, roles: SystemRoles.Cliente);
-
-            var result = await controller.GetMyEmployees();
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var data = Assert.IsAssignableFrom<IEnumerable<FuncionarioDTO>>(ok.Value);
-            Assert.Equal(new[] { 10, 11 }, data.Select(x => x.Id).OrderBy(x => x));
+            Assert.IsType<OkObjectResult>(result.Result);
+            _pedidoService.Verify(service => service.GetByOficina(7), Times.Once);
+            _pedidoService.Verify(service => service.GetAll(), Times.Never);
         }
 
         [Fact]
-        public async Task Post_DeveRetornarBadRequest_QuandoDtoForNulo()
+        public async Task GetById_FuncionarioConsultaPedidoNoEscopoDaPropriaOficina()
         {
-            var controller = CreateController();
+            var order = CreateOrder(id: 10);
+            _pedidoService.Setup(service => service.GetByIdForOficina(10, 7)).ReturnsAsync(order);
 
-            var result = await controller.Post(null!);
+            var result = await CreateController(oficinaId: 7, roles: SystemRoles.Funcionario)
+                .GetById(10);
 
-            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-            var response = Assert.IsType<Response>(badRequest.Value);
-            Assert.Equal(ResponseEnum.INVALID, response.Code);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Same(order, ok.Value);
+            _pedidoService.Verify(service => service.GetByIdForOficina(10, 7), Times.Once);
+            _pedidoService.Verify(service => service.GetById(10), Times.Never);
         }
 
         [Fact]
-        public async Task Post_DeveZerarIdEChamarCreate_QuandoDtoValido()
+        public async Task GetMyServices_RetornaSomenteServicosDosPedidos()
         {
-            var dto = CriarPedidoDto();
-            dto.Id = 99;
+            _pedidoService.Setup(service => service.GetByCliente(5)).ReturnsAsync(new[]
+            {
+                CreateOrder(clienteId: 5, serviceIds: new[] { 1, 2 }),
+                CreateOrder(clienteId: 5, serviceIds: new[] { 2, 3 })
+            });
+            _servicoService.Setup(service => service.GetAll()).ReturnsAsync(new[]
+            {
+                new ServicoDTO { Id = 1 },
+                new ServicoDTO { Id = 2 },
+                new ServicoDTO { Id = 3 },
+                new ServicoDTO { Id = 4 }
+            });
 
-            PedidoDTO? dtoRecebido = null;
-            _pedidoServiceMock.Setup(s => s.Create(It.IsAny<PedidoDTO>()))
-                .Callback<PedidoDTO>(d => dtoRecebido = d)
+            var result = await CreateController(userId: 5, roles: SystemRoles.Cliente)
+                .GetMyServices(new PaginationRequest());
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var page = Assert.IsType<PagedResponse<ServicoDTO>>(ok.Value);
+            Assert.Equal(new[] { 1, 2, 3 }, page.Items.Select(item => item.Id).OrderBy(id => id));
+        }
+
+        [Fact]
+        public async Task GetMyEmployees_RetornaSomenteFuncionariosDosPedidos()
+        {
+            _pedidoService.Setup(service => service.GetByCliente(5)).ReturnsAsync(new[]
+            {
+                CreateOrder(clienteId: 5, funcionarioId: 10),
+                CreateOrder(clienteId: 5, funcionarioId: 11)
+            });
+            _funcionarioService.Setup(service => service.GetAll()).ReturnsAsync(new[]
+            {
+                new FuncionarioDTO { Id = 10 },
+                new FuncionarioDTO { Id = 11 },
+                new FuncionarioDTO { Id = 12 }
+            });
+
+            var result = await CreateController(userId: 5, roles: SystemRoles.Cliente)
+                .GetMyEmployees(new PaginationRequest());
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var page = Assert.IsType<PagedResponse<FuncionarioDTO>>(ok.Value);
+            Assert.Equal(new[] { 10, 11 }, page.Items.Select(item => item.Id).OrderBy(id => id));
+        }
+
+        [Fact]
+        public async Task Post_RetornaCreatedComRotaOficial()
+        {
+            var request = CreateOrder(id: 87);
+            _pedidoService.Setup(service => service.Create(request))
+                .Callback(() => request.Id = 25)
                 .Returns(Task.CompletedTask);
 
-            var controller = CreateController();
+            var result = await CreateController(roles: SystemRoles.Admin).Post(request);
 
-            var result = await controller.Post(dto);
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            Assert.Equal(ResponseEnum.SUCCESS, response.Code);
-
-            Assert.NotNull(dtoRecebido);
-            Assert.Equal(0, dtoRecebido!.Id);
-            _pedidoServiceMock.Verify(s => s.Create(It.IsAny<PedidoDTO>()), Times.Once);
+            var created = Assert.IsType<CreatedResult>(result.Result);
+            Assert.Equal("/api/v1/pedidos/25", created.Location);
+            Assert.Same(request, created.Value);
         }
 
         [Fact]
-        public async Task Delete_DeveRemover_QuandoPedidoExiste()
+        public async Task Post_FuncionarioCriaPedidoNoEscopoDaPropriaOficina()
         {
-            _pedidoServiceMock.Setup(s => s.GetById(5))
-                .ReturnsAsync(CriarPedidoDto());
-            _pedidoServiceMock.Setup(s => s.Remove(5))
+            var request = CreateOrder();
+            request.idOficina = 99;
+            _pedidoService.Setup(service => service.CreateForOficina(request, 7))
                 .Returns(Task.CompletedTask);
 
-            var controller = CreateController();
+            var result = await CreateController(oficinaId: 7, roles: SystemRoles.Funcionario)
+                .Post(request);
 
-            var result = await controller.Delete(5);
-
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            Assert.Equal(ResponseEnum.SUCCESS, response.Code);
-            _pedidoServiceMock.Verify(s => s.Remove(5), Times.Once);
+            Assert.IsType<CreatedResult>(result.Result);
+            _pedidoService.Verify(service => service.CreateForOficina(request, 7), Times.Once);
+            _pedidoService.Verify(service => service.Create(It.IsAny<PedidoDTO>()), Times.Never);
         }
 
-        private PedidoController CreateController(int? userId = null, params string[] roles)
+        [Fact]
+        public async Task Put_FuncionarioAtualizaPedidoNoEscopoDaPropriaOficina()
         {
-            var controller = new PedidoController(
-                _pedidoServiceMock.Object,
-                _servicoServiceMock.Object,
-                _funcionarioServiceMock.Object,
-                _currentUserServiceMock.Object);
+            var request = CreateOrder(id: 10);
+            _pedidoService.Setup(service => service.UpdateForOficina(request, 10, 7))
+                .Returns(Task.CompletedTask);
 
-            _currentUserServiceMock.Setup(s => s.UserId).Returns(userId);
-            _currentUserServiceMock.Setup(s => s.IsInRole(It.IsAny<string>()))
+            var result = await CreateController(oficinaId: 7, roles: SystemRoles.Funcionario)
+                .Put(10, request);
+
+            Assert.IsType<OkObjectResult>(result.Result);
+            _pedidoService.Verify(service => service.UpdateForOficina(request, 10, 7), Times.Once);
+            _pedidoService.Verify(service => service.Update(It.IsAny<PedidoDTO>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Theory]
+        [InlineData(nameof(PedidoController.GetAll))]
+        [InlineData(nameof(PedidoController.GetById))]
+        [InlineData(nameof(PedidoController.Post))]
+        [InlineData(nameof(PedidoController.Put))]
+        public void OperacoesDePedido_DevemAutorizarFuncionario(string methodName)
+        {
+            var attribute = Assert.Single(typeof(PedidoController)
+                .GetMethod(methodName)!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>());
+
+            Assert.Contains(SystemRoles.Funcionario, attribute.Roles ?? string.Empty);
+        }
+
+        [Fact]
+        public void Delete_DeveContinuarRestritoAAdministracaoDaOficina()
+        {
+            var attribute = Assert.Single(typeof(PedidoController)
+                .GetMethod(nameof(PedidoController.Delete))!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>());
+
+            Assert.DoesNotContain(SystemRoles.Funcionario, attribute.Roles ?? string.Empty);
+        }
+
+        [Fact]
+        public async Task Delete_RetornaNoContent_QuandoPedidoExiste()
+        {
+            _pedidoService.Setup(service => service.GetById(5)).ReturnsAsync(CreateOrder(id: 5));
+            _pedidoService.Setup(service => service.Remove(5)).Returns(Task.CompletedTask);
+
+            var result = await CreateController(roles: SystemRoles.Admin).Delete(5);
+
+            Assert.IsType<NoContentResult>(result);
+            _pedidoService.Verify(service => service.Remove(5), Times.Once);
+        }
+
+        private PedidoController CreateController(
+            int? userId = null,
+            int? oficinaId = null,
+            params string[] roles)
+        {
+            _currentUser.Setup(user => user.UserId).Returns(userId);
+            _currentUser.Setup(user => user.OficinaId).Returns(oficinaId);
+            _currentUser.Setup(user => user.IsInRole(It.IsAny<string>()))
                 .Returns<string>(role => roles.Contains(role));
-            return controller;
+
+            return new PedidoController(
+                _pedidoService.Object,
+                _servicoService.Object,
+                _funcionarioService.Object,
+                _currentUser.Object);
         }
 
-        private static PedidoDTO CriarPedidoDto(
+        private static PedidoDTO CreateOrder(
             int id = 1,
-            int idCliente = 1,
-            int idFuncionario = 1,
-            int[]? servicoIds = null,
-            int[]? pecaIds = null)
+            int clienteId = 1,
+            int funcionarioId = 1,
+            int[]? serviceIds = null)
         {
             return new PedidoDTO
             {
                 Id = id,
-                idCliente = idCliente,
-                idFuncionario = idFuncionario,
+                idCliente = clienteId,
+                idFuncionario = funcionarioId,
                 idOficina = 1,
                 idVeiculo = 1,
-                ValorTotal = 100,
-                DescontoReais = 0,
-                DescontoPorcentagem = 0,
-                DescontoTotalReais = 0,
-                DescontoServicoPorcentagem = 0,
-                DescontoServicoReais = 0,
-                DescontoPecaPorcentagem = 0,
-                descontoPecaReais = 0,
                 Observacao = "teste",
                 DataInicio = DateOnly.FromDateTime(DateTime.Today),
-                DataFim = DateOnly.FromDateTime(DateTime.Today.AddDays(1)),
-                Pedido_Servicos = (servicoIds ?? Array.Empty<int>()).Select(idServico => new Pedido_ServicoDTO
-                {
-                    IdPedido = id,
-                    IdServico = idServico,
-                    QuantVezes = 1
-                }).ToList(),
-                Pedido_Pecas = (pecaIds ?? Array.Empty<int>()).Select(idPeca => new Pedido_PecaDTO
-                {
-                    IdPedido = id,
-                    IdPeca = idPeca,
-                    Quantidade = 1,
-                    DataInstalacao = DateOnly.FromDateTime(DateTime.Today),
-                    Estado = "novo",
-                    Observacao = "teste"
-                }).ToList()
+                DataFim = DateOnly.FromDateTime(DateTime.Today),
+                Pedido_Servicos = (serviceIds ?? Array.Empty<int>())
+                    .Select(serviceId => new Pedido_ServicoDTO
+                    {
+                        IdPedido = id,
+                        IdServico = serviceId,
+                        QuantVezes = 1
+                    })
+                    .ToList()
             };
         }
     }

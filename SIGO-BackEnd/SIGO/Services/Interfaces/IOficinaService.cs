@@ -12,5 +12,6 @@ namespace SIGO.Services.Interfaces
         Task Create(OficinaRequestDTO oficinaDTO);
         Task Update(OficinaRequestDTO oficinaDTO, int id);
         Task UpdateSelfProfile(OficinaRequestDTO oficinaDTO, int id);
+        Task DeactivateAsync(int id, CancellationToken cancellationToken = default);
     }
 }

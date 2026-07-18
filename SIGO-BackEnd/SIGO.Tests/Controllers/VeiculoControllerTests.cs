@@ -1,4 +1,4 @@
-using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -14,7 +14,6 @@ namespace SIGO.Tests.Controllers
     public class VeiculoControllerTests
     {
         private readonly Mock<IVeiculoService> _veiculoServiceMock = new();
-        private readonly Mock<IMapper> _mapperMock = new();
         private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
 
         [Fact]
@@ -31,10 +30,9 @@ namespace SIGO.Tests.Controllers
             var result = await controller.Get();
 
             var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoDTO>>(response.Data);
-            Assert.All(data, veiculo => Assert.Equal(5, veiculo.ClienteId));
-            Assert.Equal(2, data.Count());
+            var response = Assert.IsType<PagedResponse<VeiculoDTO>>(ok.Value);
+            Assert.All(response.Items, veiculo => Assert.Equal(5, veiculo.ClienteId));
+            Assert.Equal(2, response.TotalItems);
             _veiculoServiceMock.Verify(s => s.GetAll(), Times.Never);
         }
 
@@ -43,7 +41,6 @@ namespace SIGO.Tests.Controllers
         {
             var veiculo = CriarVeiculoDto(id: 1, clienteId: 5);
             veiculo.Imagens.Add(new VeiculoImagemDTO { Id = 10, VeiculoId = 1, NomeOriginal = "frente.png" });
-            veiculo.Marcas.Add(new MarcaDTO { Id = 20, Nome = "Fiat", Desc = "Marca", TipoMarca = "Automovel" });
             veiculo.RegistroServicos.Add(new RegistroServicoDTO
             {
                 Id = 30,
@@ -77,17 +74,63 @@ namespace SIGO.Tests.Controllers
             var result = await controller.Get();
 
             var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoDTO>>(response.Data);
-            var item = Assert.Single(data);
+            var response = Assert.IsType<PagedResponse<VeiculoDTO>>(ok.Value);
+            var item = Assert.Single(response.Items);
 
             Assert.Single(item.Imagens);
-            Assert.Single(item.Marcas);
             Assert.Single(item.RegistroServicos);
             Assert.Single(item.RegistroServicos.Single().PecasSubstituidas);
             Assert.Single(item.Pedidos);
             Assert.Single(item.Pedidos.Single().Pedido_Pecas);
             Assert.Single(item.Pedidos.Single().Pedido_Servicos);
+        }
+
+        [Fact]
+        public async Task Get_DeveAplicarPaginacaoDepoisDoEscopoDoCliente()
+        {
+            _veiculoServiceMock.Setup(s => s.GetByCliente(5)).ReturnsAsync(new[]
+            {
+                CriarVeiculoDto(id: 1, clienteId: 5),
+                CriarVeiculoDto(id: 2, clienteId: 5),
+                CriarVeiculoDto(id: 3, clienteId: 5)
+            });
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.Get(new PaginationRequest { Page = 2, PageSize = 1 });
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<PagedResponse<VeiculoDTO>>(ok.Value);
+            Assert.Equal(3, response.TotalItems);
+            Assert.Equal(3, response.TotalPages);
+            Assert.Equal(2, Assert.Single(response.Items).Id);
+        }
+
+        [Fact]
+        public async Task GetById_DeveBuscarSomenteVeiculoDoClienteLogado()
+        {
+            var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
+            _veiculoServiceMock.Setup(s => s.GetByIdForCliente(4, 5)).ReturnsAsync(veiculo);
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.GetById(4);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Same(veiculo, ok.Value);
+            _veiculoServiceMock.Verify(s => s.GetById(4), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetByPlaca_DeveRetornarPaginaVazia_QuandoNaoHaResultado()
+        {
+            _veiculoServiceMock.Setup(s => s.GetByPlaca("XYZ")).ReturnsAsync(Array.Empty<VeiculoDTO>());
+            var controller = CreateController(roles: new[] { SystemRoles.Admin });
+
+            var result = await controller.GetByPlaca("XYZ");
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var page = Assert.IsType<PagedResponse<VeiculoDTO>>(ok.Value);
+            Assert.Empty(page.Items);
+            Assert.Equal(0, page.TotalItems);
         }
 
         [Fact]
@@ -103,32 +146,73 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
-        public async Task Create_DeveCadastrarVeiculoParaClienteVinculadoDaOficina()
+        public async Task Create_DeveCadastrarVeiculoParaClienteLogado()
         {
-            var veiculo = CriarVeiculoDto(id: 0, clienteId: 5);
+            var request = CriarVeiculoRequest();
+            var veiculo = CriarVeiculoDto(id: 9, clienteId: 5);
             _veiculoServiceMock
-                .Setup(s => s.CreateForOficina(veiculo, 2))
-                .Returns(Task.CompletedTask);
+                .Setup(s => s.CreateForCliente(request, 5))
+                .ReturnsAsync(veiculo);
 
-            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
+            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
 
-            var result = await controller.Create(veiculo);
+            var result = await controller.Create(request);
 
-            Assert.IsType<OkObjectResult>(result);
-            _veiculoServiceMock.Verify(s => s.CreateForOficina(veiculo, 2), Times.Once);
-            _veiculoServiceMock.Verify(s => s.CreateForCliente(It.IsAny<VeiculoDTO>(), It.IsAny<int>()), Times.Never);
-            _veiculoServiceMock.Verify(s => s.Create(It.IsAny<VeiculoDTO>()), Times.Never);
+            Assert.IsType<CreatedResult>(result);
+            _veiculoServiceMock.Verify(s => s.CreateForCliente(request, 5), Times.Once);
+            _veiculoServiceMock.Verify(
+                s => s.CreateVeiculo(It.IsAny<VeiculoRequestDTO>(), It.IsAny<int>()),
+                Times.Never);
         }
 
         [Fact]
-        public async Task Create_DeveRetornarForbid_QuandoOficinaNaoTemOficinaId()
+        public async Task CreateForCliente_DeveCadastrarParaClienteVinculadoDaOficina()
+        {
+            var request = CriarVeiculoRequest();
+            var veiculo = CriarVeiculoDto(id: 9, clienteId: 5);
+            _veiculoServiceMock
+                .Setup(s => s.CreateForOficina(request, 5, 2))
+                .ReturnsAsync(veiculo);
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.CreateForCliente(5, request);
+
+            Assert.IsType<CreatedResult>(result);
+            _veiculoServiceMock.Verify(s => s.CreateForOficina(request, 5, 2), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateForCliente_DeveCadastrarNoEscopoDaOficinaDoFuncionario()
+        {
+            var request = CriarVeiculoRequest();
+            var veiculo = CriarVeiculoDto(id: 9, clienteId: 5);
+            _veiculoServiceMock
+                .Setup(s => s.CreateForOficina(request, 5, 2))
+                .ReturnsAsync(veiculo);
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Funcionario });
+
+            var result = await controller.CreateForCliente(5, request);
+
+            Assert.IsType<CreatedResult>(result);
+            _veiculoServiceMock.Verify(s => s.CreateForOficina(request, 5, 2), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateForCliente_DeveRetornarForbid_QuandoOficinaNaoTemOficinaId()
         {
             var controller = CreateController(roles: new[] { SystemRoles.Oficina });
 
-            var result = await controller.Create(CriarVeiculoDto(id: 0, clienteId: 5));
+            var result = await controller.CreateForCliente(5, CriarVeiculoRequest());
 
             Assert.IsType<ForbidResult>(result);
-            _veiculoServiceMock.Verify(s => s.CreateForOficina(It.IsAny<VeiculoDTO>(), It.IsAny<int>()), Times.Never);
+            _veiculoServiceMock.Verify(
+                s => s.CreateForOficina(
+                    It.IsAny<VeiculoRequestDTO>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>()),
+                Times.Never);
         }
 
         [Fact]
@@ -141,7 +225,7 @@ namespace SIGO.Tests.Controllers
                 {
                     Id = 8,
                     VeiculoId = 4,
-                    Url = "/api/veiculos/4/imagens/foto.png",
+                    Url = "/api/v1/veiculos/4/imagens/foto.png",
                     NomeOriginal = "foto.png",
                     ContentType = "image/png",
                     TamanhoBytes = 12,
@@ -160,11 +244,9 @@ namespace SIGO.Tests.Controllers
 
             var result = await controller.AddImagens(4, imagens, CancellationToken.None);
 
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoImagemDTO>>(response.Data);
+            var created = Assert.IsType<CreatedResult>(result);
+            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoImagemDTO>>(created.Value);
             Assert.Single(data);
-            Assert.Equal(ResponseEnum.SUCCESS, response.Code);
             _veiculoServiceMock.Verify(s => s.AddImagens(It.IsAny<int>(), It.IsAny<IReadOnlyCollection<IFormFile>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
@@ -178,7 +260,7 @@ namespace SIGO.Tests.Controllers
                 {
                     Id = 8,
                     VeiculoId = 4,
-                    Url = "/api/veiculos/4/imagens/foto.png",
+                    Url = "/api/v1/veiculos/4/imagens/foto.png",
                     NomeOriginal = "foto.png",
                     ContentType = "image/png",
                     TamanhoBytes = 12,
@@ -197,10 +279,33 @@ namespace SIGO.Tests.Controllers
 
             var result = await controller.AddImagens(4, imagens, CancellationToken.None);
 
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoImagemDTO>>(response.Data);
+            var created = Assert.IsType<CreatedResult>(result);
+            var data = Assert.IsAssignableFrom<IEnumerable<VeiculoImagemDTO>>(created.Value);
             Assert.Single(data);
+            _veiculoServiceMock.Verify(s => s.AddImagensForOficina(
+                4,
+                2,
+                It.IsAny<IReadOnlyCollection<IFormFile>>(),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task AddImagens_DeveUsarEscopoDaOficinaDoFuncionario()
+        {
+            var imagens = new List<IFormFile> { CriarImagem() };
+            _veiculoServiceMock
+                .Setup(s => s.AddImagensForOficina(
+                    4,
+                    2,
+                    It.IsAny<IReadOnlyCollection<IFormFile>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Array.Empty<VeiculoImagemDTO>());
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Funcionario });
+
+            var result = await controller.AddImagens(4, imagens, CancellationToken.None);
+
+            Assert.IsType<CreatedResult>(result);
             _veiculoServiceMock.Verify(s => s.AddImagensForOficina(
                 4,
                 2,
@@ -226,19 +331,62 @@ namespace SIGO.Tests.Controllers
         [Fact]
         public async Task Update_DeveAtualizarVeiculoDaOficina()
         {
+            var request = CriarVeiculoRequest();
             var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
             _veiculoServiceMock
-                .Setup(s => s.UpdateVeiculoForOficina(veiculo, 4, 2))
-                .Returns(Task.CompletedTask);
+                .Setup(s => s.UpdateVeiculoForOficina(request, 4, 2))
+                .ReturnsAsync(veiculo);
 
             var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
 
-            var result = await controller.Update(4, veiculo);
+            var result = await controller.Update(4, request);
 
             Assert.IsType<OkObjectResult>(result);
-            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(veiculo, 4, 2), Times.Once);
-            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForCliente(It.IsAny<VeiculoDTO>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
-            _veiculoServiceMock.Verify(s => s.UpdateVeiculo(It.IsAny<VeiculoDTO>(), It.IsAny<int>()), Times.Never);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(request, 4, 2), Times.Once);
+            _veiculoServiceMock.Verify(
+                s => s.UpdateVeiculoForCliente(
+                    It.IsAny<VeiculoRequestDTO>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>()),
+                Times.Never);
+            _veiculoServiceMock.Verify(
+                s => s.UpdateVeiculo(It.IsAny<VeiculoRequestDTO>(), It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task Update_DeveAtualizarVeiculoNoEscopoDaOficinaDoFuncionario()
+        {
+            var request = CriarVeiculoRequest();
+            var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
+            _veiculoServiceMock
+                .Setup(s => s.UpdateVeiculoForOficina(request, 4, 2))
+                .ReturnsAsync(veiculo);
+
+            var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Funcionario });
+
+            var result = await controller.Update(4, request);
+
+            Assert.IsType<OkObjectResult>(result);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(request, 4, 2), Times.Once);
+            _veiculoServiceMock.Verify(
+                s => s.UpdateVeiculo(It.IsAny<VeiculoRequestDTO>(), It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [InlineData(nameof(VeiculoController.CreateForCliente))]
+        [InlineData(nameof(VeiculoController.AddImagens))]
+        [InlineData(nameof(VeiculoController.Update))]
+        public void EscritasOperacionais_DevemAutorizarFuncionario(string methodName)
+        {
+            var attribute = typeof(VeiculoController)
+                .GetMethod(methodName)!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>()
+                .Single();
+
+            Assert.Contains(SystemRoles.Funcionario, attribute.Roles ?? string.Empty);
         }
 
         [Fact]
@@ -252,7 +400,7 @@ namespace SIGO.Tests.Controllers
 
             var result = await controller.DeleteImagem(4, 8);
 
-            Assert.IsType<OkObjectResult>(result);
+            Assert.IsType<NoContentResult>(result);
             _veiculoServiceMock.Verify(s => s.RemoveImagemForCliente(4, 5, 8), Times.Once);
             _veiculoServiceMock.Verify(s => s.RemoveImagem(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
@@ -284,7 +432,6 @@ namespace SIGO.Tests.Controllers
         {
             var controller = new VeiculoController(
                 _veiculoServiceMock.Object,
-                _mapperMock.Object,
                 _currentUserServiceMock.Object);
 
             _currentUserServiceMock.Setup(s => s.UserId).Returns(userId);
@@ -309,6 +456,22 @@ namespace SIGO.Tests.Controllers
                 Seguro = "Ativo",
                 Cor = "Preto",
                 ClienteId = clienteId
+            };
+        }
+
+        private static VeiculoRequestDTO CriarVeiculoRequest()
+        {
+            return new VeiculoRequestDTO
+            {
+                NomeVeiculo = "Carro",
+                TipoVeiculo = "Hatch",
+                PlacaVeiculo = "ABC1234",
+                ChassiVeiculo = "9BGKS48U0KG000001",
+                AnoFab = 2020,
+                Quilometragem = 10000,
+                Combustivel = "Gasolina",
+                Seguro = "Ativo",
+                Cor = "Preto"
             };
         }
 

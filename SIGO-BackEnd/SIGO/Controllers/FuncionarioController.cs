@@ -1,16 +1,17 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SIGO.Errors;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
 using SIGO.Utils;
-using SIGO.Validation;
 
 namespace SIGO.Controllers
 {
-    [Route("api/funcionarios")]
+    [Route("api/v1/funcionarios")]
     [ApiController]
     [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
     public class FuncionarioController : ControllerBase
@@ -19,7 +20,6 @@ namespace SIGO.Controllers
         private readonly IJwtTokenService _jwtTokenService;
         private readonly IFuncionarioRoleResolver _funcionarioRoleResolver;
         private readonly ICurrentUserService _currentUserService;
-        private readonly Response _response;
         private readonly IMapper _mapper;
 
         public FuncionarioController(
@@ -35,11 +35,11 @@ namespace SIGO.Controllers
             _jwtTokenService = jwtTokenService;
             _funcionarioRoleResolver = funcionarioRoleResolver;
             _currentUserService = currentUserService;
-            _response = new Response();
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<ActionResult<PagedResponse<FuncionarioDTO>>> GetAll(
+            [FromQuery] PaginationRequest? pagination = null)
         {
             IEnumerable<FuncionarioDTO> funcionarioDTO;
             if (_currentUserService.IsInRole(SystemRoles.Admin))
@@ -55,11 +55,9 @@ namespace SIGO.Controllers
                 funcionarioDTO = await _funcionarioService.GetByOficina(oficinaId.Value);
             }
 
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = funcionarioDTO;
-            _response.Message = "Funcionário listados com sucesso";
-
-            return Ok(_response);
+            return Ok(PagedResponse<FuncionarioDTO>.Create(
+                funcionarioDTO,
+                pagination ?? new PaginationRequest()));
         }
 
         [HttpGet("{id:int}")]
@@ -80,13 +78,17 @@ namespace SIGO.Controllers
             }
 
             if (funcionarioDTO is null)
-                return NotFound(new { Message = "Funcionário não encontrado" });
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Funcionário não encontrado.");
 
             return Ok(funcionarioDTO);
         }
 
         [HttpGet("nome/{nome}")]
-        public async Task<IActionResult> GetFuncionarioByNome(string nome)
+        public async Task<ActionResult<PagedResponse<FuncionarioDTO>>> GetFuncionarioByNome(
+            string nome,
+            [FromQuery] PaginationRequest? pagination = null)
         {
             IEnumerable<FuncionarioDTO> clientesDto;
             if (_currentUserService.IsInRole(SystemRoles.Admin))
@@ -102,148 +104,130 @@ namespace SIGO.Controllers
                 clientesDto = await _funcionarioService.GetFuncionarioByNomeForOficina(nome, oficinaId.Value);
             }
 
-            if (!clientesDto.Any())
-                return NotFound(new { Message = "Nenhum funcionário encontrado com esse nome" });
-
-            return Ok(clientesDto);
+            return Ok(PagedResponse<FuncionarioDTO>.Create(
+                clientesDto,
+                pagination ?? new PaginationRequest()));
         }
 
         [HttpPost]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Post(FuncionarioRequestDTO funcionarioDTO)
         {
             if (funcionarioDTO is null)
             {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-
-                return BadRequest(_response);
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "O corpo da requisição é obrigatório.");
             }
 
-            try
-            {
-                funcionarioDTO.Id = 0;
-                SanitizeFuncionario(funcionarioDTO);
-                if (!_currentUserService.IsInRole(SystemRoles.Admin))
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    funcionarioDTO.IdOficina = oficinaId.Value;
-                    funcionarioDTO.Role = SystemRoles.Funcionario;
-                }
-                else
-                {
-                    funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
-                }
-
-                await _funcionarioService.Create(funcionarioDTO);
-
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = ToResponse(funcionarioDTO);
-                _response.Message = "Funcionário cadastrado com sucesso";
-
-                return Ok(_response);
-            }
-            catch (BusinessValidationException ex)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Message = "Dados inválidos";
-                _response.Data = ex.Errors;
-                return BadRequest(_response);
-            }
-        }
-
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> Put(int id, FuncionarioRequestDTO funcionarioDTO)
-        {
-            if (funcionarioDTO is null)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-
-                return BadRequest(_response);
-            }
-
-            try
-            {
-
-                FuncionarioDTO? existingFuncionarioDTO;
-                if (_currentUserService.IsInRole(SystemRoles.Admin))
-                {
-                    existingFuncionarioDTO = await _funcionarioService.GetById(id);
-                    funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
-                }
-                else
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    existingFuncionarioDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
-                    funcionarioDTO.IdOficina = oficinaId.Value;
-                    funcionarioDTO.Role = SystemRoles.Funcionario;
-                }
-
-                if (existingFuncionarioDTO is null)
-                {
-                    _response.Code = ResponseEnum.NOT_FOUND;
-                    _response.Data = null;
-                    _response.Message = "O funcionário informado não existe";
-                    return NotFound(_response);
-                }
-
-                SanitizeFuncionario(funcionarioDTO);
-
-                await _funcionarioService.Update(funcionarioDTO, id);
-
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = ToResponse(funcionarioDTO);
-                _response.Message = "Funcionário atualizado com sucesso";
-
-                return Ok(_response);
-            }
-            catch (BusinessValidationException ex)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Message = "Dados inválidos";
-                _response.Data = ex.Errors;
-                return BadRequest(_response);
-            }
-        }
-
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeleteFuncionario(int id)
-        {
-            FuncionarioDTO? clienteDTO;
+            funcionarioDTO.Id = 0;
+            SanitizeFuncionario(funcionarioDTO);
             if (_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                clienteDTO = await _funcionarioService.GetById(id);
+                funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
             }
-            else
+            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
             {
                 var oficinaId = _currentUserService.OficinaId;
                 if (!oficinaId.HasValue)
                     return Forbid();
 
-                clienteDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
+                funcionarioDTO.IdOficina = oficinaId.Value;
+                funcionarioDTO.Role = SystemRoles.Funcionario;
             }
-
-            if (clienteDTO is null)
+            else
             {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "Funcionário não encontrado";
-                return NotFound(_response);
+                return Forbid();
             }
-            await _funcionarioService.Remove(id);
 
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = null;
-            _response.Message = "Funcionário deletado com sucesso";
-            return Ok(_response);
+            await _funcionarioService.Create(funcionarioDTO);
+
+            var created = ToResponse(funcionarioDTO);
+            return Created($"/api/v1/funcionarios/{created.Id}", created);
+        }
+
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        public async Task<IActionResult> Put(int id, FuncionarioRequestDTO funcionarioDTO)
+        {
+            if (funcionarioDTO is null)
+            {
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "O corpo da requisição é obrigatório.");
+            }
+
+            funcionarioDTO.Id = id;
+            FuncionarioDTO? existingFuncionarioDTO;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                existingFuncionarioDTO = await _funcionarioService.GetById(id);
+                funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
+            }
+            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                existingFuncionarioDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
+                funcionarioDTO.IdOficina = oficinaId.Value;
+                funcionarioDTO.Role = SystemRoles.Funcionario;
+            }
+            else
+            {
+                return Forbid();
+            }
+
+            if (existingFuncionarioDTO is null)
+            {
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "O funcionário informado não existe.");
+            }
+
+            SanitizeFuncionario(funcionarioDTO);
+
+            await _funcionarioService.Update(funcionarioDTO, id);
+
+            return Ok(ToResponse(funcionarioDTO));
+        }
+
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        public async Task<IActionResult> DeleteFuncionario(
+            int id,
+            CancellationToken cancellationToken = default)
+        {
+            FuncionarioDTO? funcionarioDTO;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                funcionarioDTO = await _funcionarioService.GetById(id);
+            }
+            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                funcionarioDTO = await _funcionarioService.GetByIdForOficina(id, oficinaId.Value);
+            }
+            else
+            {
+                return Forbid();
+            }
+
+            if (funcionarioDTO is null)
+            {
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Funcionário não encontrado.");
+            }
+            await _funcionarioService.DeactivateAsync(id, cancellationToken);
+
+            return NoContent();
         }
 
         [HttpPost("login")]
@@ -253,31 +237,27 @@ namespace SIGO.Controllers
         {
             if (login is null)
             {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-
-                return BadRequest(_response);
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "O corpo da requisição é obrigatório.");
             }
 
             var funcionarioDTO = await _funcionarioService.Login(login);
 
             if (funcionarioDTO is null)
             {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Email ou senha incorretos";
-
-                return BadRequest(_response);
+                return this.ApiProblem(
+                    StatusCodes.Status401Unauthorized,
+                    "E-mail ou senha inválidos.");
             }
 
             var role = _funcionarioRoleResolver.Resolve(funcionarioDTO.Role);
             if (role == SystemRoles.Funcionario && !funcionarioDTO.IdOficina.HasValue)
             {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Funcionário sem oficina vinculada";
-                return BadRequest(_response);
+                return this.ApiProblem(
+                    StatusCodes.Status401Unauthorized,
+                    "Funcionário sem oficina ativa associada.");
             }
 
             var token = _jwtTokenService.GenerateToken(new JwtTokenRequest
@@ -288,11 +268,7 @@ namespace SIGO.Controllers
                 Role = role,
                 OficinaId = funcionarioDTO.IdOficina
             });
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = token;
-            _response.Message = "Login realizado com sucesso";
-
-            return Ok(_response);
+            return Ok(new AccessTokenResponse(token));
         }
 
         private static void SanitizeFuncionario(FuncionarioRequestDTO funcionarioDTO)

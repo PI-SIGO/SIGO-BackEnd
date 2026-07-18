@@ -37,28 +37,41 @@ namespace SIGO.Services.Entities
 
         public async Task Create(MarcaDTO marcaDTO)
         {
+            await CreateMarca(marcaDTO);
+        }
+
+        public async Task<MarcaDTO> CreateMarca(MarcaDTO marcaDTO)
+        {
+            marcaDTO.Id = 0;
             var marca = _mapper.Map<Marca>(marcaDTO);
             await _marcaRepository.Add(marca);
-            await _marcaRepository.SaveChanges();
+            return _mapper.Map<MarcaDTO>(marca);
         }
 
         public async Task Update(MarcaDTO marcaDTO, int idMarca)
         {
-            var marca = await _marcaRepository.GetById(idMarca);
-            if (marca == null) return;
+            await UpdateMarca(marcaDTO, idMarca);
+        }
 
+        public async Task<MarcaDTO> UpdateMarca(MarcaDTO marcaDTO, int idMarca)
+        {
+            var marca = await _marcaRepository.GetById(idMarca);
+            if (marca == null)
+                throw new KeyNotFoundException($"Marca com id {idMarca} não encontrada.");
+
+            marcaDTO.Id = idMarca;
             _mapper.Map(marcaDTO, marca);
             await _marcaRepository.Update(marca);
-            await _marcaRepository.SaveChanges();
+            return _mapper.Map<MarcaDTO>(marca);
         }
 
         public async Task Remove(int idMarca)
         {
             var marca = await _marcaRepository.GetById(idMarca);
-            if (marca == null) return;
+            if (marca == null)
+                throw new KeyNotFoundException($"Marca com id {idMarca} não encontrada.");
 
             await _marcaRepository.Remove(marca);
-            await _marcaRepository.SaveChanges();
         }
     }
 }

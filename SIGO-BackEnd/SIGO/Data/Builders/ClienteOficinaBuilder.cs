@@ -11,6 +11,12 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<ClienteOficina>().Property(co => co.Ativo).IsRequired();
             modelBuilder.Entity<ClienteOficina>().Property(co => co.CreatedAt).IsRequired();
             modelBuilder.Entity<ClienteOficina>().Property(co => co.UpdatedAt).IsRequired();
+            modelBuilder.Entity<ClienteOficina>().Property(co => co.RevogadoEm);
+
+            modelBuilder.Entity<ClienteOficina>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_cliente_oficina_ativo_revogado",
+                    "NOT (ativo AND revogado_em IS NOT NULL)"));
 
             modelBuilder.Entity<ClienteOficina>()
                 .HasOne(co => co.Oficina)

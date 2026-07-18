@@ -34,13 +34,16 @@ namespace SIGO.Services.Entities
         public async Task CreateForOficina(PecaDTO pecaDTO, int oficinaId)
         {
             pecaDTO.IdOficina = oficinaId;
-            await base.Create(pecaDTO);
+            await Create(pecaDTO);
         }
 
         public override async Task Create(PecaDTO pecaDTO)
         {
             EnsureOficinaOwner(pecaDTO.IdOficina);
-            await base.Create(pecaDTO);
+            pecaDTO.Id = 0;
+            var entity = _mapper.Map<Peca>(pecaDTO);
+            await _pecaRepository.Add(entity);
+            pecaDTO.Id = entity.Id;
         }
 
         public async Task UpdateForOficina(PecaDTO pecaDTO, int id, int oficinaId)

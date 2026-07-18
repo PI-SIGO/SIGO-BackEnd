@@ -11,5 +11,12 @@ namespace SIGO.Data.Interfaces
         Task<IEnumerable<Servico>> GetByOficina(int oficinaId);
         Task<Servico?> GetByIdForOficina(int id, int oficinaId);
         Task<Servico> Add(Servico servico);
+        Task<IReadOnlyList<Servico>> GetByIdsAsync(
+            IReadOnlyCollection<int> ids,
+            CancellationToken cancellationToken = default);
+        Task SaveWithEmployeesAsync(
+            Servico servico,
+            IReadOnlyCollection<Funcionario_Servico> employees,
+            CancellationToken cancellationToken = default);
     }
 }

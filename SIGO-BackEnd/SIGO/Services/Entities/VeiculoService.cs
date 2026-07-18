@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Objects.Enums;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
 using SIGO.Validation;
@@ -13,13 +14,13 @@ namespace SIGO.Services.Entities
         private const int MaxImagesPerRequest = 5;
         private readonly IVeiculoRepository _veiculoRepository;
         private readonly IMapper _mapper;
-        private readonly IClienteRepository? _clienteRepository;
+        private readonly IClienteRepository _clienteRepository;
         private readonly IVeiculoImagemStorageService _imagemStorageService;
 
         public VeiculoService(
             IVeiculoRepository veiculoRepository,
             IMapper mapper,
-            IClienteRepository? clienteRepository,
+            IClienteRepository clienteRepository,
             IVeiculoImagemStorageService imagemStorageService)
             : base(veiculoRepository, mapper)
         {
@@ -44,7 +45,7 @@ namespace SIGO.Services.Entities
         public async Task<IEnumerable<VeiculoDTO>> GetByPlacaForOficina(string placa, int oficinaId)
         {
             var entity = await _veiculoRepository.GetByPlacaForOficina(placa, oficinaId);
-            return _mapper.Map<IEnumerable<VeiculoDTO>>(entity);
+            return MapForOficina(entity, oficinaId);
         }
 
         public async Task<IEnumerable<VeiculoDTO>> GetByTipo(string tipo)
@@ -62,7 +63,7 @@ namespace SIGO.Services.Entities
         public async Task<IEnumerable<VeiculoDTO>> GetByTipoForOficina(string tipo, int oficinaId)
         {
             var entities = await _veiculoRepository.GetByTipoForOficina(tipo, oficinaId);
-            return _mapper.Map<IEnumerable<VeiculoDTO>>(entities);
+            return MapForOficina(entities, oficinaId);
         }
 
         public async Task<IEnumerable<VeiculoDTO>> GetByCliente(int clienteId)
@@ -74,7 +75,7 @@ namespace SIGO.Services.Entities
         public async Task<IEnumerable<VeiculoDTO>> GetByOficina(int oficinaId)
         {
             var entities = await _veiculoRepository.GetByOficina(oficinaId);
-            return _mapper.Map<IEnumerable<VeiculoDTO>>(entities);
+            return MapForOficina(entities, oficinaId);
         }
 
         public override async Task<VeiculoDTO?> GetById(int id)
@@ -92,19 +93,29 @@ namespace SIGO.Services.Entities
         public async Task<VeiculoDTO?> GetByIdForOficina(int id, int oficinaId)
         {
             var entity = await _veiculoRepository.GetByIdForOficina(id, oficinaId);
-            return _mapper.Map<VeiculoDTO?>(entity);
+            return MapForOficina(entity, oficinaId);
         }
 
-        public async Task CreateForCliente(VeiculoDTO veiculoDto, int clienteId)
+        public async Task<VeiculoDTO> CreateVeiculo(VeiculoRequestDTO request, int clienteId)
         {
-            veiculoDto.ClienteId = clienteId;
-            await base.Create(veiculoDto);
+            await EnsureClienteAtivo(clienteId);
+            return await CreateInternal(request, clienteId);
         }
 
-        public async Task CreateForOficina(VeiculoDTO veiculoDto, int oficinaId)
+        public async Task<VeiculoDTO> CreateForCliente(VeiculoRequestDTO request, int clienteId)
         {
-            await EnsureClienteVinculado(veiculoDto.ClienteId, oficinaId);
-            await base.Create(veiculoDto);
+            await EnsureClienteAtivo(clienteId);
+            return await CreateInternal(request, clienteId);
+        }
+
+        public async Task<VeiculoDTO> CreateForOficina(
+            VeiculoRequestDTO request,
+            int clienteId,
+            int oficinaId)
+        {
+            await EnsureClienteVinculado(clienteId, oficinaId);
+            var created = await CreateInternal(request, clienteId);
+            return RestrictHistoriesToOficina(created, oficinaId);
         }
 
         public async Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagens(
@@ -172,55 +183,128 @@ namespace SIGO.Services.Entities
             await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
         }
 
-        public async Task UpdateVeiculo(VeiculoDTO veiculoDto, int id)
+        public async Task<VeiculoDTO> UpdateVeiculo(VeiculoRequestDTO request, int id)
         {
             var existingEntity = await _veiculoRepository.GetById(id);
 
             if (existingEntity == null)
                 throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
-            ValidateClienteIdNaoAlterado(existingEntity, veiculoDto);
-            ApplyUpdate(existingEntity, veiculoDto);
+            ApplyUpdate(existingEntity, request);
             await _veiculoRepository.SaveChanges();
+            return _mapper.Map<VeiculoDTO>(existingEntity);
         }
 
-        public async Task UpdateVeiculoForCliente(VeiculoDTO veiculoDto, int id, int clienteId)
+        public async Task<VeiculoDTO> UpdateVeiculoForCliente(
+            VeiculoRequestDTO request,
+            int id,
+            int clienteId)
         {
             var existingEntity = await _veiculoRepository.GetByIdForCliente(id, clienteId);
 
             if (existingEntity == null)
                 throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
-            ValidateClienteIdNaoAlterado(existingEntity, veiculoDto);
-            ApplyUpdate(existingEntity, veiculoDto);
+            ApplyUpdate(existingEntity, request);
             await _veiculoRepository.SaveChanges();
+            return _mapper.Map<VeiculoDTO>(existingEntity);
         }
 
-        public async Task UpdateVeiculoForOficina(VeiculoDTO veiculoDto, int id, int oficinaId)
+        public async Task<VeiculoDTO> UpdateVeiculoForOficina(
+            VeiculoRequestDTO request,
+            int id,
+            int oficinaId)
         {
             var existingEntity = await _veiculoRepository.GetByIdForOficina(id, oficinaId);
 
             if (existingEntity == null)
                 throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
 
-            ValidateClienteIdNaoAlterado(existingEntity, veiculoDto);
             await EnsureClienteVinculado(existingEntity.ClienteId, oficinaId);
 
-            ApplyUpdate(existingEntity, veiculoDto);
+            ApplyUpdate(existingEntity, request);
             await _veiculoRepository.SaveChanges();
+            return RestrictHistoriesToOficina(
+                _mapper.Map<VeiculoDTO>(existingEntity),
+                oficinaId);
+        }
+
+        private IEnumerable<VeiculoDTO> MapForOficina(
+            IEnumerable<Veiculo> entities,
+            int oficinaId)
+        {
+            var vehicles = _mapper.Map<IEnumerable<VeiculoDTO>>(entities)
+                ?? Enumerable.Empty<VeiculoDTO>();
+
+            return vehicles
+                .Select(vehicle => RestrictHistoriesToOficina(vehicle, oficinaId))
+                .ToList();
+        }
+
+        private VeiculoDTO? MapForOficina(Veiculo? entity, int oficinaId)
+        {
+            if (entity == null)
+                return null;
+
+            return RestrictHistoriesToOficina(
+                _mapper.Map<VeiculoDTO>(entity),
+                oficinaId);
+        }
+
+        private static VeiculoDTO RestrictHistoriesToOficina(
+            VeiculoDTO vehicle,
+            int oficinaId)
+        {
+            if (vehicle == null)
+                return null;
+
+            vehicle.Pedidos = (vehicle.Pedidos ?? Array.Empty<PedidoDTO>())
+                .Where(order => order.idOficina == oficinaId)
+                .ToList();
+
+            vehicle.RegistroServicos = (vehicle.RegistroServicos ?? Array.Empty<RegistroServicoDTO>())
+                .Where(record => record.OficinaId == oficinaId)
+                .ToList();
+
+            return vehicle;
+        }
+
+        private async Task<VeiculoDTO> CreateInternal(VeiculoRequestDTO request, int clienteId)
+        {
+            var entity = new Veiculo
+            {
+                NomeVeiculo = request.NomeVeiculo,
+                TipoVeiculo = request.TipoVeiculo,
+                PlacaVeiculo = request.PlacaVeiculo,
+                ChassiVeiculo = request.ChassiVeiculo,
+                AnoFab = request.AnoFab,
+                Quilometragem = request.Quilometragem,
+                Combustivel = request.Combustivel,
+                Seguro = request.Seguro,
+                Cor = request.Cor,
+                ClienteId = clienteId,
+                Status = Status.Pendente
+            };
+
+            await _veiculoRepository.Add(entity);
+            return _mapper.Map<VeiculoDTO>(entity);
+        }
+
+        private async Task EnsureClienteAtivo(int clienteId)
+        {
+            var cliente = await _clienteRepository.GetById(clienteId);
+            if (cliente == null)
+                throw new KeyNotFoundException($"Cliente com id {clienteId} nao encontrado.");
         }
 
         private async Task EnsureClienteVinculado(int clienteId, int oficinaId)
         {
-            if (_clienteRepository == null)
-                return;
-
             var clienteVinculado = await _clienteRepository.ExistsInOficina(clienteId, oficinaId);
             if (!clienteVinculado)
             {
                 throw new BusinessValidationException(new[]
                 {
-                    new ValidationError(nameof(VeiculoDTO.ClienteId), "Cliente nao esta vinculado a oficina autenticada.")
+                    new ValidationError("clienteId", "Cliente nao esta vinculado a oficina autenticada.")
                 });
             }
         }
@@ -312,28 +396,17 @@ namespace SIGO.Services.Entities
             }
         }
 
-        private static void ValidateClienteIdNaoAlterado(Veiculo existing, VeiculoDTO veiculoDto)
+        private static void ApplyUpdate(Veiculo existing, VeiculoRequestDTO request)
         {
-            if (veiculoDto.ClienteId > 0 && veiculoDto.ClienteId != existing.ClienteId)
-            {
-                throw new BusinessValidationException(new[]
-                {
-                    new ValidationError(nameof(VeiculoDTO.ClienteId), "Cliente do veiculo nao pode ser alterado.")
-                });
-            }
-        }
-
-        private static void ApplyUpdate(Veiculo existing, VeiculoDTO veiculoDto)
-        {
-            existing.NomeVeiculo = veiculoDto.NomeVeiculo;
-            existing.TipoVeiculo = veiculoDto.TipoVeiculo;
-            existing.PlacaVeiculo = veiculoDto.PlacaVeiculo;
-            existing.ChassiVeiculo = veiculoDto.ChassiVeiculo;
-            existing.AnoFab = veiculoDto.AnoFab;
-            existing.Quilometragem = veiculoDto.Quilometragem;
-            existing.Combustivel = veiculoDto.Combustivel;
-            existing.Seguro = veiculoDto.Seguro;
-            existing.Cor = veiculoDto.Cor;
+            existing.NomeVeiculo = request.NomeVeiculo;
+            existing.TipoVeiculo = request.TipoVeiculo;
+            existing.PlacaVeiculo = request.PlacaVeiculo;
+            existing.ChassiVeiculo = request.ChassiVeiculo;
+            existing.AnoFab = request.AnoFab;
+            existing.Quilometragem = request.Quilometragem;
+            existing.Combustivel = request.Combustivel;
+            existing.Seguro = request.Seguro;
+            existing.Cor = request.Cor;
         }
     }
 }

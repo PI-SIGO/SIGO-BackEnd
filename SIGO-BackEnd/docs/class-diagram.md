@@ -13,8 +13,8 @@ direction TB
 class Cliente {
   int Id
   string Nome
-  string Email
-  string Senha
+  string? Email
+  string? Senha
   string Cpf_Cnpj
   string Obs
   string Razao
@@ -23,6 +23,27 @@ class Cliente {
   TipoCliente TipoCliente
   Situacao Situacao
   string Cep
+}
+
+class ClienteConta {
+  int Id
+  int ClienteId
+  string EmailNormalizado
+  string PasswordHash
+  EstadoClienteConta Status
+  int TokenVersion
+  DateTime CreatedAt
+  DateTime UpdatedAt
+}
+
+class ClienteContato {
+  int Id
+  int ClienteId
+  TipoContatoCliente Tipo
+  string ValorNormalizado
+  OrigemContatoCliente Origem
+  DateTime? VerificadoEm
+  DateTime CreatedAt
 }
 
 class Oficina {
@@ -58,9 +79,9 @@ class ClienteOficina {
   int OficinaId
   int ClienteId
   bool Ativo
-  string DadosPermitidos
   DateTime CreatedAt
   DateTime UpdatedAt
+  DateTime? RevogadoEm
 }
 
 class Telefone {
@@ -186,9 +207,30 @@ class Status {
   Concluido
 }
 
+class EstadoClienteConta {
+  <<enumeration>>
+  Active
+  Blocked
+}
+
+class TipoContatoCliente {
+  <<enumeration>>
+  Email
+  Telefone
+}
+
+class OrigemContatoCliente {
+  <<enumeration>>
+  Oficina
+  Cliente
+  MigracaoLegado
+}
+
 %% Customer and workshop ownership
 Cliente "1" --> "0..*" Telefone : telefones
 Cliente "1" --> "0..*" Veiculo : veiculos
+Cliente "1" --> "0..1" ClienteConta : conta
+Cliente "1" --> "0..*" ClienteContato : contatos
 Cliente "1" --> "0..*" ClienteOficina : oficinas
 Oficina "1" --> "0..*" ClienteOficina : clientes
 
@@ -218,6 +260,9 @@ Servico "1" --> "0..*" Pedido_Servico : pedidos
 Cliente --> Sexo
 Cliente --> TipoCliente
 Cliente --> Situacao
+ClienteConta --> EstadoClienteConta
+ClienteContato --> TipoContatoCliente
+ClienteContato --> OrigemContatoCliente
 Oficina --> Situacao
 Funcionario --> Situacao
 Veiculo --> Status
@@ -226,4 +271,7 @@ Veiculo --> Status
 Notes:
 
 - `ClienteOficina`, `Pedido_Peca`, `Pedido_Servico`, and `Funcionario_Servico` are explicit join entities.
+- A oficina cria `ClienteOficina` diretamente; não existem aprovação, consentimento ou estado pendente nesta versão. Um vínculo revogado pelo cliente não pode ser reativado unilateralmente pela oficina.
+- Direct registration creates `ClienteConta` for a new `Cliente` or for the existing `Cliente` found by CPF. Because vehicles and orders keep the same `ClienteId`, no data is copied.
+- `ClienteContato.VerificadoEm` remains null in the simplified registration flow; no email confirmation is sent or required.
 - `Pedido` connects the customer, workshop, employee, vehicle, parts, and services involved in the work order.

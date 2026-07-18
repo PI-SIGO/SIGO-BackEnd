@@ -1,7 +1,32 @@
 namespace SIGO.Objects.Dtos.Entities
 {
-    public class ClienteRequestDTO : ClienteDTO
+    public class ClienteRequestDTO
     {
+        private string _email = string.Empty;
+
+        public string Nome { get; set; }
+        public string Email
+        {
+            get => _email;
+            set => _email = string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : value.Trim().ToLowerInvariant();
+        }
+        public string Cpf_Cnpj { get; set; }
+        public string Obs { get; set; }
+        public string razao { get; set; }
+        public DateOnly DataNasc { get; set; }
+        public int Numero { get; set; }
+        public string Rua { get; set; }
+        public string Cidade { get; set; }
+        public string Cep { get; set; }
+        public string Bairro { get; set; }
+        public string Estado { get; set; }
+        public string Pais { get; set; }
+        public string Complemento { get; set; }
+        public int Sexo { get; set; }
+        public int TipoCliente { get; set; }
+        public List<TelefoneDTO> Telefones { get; set; } = new();
         public string senha { get; set; }
     }
 }

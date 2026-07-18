@@ -37,5 +37,25 @@ namespace SIGO.Tests.Controllers
 
             Assert.IsType<FileContentResult>(result);
         }
+
+        [Fact]
+        public async Task GetVehicleHistoryPdf_DeveEncaminharTodosOsFiltros()
+        {
+            var from = new DateTime(2026, 1, 1);
+            var to = new DateTime(2026, 1, 31);
+            var reportService = new Mock<IReportService>();
+            reportService.Setup(s => s.CanAccessVehicleHistoryAsync(10)).ReturnsAsync(true);
+            reportService
+                .Setup(s => s.GenerateVehicleHistoryPdfAsync(10, from, to, "revisão"))
+                .ReturnsAsync(new byte[] { 1 });
+            var controller = new ReportController(reportService.Object);
+
+            var result = await controller.GetVehicleHistoryPdf(10, from, to, "revisão");
+
+            Assert.IsType<FileContentResult>(result);
+            reportService.Verify(
+                s => s.GenerateVehicleHistoryPdfAsync(10, from, to, "revisão"),
+                Times.Once);
+        }
     }
 }

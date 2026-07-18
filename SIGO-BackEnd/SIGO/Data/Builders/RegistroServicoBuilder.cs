@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using SIGO.Objects.Models;
 
 namespace SIGO.Data.Builders
@@ -17,6 +18,15 @@ namespace SIGO.Data.Builders
                     .HasForeignKey(r => r.VeiculoId)
                     .OnDelete(DeleteBehavior.Restrict);
 
+                entity.HasOne(r => r.Oficina)
+                    .WithMany()
+                    .HasForeignKey(r => r.OficinaId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired();
+
+                entity.Property(r => r.OficinaId)
+                    .Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Throw);
+
                 entity.HasOne(r => r.Servico)
                     .WithMany()
                     .HasForeignKey(r => r.ServicoId)
@@ -30,6 +40,10 @@ namespace SIGO.Data.Builders
                 entity.HasIndex(r => new { r.VeiculoId, r.DataServico })
                     .IsDescending(false, true)
                     .HasDatabaseName("IX_registro_servico_veiculo_data");
+
+                entity.HasIndex(r => new { r.OficinaId, r.DataServico })
+                    .IsDescending(false, true)
+                    .HasDatabaseName("IX_registro_servico_oficina_data");
             });
 
             modelBuilder.Entity<PecaSubstituida>(entity =>

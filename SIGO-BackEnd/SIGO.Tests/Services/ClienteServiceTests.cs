@@ -2,8 +2,8 @@ using AutoMapper;
 using Moq;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Objects.Enums;
 using SIGO.Objects.Models;
-using SIGO.Security;
 using SIGO.Services.Entities;
 using SIGO.Validation;
 using Xunit;
@@ -13,38 +13,11 @@ namespace SIGO.Tests.Services
     public class ClienteServiceTests
     {
         private readonly Mock<IClienteRepository> _clienteRepositoryMock = new();
-        private readonly Mock<IClienteOficinaRepository> _clienteOficinaRepositoryMock = new();
         private readonly Mock<ITelefoneRepository> _telefoneRepositoryMock = new();
         private readonly Mock<IMapper> _mapperMock = new();
-        private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
 
         [Fact]
-        public async Task Create_DeveRetornarTodosErros_QuandoCpfCnpjECepForemInvalidos()
-        {
-            var service = CreateService();
-            var dto = new ClienteRequestDTO
-            {
-                Nome = "Cliente",
-                Email = "cliente@test.com",
-                senha = "123",
-                Cpf_Cnpj = "111",
-                Cep = "123"
-            };
-
-            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() => service.Create(dto));
-
-            Assert.Contains(exception.Errors, error =>
-                error.Field == nameof(ClienteDTO.Cpf_Cnpj) &&
-                error.Message == "CPF/CNPJ inválido.");
-            Assert.Contains(exception.Errors, error =>
-                error.Field == nameof(ClienteDTO.Cep) &&
-                error.Message == "CEP inválido. O CEP deve conter 8 dígitos.");
-            Assert.Equal(2, exception.Errors.Count);
-            _clienteRepositoryMock.Verify(r => r.Add(It.IsAny<SIGO.Objects.Models.Cliente>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task GetByIdWithDetailsForOficina_DeveRetornarDadosCompletos_QuandoClienteEstaVinculado()
+        public async Task GetByIdWithDetailsForOficina_DeveRetornarDadosCompletos_QuandoVinculoEstaAtivo()
         {
             var service = CreateService();
             var cliente = new Cliente
@@ -73,13 +46,21 @@ namespace SIGO.Tests.Services
                 }
             };
 
-            _clienteRepositoryMock.Setup(r => r.GetByIdWithDetailsForOficina(7, 2)).ReturnsAsync(cliente);
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
             _mapperMock
-                .Setup(m => m.Map<List<TelefoneDTO>>(cliente.Telefones))
-                .Returns(new List<TelefoneDTO> { new() { Id = 1, DDD = 11, Numero = "999999999", ClienteId = 7 } });
+                .Setup(mapper => mapper.Map<List<TelefoneDTO>>(cliente.Telefones))
+                .Returns(new List<TelefoneDTO>
+                {
+                    new() { Id = 1, DDD = 11, Numero = "999999999", ClienteId = 7 }
+                });
             _mapperMock
-                .Setup(m => m.Map<List<VeiculoDTO>>(cliente.Veiculos))
-                .Returns(new List<VeiculoDTO> { new() { Id = 1, ClienteId = 7, NomeVeiculo = "Carro" } });
+                .Setup(mapper => mapper.Map<List<VeiculoDTO>>(cliente.Veiculos))
+                .Returns(new List<VeiculoDTO>
+                {
+                    new() { Id = 1, ClienteId = 7, NomeVeiculo = "Carro" }
+                });
 
             var result = await service.GetByIdWithDetailsForOficina(7, 2);
 
@@ -93,92 +74,109 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task CreateForOficina_DeveVincularClienteExistente_QuandoCpfCnpjEEmailConferem()
+        public async Task GetByIdWithDetailsForOficina_DeveOcultarDados_QuandoVinculoEstaInativo()
         {
             var service = CreateService();
-            var dto = CriarClienteDto();
-            var clienteExistente = new Cliente
+            var cliente = new Cliente
             {
-                Id = 10,
-                Nome = dto.Nome,
-                Email = dto.Email,
-                Cpf_Cnpj = dto.Cpf_Cnpj
+                Id = 7,
+                Nome = "Cliente Pendente",
+                ClienteOficinas = new List<ClienteOficina>
+                {
+                    new()
+                    {
+                        OficinaId = 2,
+                        ClienteId = 7,
+                        Ativo = false
+                    }
+                }
             };
 
             _clienteRepositoryMock
-                .Setup(r => r.GetByCpfCnpjOrEmail(dto.Cpf_Cnpj, dto.Email))
-                .ReturnsAsync(new List<Cliente> { clienteExistente });
-            _mapperMock
-                .Setup(m => m.Map<ClienteDTO>(clienteExistente))
-                .Returns(new ClienteDTO { Id = 10, Nome = dto.Nome, Email = dto.Email, Cpf_Cnpj = dto.Cpf_Cnpj });
-            _clienteOficinaRepositoryMock
-                .Setup(r => r.AddOrUpdateVinculoAsync(3, 10))
-                .Returns(Task.CompletedTask);
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
 
-            var result = await service.CreateForOficina(dto, 3);
+            var result = await service.GetByIdWithDetailsForOficina(7, 2);
 
-            Assert.Equal(10, result.Id);
-            _clienteRepositoryMock.Verify(r => r.Add(It.IsAny<Cliente>()), Times.Never);
-            _clienteOficinaRepositoryMock.Verify(r => r.AddOrUpdateVinculoAsync(3, 10), Times.Once);
+            Assert.Null(result);
         }
 
         [Fact]
-        public async Task CreateForOficina_DeveRejeitarVinculo_QuandoCpfCnpjEEmailNaoPertencemAoMesmoCliente()
+        public async Task GetByIdWithDetailsForOficina_DeveOcultarHistoricosDeOutrasOficinas()
         {
             var service = CreateService();
-            var dto = CriarClienteDto();
-            var clienteExistente = new Cliente
+            var vehicle = new Veiculo { Id = 11, ClienteId = 7 };
+            var cliente = new Cliente
             {
-                Id = 10,
-                Nome = "Outro Cliente",
-                Email = "outro@test.com",
-                Cpf_Cnpj = dto.Cpf_Cnpj
+                Id = 7,
+                Situacao = Situacao.ATIVO,
+                ClienteOficinas = new List<ClienteOficina>
+                {
+                    new() { OficinaId = 2, ClienteId = 7, Ativo = true }
+                },
+                Veiculos = new List<Veiculo> { vehicle }
             };
-
             _clienteRepositoryMock
-                .Setup(r => r.GetByCpfCnpjOrEmail(dto.Cpf_Cnpj, dto.Email))
-                .ReturnsAsync(new List<Cliente> { clienteExistente });
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
+            _mapperMock
+                .Setup(mapper => mapper.Map<List<TelefoneDTO>>(cliente.Telefones))
+                .Returns(new List<TelefoneDTO>());
+            _mapperMock
+                .Setup(mapper => mapper.Map<List<VeiculoDTO>>(cliente.Veiculos))
+                .Returns(new List<VeiculoDTO>
+                {
+                    new()
+                    {
+                        Id = 11,
+                        ClienteId = 7,
+                        Pedidos = new List<PedidoDTO>
+                        {
+                            new() { Id = 20, idOficina = 2 },
+                            new() { Id = 30, idOficina = 3 }
+                        },
+                        RegistroServicos = new List<RegistroServicoDTO>
+                        {
+                            new() { Id = 40, OficinaId = 2 },
+                            new() { Id = 50, OficinaId = 3 }
+                        }
+                    }
+                });
 
-            await Assert.ThrowsAsync<BusinessValidationException>(() => service.CreateForOficina(dto, 3));
+            var result = await service.GetByIdWithDetailsForOficina(7, 2);
 
-            _clienteOficinaRepositoryMock.Verify(r => r.AddOrUpdateVinculoAsync(
-                It.IsAny<int>(),
-                It.IsAny<int>()),
-                Times.Never);
+            var returnedVehicle = Assert.Single(result!.Veiculos);
+            Assert.Equal(20, Assert.Single(returnedVehicle.Pedidos).Id);
+            Assert.Equal(40, Assert.Single(returnedVehicle.RegistroServicos).Id);
+        }
+
+        [Fact]
+        public async Task DeactivateAsync_DeveDelegarInativacaoLogicaAoRepositorio()
+        {
+            _clienteRepositoryMock
+                .Setup(repository => repository.DeactivateAsync(7, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+            var service = CreateService();
+
+            var result = await service.DeactivateAsync(7);
+
+            Assert.True(result);
+            _clienteRepositoryMock.Verify(repository => repository.DeactivateAsync(
+                7,
+                It.IsAny<CancellationToken>()), Times.Once);
+            _clienteRepositoryMock.Verify(repository => repository.Remove(It.IsAny<Cliente>()), Times.Never);
         }
 
         private ClienteService CreateService()
         {
-            var cpfValidator = new CpfValidator();
-            var cnpjValidator = new CnpjValidator();
-            var cpfCnpjValidator = new CpfCnpjValidator(cpfValidator, cnpjValidator);
+            var cpfCnpjValidator = new CpfCnpjValidator(new CpfValidator(), new CnpjValidator());
 
             return new ClienteService(
                 _clienteRepositoryMock.Object,
                 _telefoneRepositoryMock.Object,
                 _mapperMock.Object,
                 cpfCnpjValidator,
-                _clienteOficinaRepositoryMock.Object,
-                null,
-                _passwordHasherMock.Object);
-        }
-
-        private static ClienteRequestDTO CriarClienteDto()
-        {
-            return new ClienteRequestDTO
-            {
-                Nome = "Cliente",
-                Email = "cliente@test.com",
-                senha = "123",
-                Cpf_Cnpj = "52998224725",
-                Cep = "12345678",
-                Rua = "Rua A",
-                Cidade = "Cidade",
-                Bairro = "Centro",
-                Estado = "SP",
-                Pais = "Brasil",
-                Complemento = string.Empty
-            };
+                null);
         }
     }
 }

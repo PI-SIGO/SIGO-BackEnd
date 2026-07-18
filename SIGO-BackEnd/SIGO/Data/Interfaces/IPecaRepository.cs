@@ -6,5 +6,8 @@ namespace SIGO.Data.Interfaces
     {
         Task<IEnumerable<Peca>> GetByOficina(int oficinaId);
         Task<Peca?> GetByIdForOficina(int id, int oficinaId);
+        Task<IReadOnlyList<Peca>> GetByIdsAsync(
+            IReadOnlyCollection<int> ids,
+            CancellationToken cancellationToken = default);
     }
 }

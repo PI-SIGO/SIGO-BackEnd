@@ -34,6 +34,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,7 @@ if (string.IsNullOrWhiteSpace(defaultConnection))
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ApiErrorResponseFilter>();
+    options.Filters.Add<FluentValidationActionFilter>();
 });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -66,6 +68,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddValidatorsFromAssemblyContaining<CadastrarClienteValidator>();
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
     .Validate(
@@ -99,6 +102,21 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAutoMapper(opt => { }, AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddSwaggerGen(options =>
 {
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "SIGO API",
+        Version = "v1",
+        Description = "API versionada para gestão de oficinas, clientes, veículos e ordens de serviço."
+    });
+
+    options.TagActionsBy(apiDescription =>
+    {
+        var controllerName = apiDescription.ActionDescriptor.RouteValues["controller"] ?? "Outros";
+        return controllerName.StartsWith("Cliente", StringComparison.Ordinal)
+            ? new[] { "Cliente" }
+            : new[] { controllerName };
+    });
+
     options.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
@@ -134,14 +152,6 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
     .AddCheck<DbContextReadinessHealthCheck>("database", tags: new[] { "ready" });
-builder.Services.AddOptions<CompartilhamentoClienteOptions>()
-    .Bind(builder.Configuration.GetSection(CompartilhamentoClienteOptions.SectionName))
-    .Validate(
-        options => !string.IsNullOrWhiteSpace(options.CodigoHmacSecret) &&
-                   Encoding.UTF8.GetByteCount(options.CodigoHmacSecret) >= 32,
-        "Configure CompartilhamentoCliente:CodigoHmacSecret with at least 32 bytes through environment/configuration.")
-    .ValidateOnStart();
-
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -155,24 +165,6 @@ builder.Services.AddRateLimiter(options =>
             cancellationToken: token);
     };
 
-    options.AddPolicy(RateLimitPolicies.CompartilhamentoClienteResgate, httpContext =>
-    {
-        var oficinaId = httpContext.User.FindFirst(CustomClaimTypes.OficinaId)?.Value;
-        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var partitionKey = $"{oficinaId ?? userId ?? "anonymous"}:{ipAddress}";
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey,
-            _ => new FixedWindowRateLimiterOptions
-            {
-                AutoReplenishment = true,
-                PermitLimit = 5,
-                QueueLimit = 0,
-                Window = TimeSpan.FromMinutes(1)
-            });
-    });
-
     options.AddPolicy(RateLimitPolicies.ClienteLogin, httpContext =>
         CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.ClienteLogin, 5, TimeSpan.FromMinutes(1)));
 
@@ -184,12 +176,22 @@ builder.Services.AddRateLimiter(options =>
 
     options.AddPolicy(RateLimitPolicies.PublicRegistration, httpContext =>
         CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.PublicRegistration, 3, TimeSpan.FromMinutes(5)));
+
+    options.AddPolicy(RateLimitPolicies.ClientePreRegistration, httpContext =>
+        CreateActorIpFixedWindowLimiter(httpContext, RateLimitPolicies.ClientePreRegistration, 20, TimeSpan.FromHours(1)));
+
+    options.AddPolicy(RateLimitPolicies.ClientePasswordChange, httpContext =>
+        CreateActorIpFixedWindowLimiter(httpContext, RateLimitPolicies.ClientePasswordChange, 5, TimeSpan.FromMinutes(15)));
 });
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IClienteOficinaRepository, ClienteOficinaRepository>();
-builder.Services.AddScoped<ICompartilhamentoClienteRepository, CompartilhamentoClienteRepository>();
-builder.Services.AddScoped<ICompartilhamentoClienteService, CompartilhamentoClienteService>();
+builder.Services.AddScoped<IClienteContaRepository, ClienteContaRepository>();
+builder.Services.AddScoped<IClienteIdentityRepository, ClienteIdentityRepository>();
+builder.Services.AddScoped<IClienteRegistrationService, ClienteRegistrationService>();
+builder.Services.AddScoped<IClienteAuthenticationService, ClienteAuthenticationService>();
+builder.Services.AddScoped<IClienteVinculoService, ClienteVinculoService>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddScoped<ITelefoneRepository, TelefoneRepository>();
 builder.Services.AddScoped<ITelefoneService, TelefoneService>();
@@ -256,6 +258,98 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
         options.Events = new JwtBearerEvents
         {
+            OnTokenValidated = async context =>
+            {
+                var userIdValue = context.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdValue, out var userId))
+                {
+                    context.Fail("Token is missing the required user identifier.");
+                    return;
+                }
+
+                if (context.Principal.IsInRole(SystemRoles.Cliente))
+                {
+                    var tokenVersionValue = context.Principal
+                        .FindFirst(CustomClaimTypes.TokenVersion)?.Value;
+                    if (!int.TryParse(tokenVersionValue, out var tokenVersion))
+                    {
+                        context.Fail("Cliente token is missing the required version.");
+                        return;
+                    }
+
+                    var contaRepository = context.HttpContext.RequestServices
+                        .GetRequiredService<IClienteContaRepository>();
+                    var currentVersion = await contaRepository.GetActiveTokenVersionAsync(
+                        userId,
+                        context.HttpContext.RequestAborted);
+
+                    if (!currentVersion.HasValue || currentVersion.Value != tokenVersion)
+                        context.Fail("Cliente token has been revoked.");
+
+                    return;
+                }
+
+                if (context.Principal.IsInRole(SystemRoles.Oficina))
+                {
+                    var oficinaClaim = context.Principal
+                        .FindFirst(CustomClaimTypes.OficinaId)?.Value;
+                    if (!int.TryParse(oficinaClaim, out var oficinaId) || oficinaId != userId)
+                    {
+                        context.Fail("Oficina token has inconsistent tenant claims.");
+                        return;
+                    }
+
+                    var oficinaRepository = context.HttpContext.RequestServices
+                        .GetRequiredService<IOficinaRepository>();
+                    if (!await oficinaRepository.IsActiveAsync(
+                            userId,
+                            context.HttpContext.RequestAborted))
+                    {
+                        context.Fail("Oficina token has been revoked.");
+                    }
+
+                    return;
+                }
+
+                if (context.Principal.IsInRole(SystemRoles.Funcionario) ||
+                    context.Principal.IsInRole(SystemRoles.Admin))
+                {
+                    var funcionarioRepository = context.HttpContext.RequestServices
+                        .GetRequiredService<IFuncionarioRepository>();
+                    var funcionario = await funcionarioRepository.GetActiveByIdAsync(
+                        userId,
+                        context.HttpContext.RequestAborted);
+                    if (funcionario is null)
+                    {
+                        context.Fail("Funcionario token has been revoked.");
+                        return;
+                    }
+
+                    var currentRole = string.Equals(
+                        funcionario.Role,
+                        SystemRoles.Admin,
+                        StringComparison.OrdinalIgnoreCase)
+                        ? SystemRoles.Admin
+                        : SystemRoles.Funcionario;
+                    var tokenRole = context.Principal.FindFirst(ClaimTypes.Role)?.Value;
+                    if (!string.Equals(tokenRole, currentRole, StringComparison.Ordinal))
+                    {
+                        context.Fail("Funcionario permissions changed after token issuance.");
+                        return;
+                    }
+
+                    if (currentRole == SystemRoles.Funcionario)
+                    {
+                        var oficinaClaim = context.Principal
+                            .FindFirst(CustomClaimTypes.OficinaId)?.Value;
+                        if (!int.TryParse(oficinaClaim, out var oficinaId) ||
+                            funcionario.IdOficina != oficinaId)
+                        {
+                            context.Fail("Funcionario tenant changed after token issuance.");
+                        }
+                    }
+                }
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -383,6 +477,29 @@ static RateLimitPartition<string> CreateIpFixedWindowLimiter(
 {
     var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     var partitionKey = $"{policyName}:{ipAddress}";
+
+    return RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey,
+        _ => new FixedWindowRateLimiterOptions
+        {
+            AutoReplenishment = true,
+            PermitLimit = permitLimit,
+            QueueLimit = 0,
+            Window = window
+        });
+}
+
+static RateLimitPartition<string> CreateActorIpFixedWindowLimiter(
+    HttpContext httpContext,
+    string policyName,
+    int permitLimit,
+    TimeSpan window)
+{
+    var actorId = httpContext.User.FindFirst(CustomClaimTypes.OficinaId)?.Value
+        ?? httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        ?? "anonymous";
+    var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var partitionKey = $"{policyName}:{actorId}:{ipAddress}";
 
     return RateLimitPartition.GetFixedWindowLimiter(
         partitionKey,

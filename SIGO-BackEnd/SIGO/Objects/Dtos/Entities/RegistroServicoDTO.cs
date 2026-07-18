@@ -6,6 +6,8 @@ namespace SIGO.Objects.Dtos.Entities
 
         public int VeiculoId { get; set; }
 
+        public int OficinaId { get; set; }
+
         public int? ServicoId { get; set; }
 
         public ServicoDTO? Servico { get; set; }
@@ -20,4 +22,5 @@ namespace SIGO.Objects.Dtos.Entities
 
         public ICollection<PecaSubstituidaDTO> PecasSubstituidas { get; set; } = new List<PecaSubstituidaDTO>();
     }
+
 }

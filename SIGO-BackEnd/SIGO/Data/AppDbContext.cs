@@ -17,8 +17,9 @@ namespace SIGO.Data
         public DbSet<Peca> Pecas { get; set; }
         public DbSet<Oficina> Oficinas { get; set; }
         public DbSet<ClienteOficina> ClienteOficinas { get; set; }
-        public DbSet<CompartilhamentoCliente> CompartilhamentosCliente { get; set; }
-        public DbSet<CompartilhamentoClienteTentativa> CompartilhamentosClienteTentativas { get; set; }
+        public DbSet<ClienteConta> ClienteContas { get; set; }
+        public DbSet<ClienteContato> ClienteContatos { get; set; }
+        public DbSet<AuditoriaSeguranca> AuditoriasSeguranca { get; set; }
         public DbSet<Pedido> Pedidos { get; set; }
         public DbSet<RegistroServico> RegistroServicos { get; set; }
         public DbSet<PecaSubstituida> PecasSubstituidas { get; set; }
@@ -38,8 +39,9 @@ namespace SIGO.Data
             PecaBuilder.Build(modelBuilder);
             OficinaBuilder.Build(modelBuilder);
             ClienteOficinaBuilder.Build(modelBuilder);
-            CompartilhamentoClienteBuilder.Build(modelBuilder);
-            CompartilhamentoClienteTentativaBuilder.Build(modelBuilder);
+            ClienteContaBuilder.Build(modelBuilder);
+            ClienteContatoBuilder.Build(modelBuilder);
+            AuditoriaSegurancaBuilder.Build(modelBuilder);
             PedidoBuilder.Build(modelBuilder);
             RegistroServicoBuilder.Build(modelBuilder);
             VeiculoImagemBuilder.Build(modelBuilder);

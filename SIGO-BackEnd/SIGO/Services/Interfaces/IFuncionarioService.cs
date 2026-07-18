@@ -15,6 +15,7 @@ namespace SIGO.Services.Interfaces
         Task ValidarCpf(string? cpf, int? ignoreId = null);
         Task Create(FuncionarioRequestDTO funcionarioDTO);
         Task Update(FuncionarioRequestDTO funcionarioDTO, int id);
+        Task DeactivateAsync(int id, CancellationToken cancellationToken = default);
 
         Task<FuncionarioDTO?> Login(Login login);
 

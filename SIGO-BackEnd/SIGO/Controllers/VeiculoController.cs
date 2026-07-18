@@ -1,36 +1,32 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SIGO.Errors;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
-using SIGO.Validation;
 
 namespace SIGO.Controllers
 {
-    [Route("api/veiculos")]
+    [Route("api/v1/veiculos")]
     [ApiController]
     [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
     public class VeiculoController : ControllerBase
     {
         private readonly IVeiculoService _veiculoService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly Response _response;
 
         public VeiculoController(
             IVeiculoService veiculoService,
-            IMapper mapper,
             ICurrentUserService currentUserService)
         {
             _veiculoService = veiculoService;
             _currentUserService = currentUserService;
-            _response = new Response();
         }
 
         [HttpGet]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> Get([FromQuery] PaginationRequest? pagination = null)
         {
             IEnumerable<VeiculoDTO> veiculos;
             if (_currentUserService.IsInRole(SystemRoles.Cliente))
@@ -54,16 +50,47 @@ namespace SIGO.Controllers
                 veiculos = await _veiculoService.GetAll();
             }
 
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = veiculos;
-            _response.Message = "Veículos listados com sucesso";
+            return Ok(PagedResponse<VeiculoDTO>.Create(veiculos, pagination ?? new PaginationRequest()));
+        }
 
-            return Ok(_response);
+        [HttpGet("{id:int}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            VeiculoDTO? veiculo;
+
+            if (_currentUserService.IsInRole(SystemRoles.Cliente))
+            {
+                var clienteId = _currentUserService.UserId;
+                if (!clienteId.HasValue)
+                    return Forbid();
+
+                veiculo = await _veiculoService.GetByIdForCliente(id, clienteId.Value);
+            }
+            else if (_currentUserService.IsInRole(SystemRoles.Oficina) ||
+                     _currentUserService.IsInRole(SystemRoles.Funcionario))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                veiculo = await _veiculoService.GetByIdForOficina(id, oficinaId.Value);
+            }
+            else
+            {
+                veiculo = await _veiculoService.GetById(id);
+            }
+
+            return veiculo is null
+                ? this.ApiProblem(StatusCodes.Status404NotFound, "Veículo não encontrado.")
+                : Ok(veiculo);
         }
 
         [HttpGet("placa/{placa}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
-        public async Task<IActionResult> GetByPlaca(string placa)
+        public async Task<IActionResult> GetByPlaca(
+            string placa,
+            [FromQuery] PaginationRequest? pagination = null)
         {
             IEnumerable<VeiculoDTO> veiculos;
             if (_currentUserService.IsInRole(SystemRoles.Cliente))
@@ -87,23 +114,14 @@ namespace SIGO.Controllers
                 veiculos = await _veiculoService.GetByPlaca(placa);
             }
 
-            if (!veiculos.Any())
-            {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "Nenhum veículo encontrado com essa placa";
-                return NotFound(_response);
-            }
-
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = veiculos;
-            _response.Message = "Veículos encontrados com sucesso";
-            return Ok(_response);
+            return Ok(PagedResponse<VeiculoDTO>.Create(veiculos, pagination ?? new PaginationRequest()));
         }
 
         [HttpGet("tipo/{tipo}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
-        public async Task<IActionResult> GetByTipo(string tipo)
+        public async Task<IActionResult> GetByTipo(
+            string tipo,
+            [FromQuery] PaginationRequest? pagination = null)
         {
             IEnumerable<VeiculoDTO> veiculos;
             if (_currentUserService.IsInRole(SystemRoles.Cliente))
@@ -127,68 +145,53 @@ namespace SIGO.Controllers
                 veiculos = await _veiculoService.GetByTipo(tipo);
             }
 
-            if (!veiculos.Any())
-            {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "Nenhum veículo encontrado com esse tipo";
-                return NotFound(_response);
-            }
-
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = veiculos;
-            _response.Message = "Veículos encontrados com sucesso";
-            return Ok(_response);
+            return Ok(PagedResponse<VeiculoDTO>.Create(veiculos, pagination ?? new PaginationRequest()));
         }
 
         [HttpPost]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
-        public async Task<IActionResult> Create(VeiculoDTO veiculoDto)
+        [Authorize(Roles = SystemRoles.Cliente)]
+        public async Task<IActionResult> Create(VeiculoRequestDTO request)
         {
-            try
+            var clienteId = _currentUserService.UserId;
+            if (!clienteId.HasValue)
+                return Forbid();
+
+            var veiculoCriado = await _veiculoService.CreateForCliente(request, clienteId.Value);
+            return Created($"/api/v1/veiculos/{veiculoCriado.Id}", veiculoCriado);
+        }
+
+        [HttpPost("~/api/v1/clientes/{clienteId:int}/veiculos")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        public async Task<IActionResult> CreateForCliente(int clienteId, VeiculoRequestDTO request)
+        {
+            VeiculoDTO veiculoCriado;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                if (_currentUserService.IsInRole(SystemRoles.Admin))
-                {
-                    await _veiculoService.Create(veiculoDto);
-                }
-                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
-                {
-                    var clienteId = _currentUserService.UserId;
-                    if (!clienteId.HasValue)
-                        return Forbid();
-
-                    await _veiculoService.CreateForCliente(veiculoDto, clienteId.Value);
-                }
-                else if (_currentUserService.IsInRole(SystemRoles.Oficina))
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    await _veiculoService.CreateForOficina(veiculoDto, oficinaId.Value);
-                }
-                else
-                {
+                veiculoCriado = await _veiculoService.CreateVeiculo(request, clienteId);
+            }
+            else
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
                     return Forbid();
-                }
 
-                return Ok(new { Message = "Veículo cadastrado com sucesso" });
+                veiculoCriado = await _veiculoService.CreateForOficina(
+                    request,
+                    clienteId,
+                    oficinaId.Value);
             }
-            catch (BusinessValidationException ex)
-            {
-                return BadRequest(new { Message = "Dados inválidos", Errors = ex.Errors });
-            }
+
+            return Created($"/api/v1/veiculos/{veiculoCriado.Id}", veiculoCriado);
         }
 
         [HttpPost("{id:int}/imagens")]
         [Consumes("multipart/form-data")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> AddImagens(
             int id,
             [FromForm] List<IFormFile> imagens,
             CancellationToken cancellationToken)
         {
-            try
             {
                 IReadOnlyCollection<VeiculoImagemDTO> imagensSalvas;
 
@@ -208,7 +211,8 @@ namespace SIGO.Controllers
                         imagens,
                         cancellationToken);
                 }
-                else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                else if (_currentUserService.IsInRole(SystemRoles.Oficina) ||
+                         _currentUserService.IsInRole(SystemRoles.Funcionario))
                 {
                     var oficinaId = _currentUserService.OficinaId;
                     if (!oficinaId.HasValue)
@@ -225,19 +229,7 @@ namespace SIGO.Controllers
                     return Forbid();
                 }
 
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = imagensSalvas;
-                _response.Message = "Imagens do veiculo cadastradas com sucesso";
-
-                return Ok(_response);
-            }
-            catch (BusinessValidationException ex)
-            {
-                return BadRequest(new { Message = "Dados inválidos", Errors = ex.Errors });
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new { Message = "Veiculo nao encontrado." });
+                return Created($"/api/v1/veiculos/{id}/imagens", imagensSalvas);
             }
         }
 
@@ -245,7 +237,6 @@ namespace SIGO.Controllers
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
         public async Task<IActionResult> GetImagemArquivo(int veiculoId, string nomeArquivo)
         {
-            try
             {
                 VeiculoImagemArquivoDTO arquivo;
 
@@ -274,14 +265,6 @@ namespace SIGO.Controllers
                 result.EnableRangeProcessing = true;
                 return result;
             }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new { Message = "Imagem do veiculo nao encontrada." });
-            }
-            catch (FileNotFoundException)
-            {
-                return NotFound(new { Message = "Imagem do veiculo nao encontrada." });
-            }
         }
 
         [HttpDelete("{veiculoId:int}/imagens/{imagemId:int}")]
@@ -291,7 +274,6 @@ namespace SIGO.Controllers
             if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
                 return Forbid();
 
-            try
             {
                 if (_currentUserService.IsInRole(SystemRoles.Admin))
                 {
@@ -306,23 +288,19 @@ namespace SIGO.Controllers
                     await _veiculoService.RemoveImagemForCliente(veiculoId, clienteId.Value, imagemId);
                 }
 
-                return Ok(new { Message = "Imagem do veiculo removida com sucesso" });
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new { Message = "Imagem do veiculo nao encontrada." });
+                return NoContent();
             }
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
-        public async Task<IActionResult> Update(int id, VeiculoDTO veiculoDto)
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        public async Task<IActionResult> Update(int id, VeiculoRequestDTO request)
         {
-            try
             {
+                VeiculoDTO veiculoAtualizado;
                 if (_currentUserService.IsInRole(SystemRoles.Admin))
                 {
-                    await _veiculoService.UpdateVeiculo(veiculoDto, id);
+                    veiculoAtualizado = await _veiculoService.UpdateVeiculo(request, id);
                 }
                 else if (_currentUserService.IsInRole(SystemRoles.Cliente))
                 {
@@ -330,30 +308,23 @@ namespace SIGO.Controllers
                     if (!clienteId.HasValue)
                         return Forbid();
 
-                    await _veiculoService.UpdateVeiculoForCliente(veiculoDto, id, clienteId.Value);
+                    veiculoAtualizado = await _veiculoService.UpdateVeiculoForCliente(request, id, clienteId.Value);
                 }
-                else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+                else if (_currentUserService.IsInRole(SystemRoles.Oficina) ||
+                         _currentUserService.IsInRole(SystemRoles.Funcionario))
                 {
                     var oficinaId = _currentUserService.OficinaId;
                     if (!oficinaId.HasValue)
                         return Forbid();
 
-                    await _veiculoService.UpdateVeiculoForOficina(veiculoDto, id, oficinaId.Value);
+                    veiculoAtualizado = await _veiculoService.UpdateVeiculoForOficina(request, id, oficinaId.Value);
                 }
                 else
                 {
                     return Forbid();
                 }
 
-                return Ok(new { Message = "Veículo atualizado com sucesso" });
-            }
-            catch (BusinessValidationException ex)
-            {
-                return BadRequest(new { Message = "Dados inválidos", Errors = ex.Errors });
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new { Message = "Veículo não encontrado." });
+                return Ok(veiculoAtualizado);
             }
         }
 
@@ -372,11 +343,13 @@ namespace SIGO.Controllers
 
                 var existing = await _veiculoService.GetByIdForCliente(id, clienteId.Value);
                 if (existing is null)
-                    return NotFound(new { Message = "Veículo não encontrado." });
+                    return this.ApiProblem(
+                        StatusCodes.Status404NotFound,
+                        "Veículo não encontrado.");
             }
 
             await _veiculoService.Remove(id);
-            return Ok(new { Message = "Veículo removido com sucesso" });
+            return NoContent();
         }
 
     }

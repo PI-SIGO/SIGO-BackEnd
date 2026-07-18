@@ -7,5 +7,7 @@ namespace SIGO.Services.Interfaces
     {
         Task<IEnumerable<TelefoneDTO>> GetTelefoneByNome(string nome);
         Task<IEnumerable<TelefoneDTO>> GetTelefoneByNomeForOficina(string nome, int oficinaId);
+        Task<TelefoneDTO> CreateTelefone(TelefoneDTO telefoneDTO);
+        Task<TelefoneDTO> UpdateTelefone(TelefoneDTO telefoneDTO, int id);
     }
 }
