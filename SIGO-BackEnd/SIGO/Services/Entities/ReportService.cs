@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
 using SIGO.Security;
+using SIGO.Validation;
 
 namespace SIGO.Services.Entities
 {
@@ -31,8 +32,17 @@ namespace SIGO.Services.Entities
 
         public async Task<byte[]> GenerateVehicleHistoryPdfAsync(int veiculoId, DateTime? from = null, DateTime? to = null, string? tipoServico = null)
         {
-            var registros = (await _registroRepo.GetByVeiculoAsync(veiculoId, from, to, tipoServico)).ToList();
-            var pedidos = (await _pedidoRepo.GetByVeiculoWithDetailsAsync(veiculoId)).ToList();
+            ValidateDateRange(from, to);
+            var tipoNormalizado = string.IsNullOrWhiteSpace(tipoServico)
+                ? null
+                : tipoServico.Trim();
+            var registros = (await _registroRepo.GetByVeiculoAsync(veiculoId, from, to, tipoNormalizado)).ToList();
+            var pedidos = FilterPedidos(
+                    await _pedidoRepo.GetByVeiculoWithDetailsAsync(veiculoId),
+                    from,
+                    to,
+                    tipoNormalizado)
+                .ToList();
             var vehicle = await _context.Veiculos
                 .Include(v => v.Cliente)
                 .FirstOrDefaultAsync(v => v.Id == veiculoId);
@@ -42,7 +52,7 @@ namespace SIGO.Services.Entities
             {
                 var oficinaId = _currentUserService.OficinaId.Value;
                 registros = registros
-                    .Where(r => r.Servico?.IdOficina == oficinaId)
+                    .Where(r => r.OficinaId == oficinaId)
                     .ToList();
                 pedidos = pedidos
                     .Where(p => p.idOficina == oficinaId)
@@ -104,6 +114,52 @@ namespace SIGO.Services.Entities
             return pdf;
         }
 
+        /// <summary>
+        /// Applies the vehicle-history date and service-type filters to workshop orders.
+        /// </summary>
+        public static IEnumerable<Pedido> FilterPedidos(
+            IEnumerable<Pedido> pedidos,
+            DateTime? from,
+            DateTime? to,
+            string? tipoServico)
+        {
+            ArgumentNullException.ThrowIfNull(pedidos);
+            ValidateDateRange(from, to);
+
+            var query = pedidos;
+            if (from.HasValue)
+            {
+                var fromDate = DateOnly.FromDateTime(from.Value);
+                query = query.Where(p => p.DataInicio >= fromDate);
+            }
+
+            if (to.HasValue)
+            {
+                var toDate = DateOnly.FromDateTime(to.Value);
+                query = query.Where(p => p.DataInicio <= toDate);
+            }
+
+            if (!string.IsNullOrWhiteSpace(tipoServico))
+            {
+                var tipoNormalizado = tipoServico.Trim();
+                query = query.Where(p => p.Pedido_Servicos?.Any(ps =>
+                    ps.Servico?.Nome?.Contains(tipoNormalizado, StringComparison.OrdinalIgnoreCase) == true) == true);
+            }
+
+            return query;
+        }
+
+        private static void ValidateDateRange(DateTime? from, DateTime? to)
+        {
+            if (from.HasValue && to.HasValue && from.Value > to.Value)
+            {
+                throw new BusinessValidationException(new[]
+                {
+                    new ValidationError("from", "A data inicial não pode ser posterior à data final.")
+                });
+            }
+        }
+
         public async Task<bool> CanAccessVehicleHistoryAsync(int veiculoId)
         {
             if (_currentUserService.IsInRole(SystemRoles.Admin))
@@ -124,6 +180,7 @@ namespace SIGO.Services.Entities
 
                 return await _context.Veiculos.AnyAsync(v =>
                     v.Id == veiculoId &&
+                    v.Cliente.Situacao == SIGO.Objects.Enums.Situacao.ATIVO &&
                     v.Cliente.ClienteOficinas.Any(co =>
                         co.OficinaId == oficinaId.Value &&
                         co.Ativo));
@@ -150,7 +207,8 @@ namespace SIGO.Services.Entities
             return await _context.ClienteOficinas.AnyAsync(co =>
                 co.ClienteId == vehicle.ClienteId &&
                 co.OficinaId == oficinaId.Value &&
-                co.Ativo);
+                co.Ativo &&
+                co.Cliente.Situacao == SIGO.Objects.Enums.Situacao.ATIVO);
         }
 
         private class ReportEntry

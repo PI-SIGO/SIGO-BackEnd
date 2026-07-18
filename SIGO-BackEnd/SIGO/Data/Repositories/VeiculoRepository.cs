@@ -34,7 +34,7 @@ namespace SIGO.Data.Repositories
 
         public async Task<IEnumerable<Veiculo>> GetByPlacaForOficina(string placa, int oficinaId)
         {
-            return await VeiculosDaOficina(oficinaId)
+            return await VeiculosDaOficina(oficinaId, asNoTracking: true)
                 .Where(v => v.PlacaVeiculo.Contains(placa))
                 .ToListAsync();
         }
@@ -55,7 +55,7 @@ namespace SIGO.Data.Repositories
 
         public async Task<IEnumerable<Veiculo>> GetByTipoForOficina(string tipo, int oficinaId)
         {
-            return await VeiculosDaOficina(oficinaId)
+            return await VeiculosDaOficina(oficinaId, asNoTracking: true)
                 .Where(v => v.TipoVeiculo.Contains(tipo))
                 .ToListAsync();
         }
@@ -67,7 +67,7 @@ namespace SIGO.Data.Repositories
 
         public async Task<IEnumerable<Veiculo>> GetByOficina(int oficinaId)
         {
-            return await VeiculosDaOficina(oficinaId).ToListAsync();
+            return await VeiculosDaOficina(oficinaId, asNoTracking: true).ToListAsync();
         }
 
         public async Task<Veiculo?> GetById(int id)
@@ -117,12 +117,33 @@ namespace SIGO.Data.Repositories
                 .Where(v => v.ClienteId == clienteId);
         }
 
-        private IQueryable<Veiculo> VeiculosDaOficina(int oficinaId)
+        private IQueryable<Veiculo> VeiculosDaOficina(int oficinaId, bool asNoTracking = false)
         {
-            return VeiculosComDetalhes()
-                .Where(v => v.Cliente.ClienteOficinas.Any(co =>
-                    co.OficinaId == oficinaId &&
-                    co.Ativo));
+            var query = _context.Veiculos
+                .AsSplitQuery()
+                .Include(v => v.Cliente)
+                .Include(v => v.Imagens)
+                .Include(v => v.RegistroServicos.Where(registro =>
+                    registro.OficinaId == oficinaId))
+                    .ThenInclude(registro => registro.Servico)
+                .Include(v => v.RegistroServicos.Where(registro =>
+                    registro.OficinaId == oficinaId))
+                    .ThenInclude(registro => registro.PecasSubstituidas)
+                .Include(v => v.Pedidos.Where(pedido => pedido.idOficina == oficinaId))
+                    .ThenInclude(pedido => pedido.Pedido_Servicos)
+                    .ThenInclude(pedidoServico => pedidoServico.Servico)
+                .Include(v => v.Pedidos.Where(pedido => pedido.idOficina == oficinaId))
+                    .ThenInclude(pedido => pedido.Pedido_Pecas)
+                    .ThenInclude(pedidoPeca => pedidoPeca.Peca)
+                .Where(v =>
+                    v.Cliente.Situacao == SIGO.Objects.Enums.Situacao.ATIVO &&
+                    v.Cliente.ClienteOficinas.Any(co =>
+                        co.OficinaId == oficinaId &&
+                        co.Ativo));
+
+            return asNoTracking
+                ? query.AsNoTracking()
+                : query;
         }
 
         private IQueryable<Veiculo> VeiculosComDetalhes()
@@ -130,7 +151,6 @@ namespace SIGO.Data.Repositories
             return _context.Veiculos
                 .AsSplitQuery()
                 .Include(v => v.Cliente)
-                .Include(v => v.Marcas)
                 .Include(v => v.Imagens)
                 .Include(v => v.RegistroServicos).ThenInclude(r => r.Servico)
                 .Include(v => v.RegistroServicos).ThenInclude(r => r.PecasSubstituidas)

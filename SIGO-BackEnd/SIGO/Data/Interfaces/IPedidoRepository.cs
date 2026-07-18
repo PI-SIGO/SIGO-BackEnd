@@ -9,5 +9,10 @@ namespace SIGO.Data.Interfaces
         Task<Pedido?> GetByIdWithDetails(int id);
         Task<Pedido?> GetByIdForOficina(int id, int oficinaId);
         Task<IEnumerable<Pedido>> GetByVeiculoWithDetailsAsync(int veiculoId);
+        Task SaveWithDetailsAsync(
+            Pedido pedido,
+            IReadOnlyCollection<Pedido_Peca> pecas,
+            IReadOnlyCollection<Pedido_Servico> servicos,
+            CancellationToken cancellationToken = default);
     }
 }

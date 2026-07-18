@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using SIGO.Controllers;
@@ -6,7 +5,6 @@ using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
-using System.Text.Json;
 using Xunit;
 
 namespace SIGO.Tests.Controllers
@@ -14,8 +12,7 @@ namespace SIGO.Tests.Controllers
     public class ClienteControllerTests
     {
         private readonly Mock<IClienteService> _clienteServiceMock = new();
-        private readonly Mock<IMapper> _mapperMock = new();
-        private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
+        private readonly Mock<IClienteAuthenticationService> _clienteAuthenticationServiceMock = new();
         private readonly Mock<IJwtTokenService> _jwtTokenServiceMock = new();
         private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
 
@@ -38,14 +35,16 @@ namespace SIGO.Tests.Controllers
             var result = await controller.Delete(2);
 
             Assert.IsType<ForbidResult>(result);
-            _clienteServiceMock.Verify(s => s.Remove(It.IsAny<int>()), Times.Never);
+            _clienteServiceMock.Verify(s => s.DeactivateAsync(
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
         public async Task Put_DevePermitir_QuandoClienteEditaProprioCadastro()
         {
             var dto = CriarClienteDto(id: 1);
-            _clienteServiceMock.Setup(s => s.GetById(1)).ReturnsAsync(dto);
+            _clienteServiceMock.Setup(s => s.GetById(1)).ReturnsAsync(CriarClienteResponseDto(1));
             _clienteServiceMock.Setup(s => s.ValidarCpfCnpj(dto.Cpf_Cnpj, 1)).Returns(Task.CompletedTask);
             _clienteServiceMock.Setup(s => s.Update(It.IsAny<ClienteRequestDTO>(), 1)).Returns(Task.CompletedTask);
 
@@ -58,60 +57,51 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
-        public async Task Post_DeveUsarOficinaIdDoJwt_QuandoOficinaRegistraCliente()
+        public void ClienteRequestDTO_NaoDeveExporSituacaoNoContratoDePerfil()
         {
-            var dto = CriarClienteDto();
-            var vinculado = CriarClienteDto(id: 10);
-
-            _clienteServiceMock
-                .Setup(s => s.CreateForOficina(It.IsAny<ClienteRequestDTO>(), 7))
-                .ReturnsAsync(vinculado);
-
-            var controller = CreateController(userId: 99, roles: new[] { SystemRoles.Oficina }, oficinaId: 7);
-
-            var result = await controller.Post(dto);
-
-            Assert.IsType<OkObjectResult>(result);
-            _clienteServiceMock.Verify(s => s.CreateForOficina(
-                It.Is<ClienteRequestDTO>(c => c.senha == "123"),
-                7),
-                Times.Once);
-            _clienteServiceMock.Verify(s => s.Create(It.IsAny<ClienteRequestDTO>()), Times.Never);
+            Assert.Null(typeof(ClienteRequestDTO).GetProperty("Situacao"));
         }
 
         [Fact]
-        public async Task Post_DeveFazerCadastroSelfService_QuandoNaoHaUsuarioDeOficina()
+        public async Task Login_DeveRetornarContratoBearerPadronizado()
         {
-            var dto = CriarClienteDto();
-            string? senhaEnviadaAoService = null;
-            _clienteServiceMock
-                .Setup(s => s.Create(It.IsAny<ClienteRequestDTO>()))
-                .Callback<ClienteRequestDTO>(c => senhaEnviadaAoService = c.senha)
-                .Returns(Task.CompletedTask);
-
+            var login = new LoginClienteDTO { Cpf = "52998224725", Senha = "Senha123" };
+            _clienteAuthenticationServiceMock
+                .Setup(service => service.AuthenticateAsync(login, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ClienteAuthenticationResult(
+                    1,
+                    "Cliente",
+                    "cliente@test.com",
+                    3));
+            _jwtTokenServiceMock
+                .Setup(service => service.GenerateToken(It.IsAny<JwtTokenRequest>()))
+                .Returns("jwt-cliente");
             var controller = CreateController();
 
-            var result = await controller.Post(dto);
-
-            Assert.IsType<OkObjectResult>(result);
-            Assert.Equal("123", senhaEnviadaAoService);
-            _clienteServiceMock.Verify(s => s.Create(It.IsAny<ClienteRequestDTO>()), Times.Once);
-            _clienteServiceMock.Verify(s => s.CreateForOficina(It.IsAny<ClienteRequestDTO>(), It.IsAny<int>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task Post_NaoDeveSerializarSenha_EmResposta()
-        {
-            var dto = CriarClienteDto();
-            _clienteServiceMock.Setup(s => s.Create(It.IsAny<ClienteRequestDTO>())).Returns(Task.CompletedTask);
-
-            var controller = CreateController();
-
-            var result = await controller.Post(dto);
+            var result = await controller.Login(login, CancellationToken.None);
 
             var ok = Assert.IsType<OkObjectResult>(result);
-            var json = JsonSerializer.Serialize(ok.Value);
-            Assert.DoesNotContain("senha", json, StringComparison.OrdinalIgnoreCase);
+            var response = Assert.IsType<AccessTokenResponse>(ok.Value);
+            Assert.Equal("jwt-cliente", response.AccessToken);
+            Assert.Equal("Bearer", response.TokenType);
+        }
+
+        [Fact]
+        public async Task Delete_DeveInativarContaERetornarNoContent()
+        {
+            _clienteServiceMock.Setup(service => service.GetById(1))
+                .ReturnsAsync(CriarClienteResponseDto(1));
+            _clienteServiceMock.Setup(service => service.DeactivateAsync(1, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+            var controller = CreateController(userId: 1, roles: new[] { SystemRoles.Cliente });
+
+            var result = await controller.Delete(1);
+
+            Assert.IsType<NoContentResult>(result);
+            _clienteServiceMock.Verify(service => service.DeactivateAsync(
+                1,
+                It.IsAny<CancellationToken>()), Times.Once);
+            _clienteServiceMock.Verify(service => service.Remove(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
@@ -127,9 +117,9 @@ namespace SIGO.Tests.Controllers
             var result = await controller.GetByOficinaId(7);
 
             var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            Assert.Equal(ResponseEnum.SUCCESS, response.Code);
-            Assert.Same(clientes, response.Data);
+            var response = Assert.IsType<PagedResponse<ClienteOficinaDTO>>(ok.Value);
+            Assert.Single(response.Items);
+            Assert.Equal(clientes[0].Id, response.Items[0].Id);
             _clienteServiceMock.Verify(s => s.GetByOficina(7), Times.Once);
         }
 
@@ -164,8 +154,7 @@ namespace SIGO.Tests.Controllers
         {
             var controller = new ClienteController(
                 _clienteServiceMock.Object,
-                _mapperMock.Object,
-                _passwordHasherMock.Object,
+                _clienteAuthenticationServiceMock.Object,
                 _jwtTokenServiceMock.Object,
                 _currentUserServiceMock.Object);
 
@@ -180,7 +169,6 @@ namespace SIGO.Tests.Controllers
         {
             return new ClienteRequestDTO
             {
-                Id = id,
                 Nome = "Cliente",
                 Email = "cliente@test.com",
                 senha = "123",
@@ -194,6 +182,18 @@ namespace SIGO.Tests.Controllers
                 Estado = "SP",
                 Pais = "Brasil",
                 Complemento = string.Empty
+            };
+        }
+
+        private static ClienteDTO CriarClienteResponseDto(int id)
+        {
+            return new ClienteDTO
+            {
+                Id = id,
+                Nome = "Cliente",
+                Email = "cliente@test.com",
+                Cpf_Cnpj = "12345678901",
+                Cep = "12345678"
             };
         }
     }

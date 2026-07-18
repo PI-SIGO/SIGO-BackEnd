@@ -11,9 +11,11 @@ namespace SIGO.Tests.Controllers
         [InlineData(typeof(ClienteController), nameof(ClienteController.Login), RateLimitPolicies.ClienteLogin)]
         [InlineData(typeof(OficinaController), nameof(OficinaController.Login), RateLimitPolicies.OficinaLogin)]
         [InlineData(typeof(FuncionarioController), nameof(FuncionarioController.Login), RateLimitPolicies.FuncionarioLogin)]
-        [InlineData(typeof(ClienteController), nameof(ClienteController.Post), RateLimitPolicies.PublicRegistration)]
+        [InlineData(typeof(ClienteRegistrationController), nameof(ClienteRegistrationController.Register), RateLimitPolicies.PublicRegistration)]
+        [InlineData(typeof(ClienteVinculoController), nameof(ClienteVinculoController.RegisterFull), RateLimitPolicies.ClientePreRegistration)]
+        [InlineData(typeof(ClienteController), nameof(ClienteController.ChangePassword), RateLimitPolicies.ClientePasswordChange)]
         [InlineData(typeof(OficinaController), nameof(OficinaController.Create), RateLimitPolicies.PublicRegistration)]
-        public void EndpointPublico_DeveTerRateLimit(Type controllerType, string methodName, string policyName)
+        public void EndpointSensivel_DeveTerRateLimit(Type controllerType, string methodName, string policyName)
         {
             var attribute = controllerType
                 .GetMethods()

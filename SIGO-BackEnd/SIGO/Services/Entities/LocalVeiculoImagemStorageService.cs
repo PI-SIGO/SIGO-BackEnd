@@ -59,7 +59,7 @@ namespace SIGO.Services.Entities
             return new VeiculoImagem
             {
                 VeiculoId = veiculoId,
-                Url = $"/api/veiculos/{veiculoId.ToString(CultureInfo.InvariantCulture)}/imagens/{fileName}",
+                Url = $"/api/v1/veiculos/{veiculoId.ToString(CultureInfo.InvariantCulture)}/imagens/{fileName}",
                 NomeArquivo = fileName,
                 NomeOriginal = Path.GetFileName(imagem.FileName),
                 ContentType = contentType,

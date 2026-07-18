@@ -11,12 +11,10 @@ namespace SIGO.Services.Interfaces
         Task<IEnumerable<ClienteOficinaDTO>> GetByNameWithDetailsForOficina(string nome, int oficinaId);
         Task<ClienteDTO?> GetByIdWithDetails(int id);
         Task<ClienteOficinaDTO?> GetByIdWithDetailsForOficina(int id, int oficinaId);
-        Task<ClienteDTO?> Login(Login login);
         Task<bool> ExistsInOficina(int clienteId, int oficinaId);
         Task ValidarCpfCnpj(string? documento, int? ignoreId = null);
         Task ValidarNomeEmail(string? nome, string? email, int? ignoreId = null);
-        Task Create(ClienteRequestDTO clienteDTO);
         Task Update(ClienteRequestDTO clienteDTO, int id);
-        Task<ClienteDTO> CreateForOficina(ClienteRequestDTO clienteDTO, int oficinaId);
+        Task<bool> DeactivateAsync(int id, CancellationToken cancellationToken = default);
     }
 }

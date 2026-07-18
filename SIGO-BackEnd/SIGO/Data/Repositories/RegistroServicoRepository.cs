@@ -1,11 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using SIGO.Data;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
-using System.Linq;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System;
 
 namespace SIGO.Data.Repositories
 {
@@ -37,20 +32,5 @@ namespace SIGO.Data.Repositories
             return await query.OrderByDescending(r => r.DataServico).ToListAsync();
         }
 
-        public async Task<RegistroServico?> GetByIdAsync(int id)
-        {
-            return await _context.RegistroServicos
-                .Include(r => r.Veiculo)
-                .Include(r => r.Servico)
-                .Include(r => r.PecasSubstituidas)
-                .FirstOrDefaultAsync(r => r.Id == id);
-        }
-
-        public async Task<RegistroServico> AddAsync(RegistroServico registro)
-        {
-            await _context.RegistroServicos.AddAsync(registro);
-            await _context.SaveChangesAsync();
-            return registro;
-        }
     }
 }

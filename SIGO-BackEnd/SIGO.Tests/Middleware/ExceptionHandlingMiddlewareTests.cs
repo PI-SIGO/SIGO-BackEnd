@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 using SIGO.Errors;
 using SIGO.Exceptions;
 using SIGO.Middleware;
@@ -64,6 +66,30 @@ namespace SIGO.Tests.Middleware
             Assert.Equal(StatusCodes.Status409Conflict, context.Response.StatusCode);
             Assert.Equal(ApiProblemTypes.Conflict, json.GetProperty("type").GetString());
             Assert.Equal("Cliente ja existe.", json.GetProperty("detail").GetString());
+        }
+
+        [Fact]
+        public async Task InvokeAsync_DeveRetornarConflict_QuandoPostgresViolaChaveEstrangeira()
+        {
+            var context = CreateHttpContext();
+            var postgresException = new PostgresException(
+                "insert or update violates foreign key constraint",
+                "ERROR",
+                "ERROR",
+                PostgresErrorCodes.ForeignKeyViolation);
+            var middleware = new ExceptionHandlingMiddleware(
+                _ => throw new DbUpdateException("Database update failed.", postgresException),
+                NullLogger<ExceptionHandlingMiddleware>.Instance);
+
+            await middleware.InvokeAsync(context);
+
+            var json = await ReadResponseJson(context);
+            Assert.Equal(StatusCodes.Status409Conflict, context.Response.StatusCode);
+            Assert.Equal(ApiProblemTypes.Conflict, json.GetProperty("type").GetString());
+            Assert.Equal(
+                "A operacao referencia um recurso inexistente ou que ainda esta em uso.",
+                json.GetProperty("detail").GetString());
+            Assert.DoesNotContain("foreign key constraint", json.GetRawText(), StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

@@ -15,29 +15,82 @@ USE `sigo`;
 CREATE TABLE IF NOT EXISTS `cliente` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `nome` VARCHAR(100) NOT NULL,
-  `email` VARCHAR(100) NOT NULL,
-  `senha` VARCHAR(100) NOT NULL,
+  `email` VARCHAR(254) NULL,
+  `senha` VARCHAR(255) NULL,
   `cpf_cnpj` VARCHAR(14) NOT NULL,
   `obs` VARCHAR(500) NULL,
   `razao` VARCHAR(500) NULL,
   `datanasc` DATE NULL,
   `sexo` INT NOT NULL,
   `numero` INT NOT NULL,
-  `rua` VARCHAR(500) NOT NULL,
-  `cidade` VARCHAR(500) NOT NULL,
-  `cep` VARCHAR(20) NOT NULL,
-  `bairro` VARCHAR(500) NOT NULL,
-  `estado` VARCHAR(500) NOT NULL,
-  `pais` VARCHAR(500) NOT NULL,
-  `complemento` VARCHAR(500) NOT NULL,
+  `rua` VARCHAR(500) NULL,
+  `cidade` VARCHAR(500) NULL,
+  `cep` VARCHAR(8) NULL,
+  `bairro` VARCHAR(500) NULL,
+  `estado` VARCHAR(500) NULL,
+  `pais` VARCHAR(500) NULL,
+  `complemento` VARCHAR(500) NULL,
   `tipocliente` INT NOT NULL,
   `situacao` INT NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `UX_cliente_email` (`email`),
   UNIQUE KEY `UX_cliente_cpf_cnpj` (`cpf_cnpj`),
   CONSTRAINT `CK_cliente_sexo` CHECK (`sexo` IN (1, 2, 3)),
   CONSTRAINT `CK_cliente_tipocliente` CHECK (`tipocliente` IN (1, 2)),
   CONSTRAINT `CK_cliente_situacao` CHECK (`situacao` IN (1, 2))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `cliente_conta` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `id_cliente` INT NOT NULL,
+  `email_normalizado` VARCHAR(254) NOT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `status` INT NOT NULL,
+  `token_version` INT NOT NULL DEFAULT 1,
+  `created_at` DATETIME(6) NOT NULL,
+  `updated_at` DATETIME(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IX_cliente_conta_id_cliente` (`id_cliente`),
+  UNIQUE KEY `IX_cliente_conta_email_normalizado` (`email_normalizado`),
+  CONSTRAINT `CK_cliente_conta_status` CHECK (`status` IN (1, 2)),
+  CONSTRAINT `CK_cliente_conta_token_version` CHECK (`token_version` >= 1),
+  CONSTRAINT `FK_cliente_conta_cliente`
+    FOREIGN KEY (`id_cliente`) REFERENCES `cliente` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `cliente_contato` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `id_cliente` INT NOT NULL,
+  `tipo` INT NOT NULL,
+  `valor_normalizado` VARCHAR(254) NOT NULL,
+  `origem` INT NOT NULL,
+  `verificado_em` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IX_cliente_contato_cliente_tipo_valor` (`id_cliente`, `tipo`, `valor_normalizado`),
+  KEY `IX_cliente_contato_tipo_valor` (`tipo`, `valor_normalizado`),
+  CONSTRAINT `FK_cliente_contato_cliente`
+    FOREIGN KEY (`id_cliente`) REFERENCES `cliente` (`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `auditoria_seguranca` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `id_cliente` INT NULL,
+  `tipo_ator` INT NOT NULL,
+  `id_ator` INT NULL,
+  `evento` INT NOT NULL,
+  `resultado` INT NOT NULL,
+  `documento_hash` VARCHAR(64) NULL,
+  `contato_hash` VARCHAR(64) NULL,
+  `documento_mascarado` VARCHAR(32) NULL,
+  `contato_mascarado` VARCHAR(254) NULL,
+  `ip_address` VARCHAR(64) NULL,
+  `correlation_id` VARCHAR(128) NULL,
+  `created_at` DATETIME(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `IX_auditoria_seguranca_id_cliente` (`id_cliente`),
+  KEY `IX_auditoria_seguranca_evento_created_at` (`evento`, `created_at`),
+  CONSTRAINT `FK_auditoria_seguranca_cliente`
+    FOREIGN KEY (`id_cliente`) REFERENCES `cliente` (`id`) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `oficina` (
@@ -105,9 +158,12 @@ CREATE TABLE IF NOT EXISTS `cliente_oficina` (
   `ativo` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `revogado_em` DATETIME(6) NULL,
   PRIMARY KEY (`id_oficina`, `id_cliente`),
   KEY `IX_cliente_oficina_id_cliente` (`id_cliente`),
   KEY `IX_cliente_oficina_oficina_ativo_cliente` (`id_oficina`, `ativo`, `id_cliente`),
+  CONSTRAINT `CK_cliente_oficina_ativo_revogado`
+    CHECK (NOT (`ativo` = 1 AND `revogado_em` IS NOT NULL)),
   CONSTRAINT `FK_cliente_oficina_oficina`
     FOREIGN KEY (`id_oficina`)
     REFERENCES `oficina` (`id`)
@@ -149,14 +205,7 @@ CREATE TABLE IF NOT EXISTS `marca` (
   `nome` VARCHAR(100) NOT NULL,
   `desc` VARCHAR(500) NULL,
   `tipomarca` VARCHAR(50) NOT NULL,
-  `VeiculoId` INT NULL,
-  PRIMARY KEY (`id`),
-  KEY `IX_marca_VeiculoId` (`VeiculoId`),
-  CONSTRAINT `FK_marca_veiculo`
-    FOREIGN KEY (`VeiculoId`)
-    REFERENCES `veiculo` (`id`)
-    ON DELETE SET NULL
-    ON UPDATE RESTRICT
+  PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `peca` (
@@ -215,40 +264,6 @@ CREATE TABLE IF NOT EXISTS `telefone` (
     ON UPDATE RESTRICT
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `compartilhamento_cliente` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `id_cliente` INT NOT NULL,
-  `codigo_hash` VARCHAR(128) NOT NULL,
-  `expira_em` DATETIME(6) NOT NULL,
-  `usado_em` DATETIME(6) NULL,
-  `ativo` TINYINT(1) NOT NULL DEFAULT 1,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `IX_compartilhamento_cliente_codigo_hash` (`codigo_hash`),
-  KEY `IX_compartilhamento_cliente_id_cliente` (`id_cliente`),
-  CONSTRAINT `FK_compartilhamento_cliente_cliente`
-    FOREIGN KEY (`id_cliente`)
-    REFERENCES `cliente` (`id`)
-    ON DELETE CASCADE
-    ON UPDATE RESTRICT
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `compartilhamento_cliente_tentativa` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `id_oficina` INT NOT NULL,
-  `codigo_hash` VARCHAR(128) NOT NULL,
-  `ip_address` VARCHAR(64) NULL,
-  `sucesso` TINYINT(1) NOT NULL,
-  `motivo` VARCHAR(64) NOT NULL,
-  `tentado_em` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `IX_comp_tentativa_oficina_ip_data` (`id_oficina`, `ip_address`, `tentado_em`),
-  CONSTRAINT `FK_comp_tentativa_oficina`
-    FOREIGN KEY (`id_oficina`)
-    REFERENCES `oficina` (`id`)
-    ON DELETE CASCADE
-    ON UPDATE RESTRICT
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `funcionario_servico` (
   `idFuncionario` INT NOT NULL,
   `idServico` INT NOT NULL,
@@ -270,6 +285,7 @@ CREATE TABLE IF NOT EXISTS `funcionario_servico` (
 CREATE TABLE IF NOT EXISTS `registro_servico` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `id_veiculo` INT NOT NULL,
+  `id_oficina` INT NOT NULL,
   `id_servico` INT NULL,
   `data_servico` DATETIME(6) NOT NULL,
   `descricao` TEXT NULL,
@@ -277,10 +293,16 @@ CREATE TABLE IF NOT EXISTS `registro_servico` (
   `responsavel` TEXT NULL,
   PRIMARY KEY (`id`),
   KEY `IX_registro_servico_id_servico` (`id_servico`),
+  KEY `IX_registro_servico_oficina_data` (`id_oficina`, `data_servico` DESC),
   KEY `IX_registro_servico_veiculo_data` (`id_veiculo`, `data_servico` DESC),
   CONSTRAINT `FK_registro_servico_veiculo`
     FOREIGN KEY (`id_veiculo`)
     REFERENCES `veiculo` (`id`)
+    ON DELETE RESTRICT
+    ON UPDATE RESTRICT,
+  CONSTRAINT `FK_registro_servico_oficina`
+    FOREIGN KEY (`id_oficina`)
+    REFERENCES `oficina` (`id`)
     ON DELETE RESTRICT
     ON UPDATE RESTRICT,
   CONSTRAINT `FK_registro_servico_servico`

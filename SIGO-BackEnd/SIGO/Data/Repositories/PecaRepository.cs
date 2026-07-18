@@ -26,5 +26,18 @@ namespace SIGO.Data.Repositories
             return await _context.Pecas
                 .FirstOrDefaultAsync(p => p.Id == id && p.IdOficina == oficinaId);
         }
+
+        public async Task<IReadOnlyList<Peca>> GetByIdsAsync(
+            IReadOnlyCollection<int> ids,
+            CancellationToken cancellationToken = default)
+        {
+            if (ids.Count == 0)
+                return Array.Empty<Peca>();
+
+            return await _context.Pecas
+                .AsNoTracking()
+                .Where(piece => ids.Contains(piece.Id))
+                .ToListAsync(cancellationToken);
+        }
     }
 }

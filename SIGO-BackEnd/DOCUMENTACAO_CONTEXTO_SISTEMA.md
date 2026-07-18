@@ -2,6 +2,8 @@
 
 This file explains how the SIGO backend works, how each main function is organized, and how access control is applied in the system.
 
+> Route contract note: the canonical, current HTTP contract is documented in [`docs/api-v1-routes.md`](docs/api-v1-routes.md). Older route tables later in this historical context file describe the original API and must not be used as the v1 contract.
+
 The project is an ASP.NET Core Web API that manages clients, employees, workshops, vehicles, parts, services, orders, brands, phones, address lookup by CEP, authentication, and role-based access.
 
 ## 1. General Architecture
@@ -60,6 +62,8 @@ The system registers each service with its repository:
 |---|---|
 | `IClienteService` | `ClienteService` |
 | `IClienteRepository` | `ClienteRepository` |
+| `IClienteRegistrationService` | `ClienteRegistrationService` |
+| `IClienteIdentityRepository` | `ClienteIdentityRepository` |
 | `ITelefoneService` | `TelefoneService` |
 | `ITelefoneRepository` | `TelefoneRepository` |
 | `IServicoService` | `ServicoService` |
@@ -149,16 +153,16 @@ There are three login endpoints:
 
 | Endpoint | Controller | Role produced |
 |---|---|---|
-| `POST /api/clientes/login` | `ClienteController` | `Cliente` |
-| `POST /api/funcionarios/login` | `FuncionarioController` | `Admin` or `Funcionario` |
-| `POST /api/oficinas/login` | `OficinaController` | `Oficina` |
+| `POST /api/v1/clientes/login` | `ClienteController` | `Cliente` |
+| `POST /api/v1/funcionarios/login` | `FuncionarioController` | `Admin` or `Funcionario` |
+| `POST /api/v1/oficinas/login` | `OficinaController` | `Oficina` |
 
 Login process:
 
-1. The request sends `Email` and `Password`.
-2. The service verifies the password through the configured password hasher.
-3. The service checks if a matching user exists in the database.
-4. If no user is found, the API returns `BadRequest` with "Email ou senha incorretos".
+1. A client sends `Cpf` and `Senha`; workshops and employees send email and password on their own login routes.
+2. For a client, the service normalizes the CPF and loads the `Cliente` and its active `ClienteConta` by CPF.
+3. The service verifies the password through the configured password hasher.
+4. Invalid client credentials return `401 Unauthorized` with "CPF ou senha inválidos".
 5. If the user is found, the controller generates a JWT token.
 6. The token contains:
    - User id as `ClaimTypes.NameIdentifier`
@@ -168,7 +172,7 @@ Login process:
    - A unique JWT id as `JwtRegisteredClaimNames.Jti`
 7. The token expires in 2 hours.
 
-Current password storage behavior: passwords are stored as SHA-256 hashes. There is no password salt or ASP.NET Core Identity password hasher in the current implementation.
+Current client password storage behavior: the password hash is stored in `ClienteConta` and verified through the configured password hasher. The legacy `Cliente.Senha` field is not used by direct registration.
 
 ## 4. Access Matrix
 
@@ -254,6 +258,8 @@ The database context exposes these tables:
 | DbSet | Model | Table |
 |---|---|---|
 | `Clientes` | `Cliente` | `cliente` |
+| `ClienteContas` | `ClienteConta` | `cliente_conta` |
+| `ClienteContatos` | `ClienteContato` | `cliente_contato` |
 | `Telefones` | `Telefone` | `telefone` |
 | `Servicos` | `Servico` | `servico` |
 | `Marcas` | `Marca` | `marca` |
@@ -268,6 +274,8 @@ The database context exposes these tables:
 | Relationship | Type | Delete behavior |
 |---|---|---|
 | `Cliente` to `Veiculo` | One client has many vehicles | Cascade |
+| `Cliente` to `ClienteConta` | One client has zero or one login account | Cascade |
+| `Cliente` to `ClienteContato` | One client has many normalized contact records | Cascade |
 | `Marca` to `Peca` | One brand has many parts | Cascade |
 | `Pedido` to `Cliente` | One pedido belongs to one client | Restrict |
 | `Pedido` to `Funcionario` | One pedido belongs to one employee | Restrict |
@@ -289,8 +297,8 @@ Important fields:
 |---|---|
 | `Id` | Client id. |
 | `Nome` | Client name. |
-| `Email` | Client email. |
-| `Senha` | Password hash. |
+| `Email` | Legacy/profile email. Direct registration also stores the normalized login email in `ClienteConta`. |
+| `Senha` | Legacy nullable password field. Direct registration stores credentials in `ClienteConta`. |
 | `Cpf_Cnpj` | CPF or CNPJ document. |
 | `Obs` | Observation. |
 | `Razao` | Company/legal name. |
@@ -301,6 +309,14 @@ Important fields:
 | `Situacao` | Active or inactive. |
 | `Telefones` | Client phone list. |
 | `Veiculos` | Client vehicle list. |
+
+#### ClienteConta
+
+Represents the optional login account for a client. It has a one-to-one relationship with `Cliente` through `ClienteId` and stores normalized email, password hash, account status, and token version.
+
+#### ClienteContato
+
+Represents a normalized client contact. Direct registration records the submitted email with origin `Cliente`; `VerificadoEm` remains null because the simplified flow does not send or require email confirmation.
 
 #### Funcionario
 
@@ -462,7 +478,7 @@ Important mappings:
 | `Cliente` to `ClienteDTO` | Maps `Telefones`; reverse map enabled. |
 | `Telefone` to `TelefoneDTO` | Reverse map enabled. |
 | `Marca` to `MarcaDTO` | Reverse map enabled. |
-| `Veiculo` to `VeiculoDTO` | Ignores navigation properties `Cliente` and `Marcas` when mapping into entity. |
+| `Veiculo` to `VeiculoDTO` | Maps the read model, including images and histories. Create/update use the separate `VeiculoRequestDTO`; ownership and status are assigned by the service. |
 | `Servico` to `ServicoDTO` | Reverse map enabled. |
 | `Funcionario` to `FuncionarioDTO` | Reverse map enabled. |
 | `Oficina` to `OficinaDTO` | Reverse map enabled. |
@@ -506,13 +522,13 @@ Main files:
 
 Main file: `SIGO/Controllers/CepController.cs`
 
-Base route: `/api/ceps`
+Base route: `/api/v1/ceps`
 
 Authorization: `SelfServiceAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/ceps/{cep}` | `ListarDadosEndereco` | Admin, Oficina, Funcionario, Cliente | Calls ViaCEP integration. If CEP is invalid or not found, returns `BadRequest("CEP nao encontrado!")`. Otherwise returns ViaCEP address data. |
+| `GET /api/v1/ceps/{cep}` | `ListarDadosEndereco` | Admin, Oficina, Funcionario, Cliente | Calls ViaCEP integration. If CEP is invalid or not found, returns `BadRequest("CEP nao encontrado!")`. Otherwise returns ViaCEP address data. |
 
 ### ViaCEP integration
 
@@ -532,51 +548,48 @@ Main files:
 5. Returns null if ViaCEP returns error.
 6. Returns `ViaCepResponse` when found.
 
-## 10.2 Cliente Controller
+## 10.2 Cliente Controllers
 
-Main file: `SIGO/Controllers/ClienteController.cs`
+Main files: `SIGO/Controllers/ClienteController.cs`, `SIGO/Controllers/ClienteRegistrationController.cs`, and `SIGO/Controllers/ClienteVinculoController.cs`
 
-Base route: `/api/clientes`
+Base routes: `/api/v1/clientes` and `/api/v1/clientes/cadastros`
 
 Default authorization: `SelfServiceAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/clientes` | `GetAll` | Admin, Oficina, Funcionario | Lists all clients through `ClienteService.GetAll()`. Includes phones and vehicles because repository uses `Include`. |
-| `GET /api/clientes/{id}` | `GetByIdWithDetails` | Admin, Oficina, Funcionario, Cliente | Gets one client with phones and vehicles. If role is Cliente, the `id` must match the JWT user id. |
-| `GET /api/clientes/nome/{nome}` | `GetByNameWithDetails` | Admin, Oficina, Funcionario | Searches clients by name using `Contains(nome)`. Returns 404 if empty. |
-| `POST /api/clientes` | `Post` | Anonymous | Registers a client. Forces `Id = 0`, sanitizes CPF/CNPJ, CEP, and phone numbers, validates CPF/CNPJ, hashes password, creates record. |
-| `PUT /api/clientes/{id}` | `Put` | Admin, Oficina, Funcionario, Cliente | Updates a client. Cliente can only update own id. Checks existence, sanitizes values, validates CPF/CNPJ uniqueness, updates data and phone list. |
-| `DELETE /api/clientes/{id}` | `Delete` | Admin, Oficina, Cliente | Deletes a client. Cliente can only delete own id. |
-| `POST /api/clientes/login` | `Login` | Anonymous | Hashes password, validates credentials, returns JWT token with role `Cliente`. |
+| `GET /api/v1/clientes` | `GetAll` | Admin, Oficina, Funcionario | Lists all clients through `ClienteService.GetAll()`. Includes phones and vehicles because repository uses `Include`. |
+| `GET /api/v1/clientes/{id}` | `GetByIdWithDetails` | Admin, Oficina, Funcionario, Cliente | Gets one client with phones and vehicles. If role is Cliente, the `id` must match the JWT user id. |
+| `GET /api/v1/clientes/nome/{nome}` | `GetByNameWithDetails` | Admin, Oficina, Funcionario | Searches clients by name using `Contains(nome)`. Returns 404 if empty. |
+| `POST /api/v1/clientes/cadastros` | `Register` | Anonymous | Registers a client directly with CPF, name, email, and password. If the CPF already belongs to a client created by a workshop and has no account, creates `ClienteConta` for that same `Cliente.Id`; otherwise creates both client and account. No email confirmation is sent or required. |
+| `POST /api/v1/clientes` | `RegisterFull` | Oficina, Funcionario | Registers the full client profile and immediately links the resulting `ClienteId` to the workshop from the JWT. The request cannot define password, status, client id, or workshop id. |
+| `PUT /api/v1/clientes/{id}` | `Put` | Admin, Cliente | Updates the allowed profile fields. Cliente can only update own id. |
+| `DELETE /api/v1/clientes/{id}` | `Delete` | Admin, Cliente | Deactivates a client. Cliente can only deactivate own id. |
+| `POST /api/v1/clientes/login` | `Login` | Anonymous | Validates CPF and password, then returns a JWT token with role `Cliente`. |
 
 Important private functions:
 
 | Function | What it does |
 |---|---|
-| `GenerateSha256Hash(input)` | Hashes a password using SHA-256 and returns lowercase hex. |
-| `GenerateJwtToken(clienteDTO)` | Builds the JWT for a client. |
 | `SanitizeCliente(clienteDTO)` | Keeps only digits in CPF/CNPJ, CEP, and phone numbers. |
-| `IsCliente()` | Checks if current JWT role is `Cliente`. |
-| `GetCurrentUserId()` | Reads `ClaimTypes.NameIdentifier` and converts it to `int`. |
 
 ## 10.3 Funcionario Controller
 
 Main file: `SIGO/Controllers/FuncionarioController.cs`
 
-Base route: `/api/funcionarios`
+Base route: `/api/v1/funcionarios`
 
 Default authorization: `FullAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/funcionarios` | `GetAll` | Admin, Oficina | Lists all employees. |
-| `GET /api/funcionarios/{id}` | `GetFuncionarioById` | Admin, Oficina | Gets one employee by id. |
-| `GET /api/funcionarios/nome/{nome}` | `GetFuncionarioByNome` | Admin, Oficina | Searches employees by name using `Contains(nome)`. |
-| `POST /api/funcionarios` | `Post` | Admin, Oficina | Registers employee. Forces `Id = 0`, sanitizes CPF, validates CPF, hashes password, creates employee. |
-| `PUT /api/funcionarios/{id}` | `Put` | Admin, Oficina | Updates employee. Checks existence, sanitizes CPF, validates CPF uniqueness, then updates. |
-| `DELETE /api/funcionarios/{id}` | `DeleteFuncionario` | Admin, Oficina | Deletes employee. |
-| `POST /api/funcionarios/login` | `Login` | Anonymous | Hashes password, validates credentials, returns JWT. |
+| `GET /api/v1/funcionarios` | `GetAll` | Admin, Oficina | Lists all employees. |
+| `GET /api/v1/funcionarios/{id}` | `GetFuncionarioById` | Admin, Oficina | Gets one employee by id. |
+| `GET /api/v1/funcionarios/nome/{nome}` | `GetFuncionarioByNome` | Admin, Oficina | Searches employees by name using `Contains(nome)`. |
+| `POST /api/v1/funcionarios` | `Post` | Admin, Oficina | Registers employee. Forces `Id = 0`, sanitizes CPF, validates CPF, hashes password, creates employee. |
+| `PUT /api/v1/funcionarios/{id}` | `Put` | Admin, Oficina | Updates employee. Checks existence, sanitizes CPF, validates CPF uniqueness, then updates. |
+| `DELETE /api/v1/funcionarios/{id}` | `DeleteFuncionario` | Admin, Oficina | Deletes employee. |
+| `POST /api/v1/funcionarios/login` | `Login` | Anonymous | Hashes password, validates credentials, returns JWT. |
 
 Important private functions:
 
@@ -591,18 +604,18 @@ Important private functions:
 
 Main file: `SIGO/Controllers/OficinaController.cs`
 
-Base route: `/api/oficinas`
+Base route: `/api/v1/oficinas`
 
 Default authorization: `FullAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/oficinas` | `Get` | Admin, Oficina | Lists all workshops. Current response message says "Cores listadas com sucesso", but the data is oficinas. |
-| `GET /api/oficinas/nome/{nome}` | `GetByName` | Admin, Oficina | Searches workshops by name. Current response messages mention "cor", but the data is oficinas. |
-| `POST /api/oficinas` | `Create` | Anonymous | Registers workshop. Sanitizes CNPJ, validates CNPJ uniqueness, hashes password, creates workshop. |
-| `PUT /api/oficinas/{id}` | `Update` | Admin, Oficina | Updates workshop. Forces DTO id from route, sanitizes CNPJ, validates CNPJ uniqueness, updates. |
-| `DELETE /api/oficinas/{id}` | `Delete` | Admin, Oficina | Deletes workshop. |
-| `POST /api/oficinas/login` | `Login` | Anonymous | Hashes password, validates credentials, returns JWT with role `Oficina`. |
+| `GET /api/v1/oficinas` | `Get` | Admin, Oficina | Lists all workshops. Current response message says "Cores listadas com sucesso", but the data is oficinas. |
+| `GET /api/v1/oficinas/nome/{nome}` | `GetByName` | Admin, Oficina | Searches workshops by name. Current response messages mention "cor", but the data is oficinas. |
+| `POST /api/v1/oficinas` | `Create` | Anonymous | Registers workshop. Sanitizes CNPJ, validates CNPJ uniqueness, hashes password, creates workshop. |
+| `PUT /api/v1/oficinas/{id}` | `Update` | Admin, Oficina | Updates workshop. Forces DTO id from route, sanitizes CNPJ, validates CNPJ uniqueness, updates. |
+| `DELETE /api/v1/oficinas/{id}` | `Delete` | Admin, Oficina | Deletes workshop. |
+| `POST /api/v1/oficinas/login` | `Login` | Anonymous | Hashes password, validates credentials, returns JWT with role `Oficina`. |
 
 Important private functions:
 
@@ -616,67 +629,67 @@ Important private functions:
 
 Main file: `SIGO/Controllers/MarcaController.cs`
 
-Base route: `/api/marcas`
+Base route: `/api/v1/marcas`
 
 Authorization: `FullAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/marcas` | `GetAll` | Admin, Oficina | Lists all brands. |
-| `GET /api/marcas/{id}` | `GetById` | Admin, Oficina | Gets one brand by id. |
-| `GET /api/marcas/nome/{nomeMarca}` | `GetByName` | Admin, Oficina | Searches brands by name. |
-| `POST /api/marcas` | `Add` | Admin, Oficina | Creates brand. |
-| `PUT /api/marcas/{id}` | `Update` | Admin, Oficina | Updates brand. |
-| `DELETE /api/marcas/{id}` | `Remove` | Admin, Oficina | Removes brand. |
+| `GET /api/v1/marcas` | `GetAll` | Admin, Oficina | Lists all brands. |
+| `GET /api/v1/marcas/{id}` | `GetById` | Admin, Oficina | Gets one brand by id. |
+| `GET /api/v1/marcas/nome/{nomeMarca}` | `GetByName` | Admin, Oficina | Searches brands by name. |
+| `POST /api/v1/marcas` | `Add` | Admin, Oficina | Creates brand. |
+| `PUT /api/v1/marcas/{id}` | `Update` | Admin, Oficina | Updates brand. |
+| `DELETE /api/v1/marcas/{id}` | `Remove` | Admin, Oficina | Removes brand. |
 
 ## 10.6 Peca Controller
 
 Main file: `SIGO/Controllers/PecaController.cs`
 
-Base route: `/api/pecas`
+Base route: `/api/v1/pecas`
 
 Authorization: `OperationalAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/pecas` | `GetAll` | Admin, Oficina, Funcionario | Lists all parts. |
-| `GET /api/pecas/{id}` | `Get` | Admin, Oficina, Funcionario | Gets one part by id. |
-| `POST /api/pecas` | `Post` | Admin, Oficina, Funcionario | Creates part. Forces `Id = 0`. |
-| `PUT /api/pecas/{id}` | `Put` | Admin, Oficina, Funcionario | Checks if part exists, then updates. |
-| `DELETE /api/pecas/{id}` | `Delete` | Admin, Oficina, Funcionario | Checks if part exists, then deletes. |
+| `GET /api/v1/pecas` | `GetAll` | Admin, Oficina, Funcionario | Lists all parts. |
+| `GET /api/v1/pecas/{id}` | `Get` | Admin, Oficina, Funcionario | Gets one part by id. |
+| `POST /api/v1/pecas` | `Post` | Admin, Oficina, Funcionario | Creates part. Forces `Id = 0`. |
+| `PUT /api/v1/pecas/{id}` | `Put` | Admin, Oficina, Funcionario | Checks if part exists, then updates. |
+| `DELETE /api/v1/pecas/{id}` | `Delete` | Admin, Oficina, Funcionario | Checks if part exists, then deletes. |
 
 ## 10.7 Servico Controller
 
 Main file: `SIGO/Controllers/ServicoController.cs`
 
-Base route: `/api/servicos`
+Base route: `/api/v1/servicos`
 
 Authorization: `OperationalAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/servicos` | `GetAll` | Admin, Oficina, Funcionario | Lists services. Includes linked `Funcionario_Servicos`. |
-| `GET /api/servicos/{id}` | `GetByIdWithDetails` | Admin, Oficina, Funcionario | Gets service by id with linked employee/service rows. |
-| `GET /api/servicos/nome/{nome}` | `GetByNameWithDetails` | Admin, Oficina, Funcionario | Searches services by name. |
-| `POST /api/servicos` | `Post` | Admin, Oficina, Funcionario | Creates service. Forces `Id = 0`. |
-| `PUT /api/servicos/{id}` | `Put` | Admin, Oficina, Funcionario | Sets DTO id from route, checks existence, then updates. |
-| `DELETE /api/servicos/{id}` | `Delete` | Admin, Oficina, Funcionario | Checks existence, then deletes. |
+| `GET /api/v1/servicos` | `GetAll` | Admin, Oficina, Funcionario | Lists services. Includes linked `Funcionario_Servicos`. |
+| `GET /api/v1/servicos/{id}` | `GetByIdWithDetails` | Admin, Oficina, Funcionario | Gets service by id with linked employee/service rows. |
+| `GET /api/v1/servicos/nome/{nome}` | `GetByNameWithDetails` | Admin, Oficina, Funcionario | Searches services by name. |
+| `POST /api/v1/servicos` | `Post` | Admin, Oficina, Funcionario | Creates service. Forces `Id = 0`. |
+| `PUT /api/v1/servicos/{id}` | `Put` | Admin, Oficina, Funcionario | Sets DTO id from route, checks existence, then updates. |
+| `DELETE /api/v1/servicos/{id}` | `Delete` | Admin, Oficina, Funcionario | Checks existence, then deletes. |
 
 ## 10.8 Telefone Controller
 
 Main file: `SIGO/Controllers/TelefoneController.cs`
 
-Base route: `/api/telefones`
+Base route: `/api/v1/telefones`
 
 Default authorization: `SelfServiceAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/telefones/{id}` | `Get` | Admin, Oficina, Funcionario, Cliente | Gets phone by id. If role is Cliente, the phone must belong to the logged client. |
-| `GET /api/telefones/nome/{nome}` | `GetByNameWithDetails` | Admin, Oficina, Funcionario | Searches phones by client name. |
-| `POST /api/telefones` | `Post` | Admin, Oficina, Funcionario, Cliente | Creates phone. Sanitizes phone number. If Cliente, `ClienteId` must match JWT user id. |
-| `PUT /api/telefones/{id}` | `Put` | Admin, Oficina, Funcionario, Cliente | Updates phone. If Cliente, existing phone and requested `ClienteId` must belong to the logged client. |
-| `DELETE /api/telefones/{id}` | `Delete` | Admin, Oficina, Funcionario, Cliente | Deletes phone. If Cliente, phone must belong to the logged client. |
+| `GET /api/v1/telefones/{id}` | `Get` | Admin, Oficina, Funcionario, Cliente | Gets phone by id. If role is Cliente, the phone must belong to the logged client. |
+| `GET /api/v1/telefones/nome/{nome}` | `GetByNameWithDetails` | Admin, Oficina, Funcionario | Searches phones by client name. |
+| `POST /api/v1/telefones` | `Post` | Admin, Oficina, Funcionario, Cliente | Creates phone. Sanitizes phone number. If Cliente, `ClienteId` must match JWT user id. |
+| `PUT /api/v1/telefones/{id}` | `Put` | Admin, Oficina, Funcionario, Cliente | Updates phone. If Cliente, existing phone and requested `ClienteId` must belong to the logged client. |
+| `DELETE /api/v1/telefones/{id}` | `Delete` | Admin, Oficina, Funcionario, Cliente | Deletes phone. If Cliente, phone must belong to the logged client. |
 
 Important private functions:
 
@@ -690,46 +703,39 @@ Important private functions:
 
 Main file: `SIGO/Controllers/VeiculoController.cs`
 
-Base route: `/api/veiculos`
+Base route: `/api/v1/veiculos`
 
 Default authorization: `SelfServiceAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/veiculos` | `Get` | Admin, Oficina, Funcionario, Cliente | Lists vehicles. If Cliente, filters to vehicles where `ClienteId` equals logged client id. |
-| `GET /api/veiculos/placa/{placa}` | `GetByPlaca` | Admin, Oficina, Funcionario, Cliente | Searches vehicles by plate. If Cliente, filters to own vehicles. |
-| `GET /api/veiculos/tipo/{tipo}` | `GetByTipo` | Admin, Oficina, Funcionario, Cliente | Searches vehicles by type. If Cliente, filters to own vehicles. |
-| `POST /api/veiculos` | `Create` | Admin, Oficina | Creates vehicle. |
-| `PUT /api/veiculos/{id}` | `Update` | Admin, Oficina, Funcionario | Updates vehicle. Uses `UpdateVeiculo`, which currently updates selected fields. |
-| `DELETE /api/veiculos/{id}` | `Delete` | Admin, Oficina, Funcionario | Removes vehicle. |
+| `GET /api/v1/veiculos` | `Get` | Admin, Oficina, Funcionario, Cliente | Lists vehicles. If Cliente, filters to vehicles where `ClienteId` equals logged client id. |
+| `GET /api/v1/veiculos/placa/{placa}` | `GetByPlaca` | Admin, Oficina, Funcionario, Cliente | Searches vehicles by plate. If Cliente, filters to own vehicles. |
+| `GET /api/v1/veiculos/tipo/{tipo}` | `GetByTipo` | Admin, Oficina, Funcionario, Cliente | Searches vehicles by type. If Cliente, filters to own vehicles. |
+| `POST /api/v1/veiculos` | `Create` | Cliente | Creates a vehicle for the authenticated client. `ClienteId` comes from the JWT. |
+| `POST /api/v1/clientes/{clienteId}/veiculos` | `CreateForCliente` | Admin, Oficina, Funcionario | Creates a vehicle for the route client. Workshop actors must have an active link to that client. |
+| `PUT /api/v1/veiculos/{id}` | `Update` | Admin, Oficina, Funcionario, Cliente | Updates only basic vehicle fields and preserves ownership. |
+| `DELETE /api/v1/veiculos/{id}` | `Delete` | Admin, Cliente | Removes a vehicle; a client can remove only an owned vehicle. |
 
-Current `VeiculoRepository.UpdateVeiculo` updates:
-
-| Field | Updated |
-|---|---|
-| `PlacaVeiculo` | Yes |
-| `AnoFab` | Yes |
-| `Id` | Preserved |
-
-Other vehicle fields are not updated by this specific repository method.
+Vehicle create and update requests contain only name, type, plate, chassis, year, mileage, fuel, insurance, and color. They do not accept `ClienteId`, status, images, brands, orders, or service records. The backend writes the direct `Veiculo.ClienteId` foreign key; there is no `ClienteVeiculo` join model.
 
 ## 10.10 Pedido Controller
 
 Main file: `SIGO/Controllers/PedidoController.cs`
 
-Base route: `/api/pedidos`
+Base route: `/api/v1/pedidos`
 
 Default authorization: `SelfServiceAccess`
 
 | Endpoint | Function | Access | Behavior |
 |---|---|---|---|
-| `GET /api/pedidos` | `GetAll` | Admin, Oficina, Cliente | Lists pedidos. If Cliente, returns only pedidos where `idCliente` equals logged client id. |
-| `GET /api/pedidos/{id}` | `GetById` | Admin, Oficina, Cliente | Gets one pedido. If Cliente, pedido must belong to logged client. |
-| `GET /api/pedidos/me/servicos` | `GetMyServices` | Cliente | Finds all pedidos for logged client, extracts service ids from `Pedido_Servicos`, loads all services, and returns matching services. |
-| `GET /api/pedidos/me/funcionarios` | `GetMyEmployees` | Cliente | Finds all pedidos for logged client, extracts employee ids, loads all employees, and returns matching employees. |
-| `POST /api/pedidos` | `Post` | Admin, Oficina | Creates pedido. Forces `Id = 0`. |
-| `PUT /api/pedidos/{id}` | `Put` | Admin, Oficina | Checks if pedido exists, then updates. |
-| `DELETE /api/pedidos/{id}` | `Delete` | Admin, Oficina | Checks if pedido exists, then removes. |
+| `GET /api/v1/pedidos` | `GetAll` | Admin, Oficina, Cliente | Lists pedidos. If Cliente, returns only pedidos where `idCliente` equals logged client id. |
+| `GET /api/v1/pedidos/{id}` | `GetById` | Admin, Oficina, Cliente | Gets one pedido. If Cliente, pedido must belong to logged client. |
+| `GET /api/v1/pedidos/me/servicos` | `GetMyServices` | Cliente | Finds all pedidos for logged client, extracts service ids from `Pedido_Servicos`, loads all services, and returns matching services. |
+| `GET /api/v1/pedidos/me/funcionarios` | `GetMyEmployees` | Cliente | Finds all pedidos for logged client, extracts employee ids, loads all employees, and returns matching employees. |
+| `POST /api/v1/pedidos` | `Post` | Admin, Oficina | Creates pedido. Forces `Id = 0`. |
+| `PUT /api/v1/pedidos/{id}` | `Put` | Admin, Oficina | Checks if pedido exists, then updates. |
+| `DELETE /api/v1/pedidos/{id}` | `Delete` | Admin, Oficina | Checks if pedido exists, then removes. |
 
 Important private functions:
 
@@ -752,9 +758,12 @@ Main file: `SIGO/Services/Entities/ClienteService.cs`
 | `GetById(id)` | Loads one client without details. |
 | `Create(clienteDTO)` | Validates name/email uniqueness, validates CPF/CNPJ, normalizes CPF/CNPJ to digits, maps DTO to entity, and saves. |
 | `Update(clienteDTO, id)` | Checks client exists, validates name/email uniqueness, validates CPF/CNPJ, normalizes document, updates client, then synchronizes phone list by updating existing phones or adding new phones. |
-| `Login(login)` | Loads matching client by email/password hash. Clears password before mapping to DTO. |
 | `ValidarCpfCnpj(documento, ignoreId)` | Validates CPF or CNPJ format/check digits and verifies it is not already registered. |
 | `ValidarNomeEmail(nome, email, ignoreId)` | Checks duplicated client name and email. |
+
+Direct registration is handled by `ClienteRegistrationService.RegisterAsync(request, auditContext)`. It normalizes and validates CPF/email, creates or reuses the `Cliente`, creates the active `ClienteConta`, records the email in `ClienteContato`, and audits the result in one transaction. Reusing the same `Cliente.Id` makes existing vehicles and orders available without copying data.
+
+Client authentication is handled by `ClienteAuthenticationService.AuthenticateAsync`. It normalizes CPF, loads the client identity by CPF, verifies the account password hash, and keeps email only as contact/JWT metadata.
 
 CPF/CNPJ validation:
 
@@ -1004,14 +1013,22 @@ These notes describe current behavior in the codebase. They are not frontend req
 | Passwords | Passwords are verified through the configured password hasher. |
 | Client ownership | Controllers use JWT `NameIdentifier` to ensure Cliente can only access own resources. |
 | Funcionario role | A funcionario becomes `Admin` only when `Cargo` is `ADMIN` or `ADMINISTRADOR`. |
-| Public registration | Client and workshop creation endpoints are currently anonymous. |
+| Public registration | Client registration at `POST /api/v1/clientes/cadastros` and workshop creation are anonymous and rate-limited. Client registration links the account directly by CPF and does not verify the email. |
 
 ## 16. Practical Examples For The Frontend
 
+### Register as client
+
+1. Call `POST /api/v1/clientes/cadastros` with `Cpf`, `Nome`, `Email`, and `Senha`.
+2. Receive `201 Created` with `ClienteId`, `Nome`, and `Email`.
+3. No email, code, or confirmation link is sent. The client can immediately use the registered credentials at `POST /api/v1/clientes/login`.
+
+If a workshop previously created the CPF, the returned `ClienteId` is that existing client id. Vehicles and orders already associated with it remain available through the normal authenticated endpoints.
+
 ### Login as client
 
-1. Call `POST /api/clientes/login` with email and password.
-2. Receive JWT token in `response.Data`.
+1. Call `POST /api/v1/clientes/login` with `cpf` and `senha`.
+2. Receive `accessToken` and `tokenType`.
 3. Send token in all protected requests:
 
 ```http
@@ -1022,31 +1039,31 @@ The client can then:
 
 | Need | Endpoint |
 |---|---|
-| See own register | `GET /api/clientes/{ownId}` |
-| Edit own register | `PUT /api/clientes/{ownId}` |
-| Delete own register | `DELETE /api/clientes/{ownId}` |
-| See own vehicles | `GET /api/veiculos` |
-| Search own vehicle by plate | `GET /api/veiculos/placa/{placa}` |
-| Search own vehicle by type | `GET /api/veiculos/tipo/{tipo}` |
-| See own pedidos | `GET /api/pedidos` |
-| See services performed on own car | `GET /api/pedidos/me/servicos` |
-| See employees that worked on own car | `GET /api/pedidos/me/funcionarios` |
-| Manage own phone | `GET/POST/PUT/DELETE /api/telefones` |
+| See own register | `GET /api/v1/clientes/{ownId}` |
+| Edit own register | `PUT /api/v1/clientes/{ownId}` |
+| Delete own register | `DELETE /api/v1/clientes/{ownId}` |
+| See own vehicles | `GET /api/v1/veiculos` |
+| Search own vehicle by plate | `GET /api/v1/veiculos/placa/{placa}` |
+| Search own vehicle by type | `GET /api/v1/veiculos/tipo/{tipo}` |
+| See own pedidos | `GET /api/v1/pedidos` |
+| See services performed on own car | `GET /api/v1/pedidos/me/servicos` |
+| See employees that worked on own car | `GET /api/v1/pedidos/me/funcionarios` |
+| Manage own phone | `GET/POST/PUT/DELETE /api/v1/telefones` |
 
 ### Login as funcionario
 
-1. Call `POST /api/funcionarios/login`.
+1. Call `POST /api/v1/funcionarios/login`.
 2. If `Cargo` is not `ADMIN` or `ADMINISTRADOR`, token role is `Funcionario`.
 
 The employee can:
 
 | Need | Endpoint group |
 |---|---|
-| Client list/register/edit | `/api/clientes` |
-| Vehicle list/edit/delete | `/api/veiculos` |
-| Part CRUD | `/api/pecas` |
-| Service CRUD | `/api/servicos` |
-| Phone CRUD | `/api/telefones` |
+| Client list/register/edit | `/api/v1/clientes` |
+| Vehicle list/edit/delete | `/api/v1/veiculos` |
+| Part CRUD | `/api/v1/pecas` |
+| Service CRUD | `/api/v1/servicos` |
+| Phone CRUD | `/api/v1/telefones` |
 
 The employee cannot manage:
 
@@ -1059,7 +1076,7 @@ The employee cannot manage:
 
 ### Login as oficina
 
-1. Call `POST /api/oficinas/login`.
+1. Call `POST /api/v1/oficinas/login`.
 2. Token role is `Oficina`.
 
 The workshop can access the complete system according to current policy design.

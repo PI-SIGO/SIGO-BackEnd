@@ -45,7 +45,7 @@ namespace SIGO.Data.Seed
             var veiculo = await SeedVeiculo(cliente.Id, cancellationToken);
             var servico = await SeedServico(oficina.Id, cancellationToken);
 
-            await SeedClienteOficina(oficina.Id, cliente.Id, cancellationToken);
+            await SeedClienteOficina(oficina.Id, cliente.Id, cliente.Nome, cancellationToken);
             await SeedFuncionarioServico(funcionario.Id, servico.Id, cancellationToken);
             await SeedFullTestDataset(cancellationToken);
 
@@ -63,12 +63,12 @@ namespace SIGO.Data.Seed
             var cliente = await SeedFullTestCliente(cancellationToken);
             var funcionario = await SeedFullTestFuncionario(oficina.Id, cancellationToken);
             var marca = await SeedFullTestMarca(cancellationToken);
-            var veiculo = await SeedFullTestVeiculo(cliente.Id, marca, cancellationToken);
+            var veiculo = await SeedFullTestVeiculo(cliente.Id, cancellationToken);
             var servico = await SeedFullTestServico(oficina.Id, cancellationToken);
             var peca = await SeedFullTestPeca(oficina.Id, marca.Id, cancellationToken);
 
             await SeedFullTestTelefone(cliente.Id, cancellationToken);
-            await SeedClienteOficina(oficina.Id, cliente.Id, cancellationToken);
+            await SeedClienteOficina(oficina.Id, cliente.Id, cliente.Nome, cancellationToken);
             await SeedFuncionarioServico(funcionario.Id, servico.Id, cancellationToken);
             var pedido = await SeedFullTestPedido(
                 cliente.Id,
@@ -79,14 +79,16 @@ namespace SIGO.Data.Seed
 
             await SeedFullTestPedidoServico(pedido.Id, servico.Id, cancellationToken);
             await SeedFullTestPedidoPeca(pedido.Id, peca.Id, cancellationToken);
-            await SeedFullTestRegistroServico(veiculo.Id, servico.Id, cancellationToken);
+            await SeedFullTestRegistroServico(
+                veiculo.Id,
+                servico.Id,
+                oficina.Id,
+                cancellationToken);
             await SeedFullTestImagem(veiculo.Id, cancellationToken);
-            await SeedFullTestCompartilhamento(cliente.Id, oficina.Id, cancellationToken);
 
             _logger.LogInformation(
-                "Full test seed completed. Cliente={ClienteEmail} Senha={ClientePassword} ClienteId={ClienteId} VeiculoId={VeiculoId}",
+                "Full test seed completed. Cliente={ClienteEmail} ClienteId={ClienteId} VeiculoId={VeiculoId}",
                 FullTestClienteEmail,
-                FullTestClientePassword,
                 cliente.Id,
                 veiculo.Id);
         }
@@ -148,7 +150,7 @@ namespace SIGO.Data.Seed
                 {
                     Nome = "Cliente Full Teste",
                     Email = FullTestClienteEmail,
-                    Senha = _passwordHasher.Hash(FullTestClientePassword),
+                    Senha = null,
                     Cpf_Cnpj = "11144477735",
                     Obs = "Cliente completo criado para testar listagem de veiculo com relacionamentos.",
                     Razao = "Cliente Full Teste",
@@ -171,7 +173,7 @@ namespace SIGO.Data.Seed
             else
             {
                 cliente.Nome = "Cliente Full Teste";
-                cliente.Senha = _passwordHasher.Hash(FullTestClientePassword);
+                cliente.Senha = null;
                 cliente.Cpf_Cnpj = "11144477735";
                 cliente.Obs = "Cliente completo criado para testar listagem de veiculo com relacionamentos.";
                 cliente.Razao = "Cliente Full Teste";
@@ -190,6 +192,11 @@ namespace SIGO.Data.Seed
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+            await EnsureClienteContaAsync(
+                cliente,
+                FullTestClienteEmail,
+                FullTestClientePassword,
+                cancellationToken);
             return cliente;
         }
 
@@ -257,11 +264,9 @@ namespace SIGO.Data.Seed
 
         private async Task<Veiculo> SeedFullTestVeiculo(
             int clienteId,
-            Marca marca,
             CancellationToken cancellationToken)
         {
             var veiculo = await _context.Veiculos
-                .Include(v => v.Marcas)
                 .FirstOrDefaultAsync(v => v.PlacaVeiculo == "TST1A23", cancellationToken);
 
             if (veiculo is null)
@@ -297,9 +302,6 @@ namespace SIGO.Data.Seed
                 veiculo.Status = Status.EmAndamento;
                 veiculo.ClienteId = clienteId;
             }
-
-            if (!veiculo.Marcas.Any(m => m.Id == marca.Id))
-                veiculo.Marcas.Add(marca);
 
             await _context.SaveChangesAsync(cancellationToken);
             return veiculo;
@@ -526,6 +528,7 @@ namespace SIGO.Data.Seed
         private async Task SeedFullTestRegistroServico(
             int veiculoId,
             int servicoId,
+            int oficinaId,
             CancellationToken cancellationToken)
         {
             var registro = await _context.RegistroServicos
@@ -539,6 +542,7 @@ namespace SIGO.Data.Seed
                 registro = new RegistroServico
                 {
                     VeiculoId = veiculoId,
+                    OficinaId = oficinaId,
                     ServicoId = servicoId,
                     DataServico = DateTime.UtcNow,
                     Descricao = "Registro Full Teste",
@@ -597,7 +601,7 @@ namespace SIGO.Data.Seed
                 imagem = new VeiculoImagem
                 {
                     VeiculoId = veiculoId,
-                    Url = $"/api/veiculos/{veiculoId}/imagens/{nomeArquivo}",
+                    Url = $"/api/v1/veiculos/{veiculoId}/imagens/{nomeArquivo}",
                     NomeArquivo = nomeArquivo,
                     NomeOriginal = "veiculo-full-teste.png",
                     ContentType = "image/png",
@@ -610,68 +614,11 @@ namespace SIGO.Data.Seed
             else
             {
                 imagem.VeiculoId = veiculoId;
-                imagem.Url = $"/api/veiculos/{veiculoId}/imagens/{nomeArquivo}";
+                imagem.Url = $"/api/v1/veiculos/{veiculoId}/imagens/{nomeArquivo}";
                 imagem.NomeOriginal = "veiculo-full-teste.png";
                 imagem.ContentType = "image/png";
                 imagem.TamanhoBytes = 128;
                 imagem.CriadoEm = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-
-        private async Task SeedFullTestCompartilhamento(
-            int clienteId,
-            int oficinaId,
-            CancellationToken cancellationToken)
-        {
-            const string codigoHash = "seed-full-test-share-hash";
-            var compartilhamento = await _context.CompartilhamentosCliente
-                .FirstOrDefaultAsync(c => c.CodigoHash == codigoHash, cancellationToken);
-
-            if (compartilhamento is null)
-            {
-                await _context.CompartilhamentosCliente.AddAsync(new CompartilhamentoCliente
-                {
-                    ClienteId = clienteId,
-                    CodigoHash = codigoHash,
-                    ExpiraEm = DateTime.UtcNow.AddDays(7),
-                    UsadoEm = null,
-                    Ativo = true
-                }, cancellationToken);
-            }
-            else
-            {
-                compartilhamento.ClienteId = clienteId;
-                compartilhamento.ExpiraEm = DateTime.UtcNow.AddDays(7);
-                compartilhamento.UsadoEm = null;
-                compartilhamento.Ativo = true;
-            }
-
-            var tentativa = await _context.CompartilhamentosClienteTentativas
-                .FirstOrDefaultAsync(
-                    t => t.OficinaId == oficinaId &&
-                         t.CodigoHash == codigoHash &&
-                         t.Motivo == "seed-full",
-                    cancellationToken);
-
-            if (tentativa is null)
-            {
-                await _context.CompartilhamentosClienteTentativas.AddAsync(new CompartilhamentoClienteTentativa
-                {
-                    OficinaId = oficinaId,
-                    CodigoHash = codigoHash,
-                    IpAddress = "127.0.0.1",
-                    Sucesso = true,
-                    Motivo = "seed-full",
-                    TentadoEm = DateTime.UtcNow
-                }, cancellationToken);
-            }
-            else
-            {
-                tentativa.IpAddress = "127.0.0.1";
-                tentativa.Sucesso = true;
-                tentativa.TentadoEm = DateTime.UtcNow;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -734,7 +681,7 @@ namespace SIGO.Data.Seed
                 {
                     Nome = "Cliente Seed",
                     Email = ClienteEmail,
-                    Senha = _passwordHasher.Hash(ClientePassword),
+                    Senha = null,
                     Cpf_Cnpj = "39053344705",
                     Obs = "Cliente criado pelo seeder de desenvolvimento.",
                     Razao = "Cliente Seed",
@@ -757,7 +704,7 @@ namespace SIGO.Data.Seed
             else
             {
                 cliente.Nome = "Cliente Seed";
-                cliente.Senha = _passwordHasher.Hash(ClientePassword);
+                cliente.Senha = null;
                 cliente.Cpf_Cnpj = "39053344705";
                 cliente.Obs = "Cliente criado pelo seeder de desenvolvimento.";
                 cliente.Razao = "Cliente Seed";
@@ -776,7 +723,62 @@ namespace SIGO.Data.Seed
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+            await EnsureClienteContaAsync(cliente, ClienteEmail, ClientePassword, cancellationToken);
             return cliente;
+        }
+
+        private async Task EnsureClienteContaAsync(
+            Cliente cliente,
+            string email,
+            string password,
+            CancellationToken cancellationToken)
+        {
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+            var now = DateTime.UtcNow;
+            var conta = await _context.ClienteContas
+                .FirstOrDefaultAsync(c => c.ClienteId == cliente.Id, cancellationToken);
+
+            if (conta is null)
+            {
+                await _context.ClienteContas.AddAsync(new ClienteConta
+                {
+                    ClienteId = cliente.Id,
+                    EmailNormalizado = normalizedEmail,
+                    PasswordHash = _passwordHasher.Hash(password),
+                    Status = EstadoClienteConta.Active,
+                    TokenVersion = 1,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                }, cancellationToken);
+            }
+            else
+            {
+                conta.EmailNormalizado = normalizedEmail;
+                conta.PasswordHash = _passwordHasher.Hash(password);
+                conta.Status = EstadoClienteConta.Active;
+                conta.TokenVersion = Math.Max(1, conta.TokenVersion);
+                conta.UpdatedAt = now;
+            }
+
+            var contatoExiste = await _context.ClienteContatos.AnyAsync(
+                contato => contato.ClienteId == cliente.Id &&
+                           contato.Tipo == TipoContatoCliente.Email &&
+                           contato.ValorNormalizado == normalizedEmail,
+                cancellationToken);
+            if (!contatoExiste)
+            {
+                await _context.ClienteContatos.AddAsync(new ClienteContato
+                {
+                    ClienteId = cliente.Id,
+                    Tipo = TipoContatoCliente.Email,
+                    ValorNormalizado = normalizedEmail,
+                    Origem = OrigemContatoCliente.MigracaoLegado,
+                    VerificadoEm = null,
+                    CreatedAt = now
+                }, cancellationToken);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         private async Task<Funcionario> SeedFuncionario(int oficinaId, CancellationToken cancellationToken)
@@ -886,7 +888,11 @@ namespace SIGO.Data.Seed
             return servico;
         }
 
-        private async Task SeedClienteOficina(int oficinaId, int clienteId, CancellationToken cancellationToken)
+        private async Task SeedClienteOficina(
+            int oficinaId,
+            int clienteId,
+            string clienteNome,
+            CancellationToken cancellationToken)
         {
             var relacionamento = await _context.ClienteOficinas
                 .FirstOrDefaultAsync(
@@ -894,7 +900,6 @@ namespace SIGO.Data.Seed
                     cancellationToken);
 
             var agora = DateTime.UtcNow;
-
             if (relacionamento is null)
             {
                 await _context.ClienteOficinas.AddAsync(new ClienteOficina
@@ -909,6 +914,7 @@ namespace SIGO.Data.Seed
             else
             {
                 relacionamento.Ativo = true;
+                relacionamento.RevogadoEm = null;
                 relacionamento.UpdatedAt = agora;
             }
 

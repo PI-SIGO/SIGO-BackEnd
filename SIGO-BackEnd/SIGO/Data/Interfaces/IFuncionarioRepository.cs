@@ -9,8 +9,12 @@ namespace SIGO.Data.Interfaces
         Task<Funcionario?> GetByIdForOficina(int id, int oficinaId);
         Task<IEnumerable<Funcionario>> GetFuncionarioByNomeForOficina(string nome, int oficinaId);
         Task<bool> ExistsByCpf(string cpf, int? ignoreId = null);
+        Task<bool> ExistsByEmail(string email, int? ignoreId = null);
         Task<bool> ExistsInOficina(int funcionarioId, int oficinaId);
         Task<Funcionario?> GetByEmail(string email);
+        Task<Funcionario?> GetActiveByIdAsync(int id, CancellationToken cancellationToken = default);
+        Task<bool> IsActiveAsync(int id, CancellationToken cancellationToken = default);
         Task UpdatePasswordHash(int id, string passwordHash);
+        Task<bool> DeactivateAsync(int id, CancellationToken cancellationToken = default);
     }
 }

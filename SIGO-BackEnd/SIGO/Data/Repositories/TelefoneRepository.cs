@@ -17,7 +17,9 @@ namespace SIGO.Data.Repositories
         public async Task<IEnumerable<TelefoneDTO>> GetTelefoneByNome(string nome)
         {
             return await _context.Telefones
-                .Where(t => t.Clientes.Nome.Contains(nome))
+                .Where(t =>
+                    t.Clientes.Situacao == SIGO.Objects.Enums.Situacao.ATIVO &&
+                    t.Clientes.Nome.Contains(nome))
                 .Select(t => new TelefoneDTO
                 {
                     Id = t.Id,
@@ -32,6 +34,7 @@ namespace SIGO.Data.Repositories
         {
             return await _context.Telefones
                 .Where(t =>
+                    t.Clientes.Situacao == SIGO.Objects.Enums.Situacao.ATIVO &&
                     t.Clientes.Nome.Contains(nome) &&
                     t.Clientes.ClienteOficinas.Any(co =>
                         co.OficinaId == oficinaId &&

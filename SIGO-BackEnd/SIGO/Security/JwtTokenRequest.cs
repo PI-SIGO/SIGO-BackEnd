@@ -7,5 +7,6 @@ namespace SIGO.Security
         public string Email { get; set; }
         public string Role { get; set; }
         public int? OficinaId { get; set; }
+        public int? TokenVersion { get; set; }
     }
 }

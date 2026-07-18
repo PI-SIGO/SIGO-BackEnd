@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
+using SIGO.Exceptions;
 using SIGO.Objects.Models;
 
 namespace SIGO.Data.Repositories
@@ -16,51 +17,87 @@ namespace SIGO.Data.Repositories
         public async Task<bool> ExistsAsync(int oficinaId, int clienteId)
         {
             return await _context.ClienteOficinas
-                .AnyAsync(co => co.OficinaId == oficinaId && co.ClienteId == clienteId && co.Ativo);
+                .AnyAsync(co =>
+                    co.OficinaId == oficinaId &&
+                    co.ClienteId == clienteId &&
+                    co.Ativo &&
+                    co.Cliente.Situacao == SIGO.Objects.Enums.Situacao.ATIVO);
         }
 
-        public async Task AddIfNotExistsAsync(int oficinaId, int clienteId)
+        public Task<ClienteOficina?> GetAsync(
+            int oficinaId,
+            int clienteId,
+            CancellationToken cancellationToken = default)
         {
-            var exists = await ExistsAsync(oficinaId, clienteId);
-            if (exists)
-                return;
-
-            await _context.ClienteOficinas.AddAsync(new ClienteOficina
-            {
-                OficinaId = oficinaId,
-                ClienteId = clienteId,
-                Ativo = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            });
-
-            await _context.SaveChangesAsync();
+            return _context.ClienteOficinas.FirstOrDefaultAsync(
+                relacionamento => relacionamento.OficinaId == oficinaId &&
+                                  relacionamento.ClienteId == clienteId,
+                cancellationToken);
         }
 
-        public async Task AddOrUpdateVinculoAsync(int oficinaId, int clienteId)
+        public async Task<IReadOnlyList<ClienteOficina>> GetByClienteAsync(
+            int clienteId,
+            CancellationToken cancellationToken = default)
         {
-            var agora = DateTime.UtcNow;
-            var relacionamento = await _context.ClienteOficinas
-                .FirstOrDefaultAsync(co => co.OficinaId == oficinaId && co.ClienteId == clienteId);
+            return await _context.ClienteOficinas
+                .AsNoTracking()
+                .Include(relacionamento => relacionamento.Oficina)
+                .Where(relacionamento => relacionamento.ClienteId == clienteId)
+                .OrderByDescending(relacionamento => relacionamento.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<ClienteOficina> AddOrActivateAsync(
+            int oficinaId,
+            int clienteId,
+            CancellationToken cancellationToken = default)
+        {
+            var now = DateTime.UtcNow;
+            var relacionamento = await GetAsync(oficinaId, clienteId, cancellationToken);
 
             if (relacionamento is null)
             {
-                await _context.ClienteOficinas.AddAsync(new ClienteOficina
+                relacionamento = new ClienteOficina
                 {
                     OficinaId = oficinaId,
                     ClienteId = clienteId,
                     Ativo = true,
-                    CreatedAt = agora,
-                    UpdatedAt = agora
-                });
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                await _context.ClienteOficinas.AddAsync(relacionamento, cancellationToken);
             }
             else
             {
+                if (relacionamento.RevogadoEm.HasValue)
+                {
+                    throw new ConflictException(
+                        "O cliente revogou este vinculo. A oficina nao pode reativa-lo automaticamente.");
+                }
+
                 relacionamento.Ativo = true;
-                relacionamento.UpdatedAt = agora;
+                relacionamento.UpdatedAt = now;
             }
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
+            return relacionamento;
+        }
+
+        public async Task<bool> DeactivateAsync(
+            int oficinaId,
+            int clienteId,
+            DateTime updatedAt,
+            CancellationToken cancellationToken = default)
+        {
+            var relacionamento = await GetAsync(oficinaId, clienteId, cancellationToken);
+            if (relacionamento is null)
+                return false;
+
+            relacionamento.Ativo = false;
+            relacionamento.UpdatedAt = updatedAt;
+            relacionamento.RevogadoEm = updatedAt;
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
         }
     }
 }

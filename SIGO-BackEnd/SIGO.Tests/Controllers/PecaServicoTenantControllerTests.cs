@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using SIGO.Controllers;
@@ -13,86 +12,132 @@ namespace SIGO.Tests.Controllers
     public class PecaServicoTenantControllerTests
     {
         [Fact]
-        public async Task PecaPost_DeveForcarOficinaDoJwt_QuandoOficinaCriaPeca()
+        public async Task PecaPost_ForcaOficinaDoJwtERetornaCreated()
         {
             var service = new Mock<IPecaService>();
-            var currentUser = new Mock<ICurrentUserService>();
-            currentUser.Setup(s => s.IsInRole(SystemRoles.Admin)).Returns(false);
-            currentUser.Setup(s => s.OficinaId).Returns(8);
-            service.Setup(s => s.CreateForOficina(It.IsAny<PecaDTO>(), 8)).Returns(Task.CompletedTask);
-            var controller = new PecaController(service.Object, Mock.Of<IMapper>(), currentUser.Object);
+            var currentUser = CreateOfficeUser(8);
+            var request = CreatePiece(idOficina: 999);
+            service.Setup(item => item.CreateForOficina(request, 8))
+                .Callback(() => request.Id = 41)
+                .Returns(Task.CompletedTask);
+            var controller = new PecaController(service.Object, currentUser.Object);
 
-            var result = await controller.Post(CriarPeca(idOficina: 999));
+            var result = await controller.Post(request);
 
-            Assert.IsType<OkObjectResult>(result);
-            service.Verify(s => s.CreateForOficina(It.IsAny<PecaDTO>(), 8), Times.Once);
-            service.Verify(s => s.Create(It.IsAny<PecaDTO>()), Times.Never);
+            var created = Assert.IsType<CreatedResult>(result.Result);
+            Assert.Equal("/api/v1/pecas/41", created.Location);
+            service.Verify(item => item.CreateForOficina(request, 8), Times.Once);
+            service.Verify(item => item.Create(It.IsAny<PecaDTO>()), Times.Never);
         }
 
         [Fact]
-        public async Task PecaGetAll_DeveFiltrarPorOficina_QuandoUsuarioNaoEAdmin()
+        public async Task PecaGetAll_FiltraOficinaEPagina()
         {
             var service = new Mock<IPecaService>();
-            var currentUser = new Mock<ICurrentUserService>();
-            currentUser.Setup(s => s.IsInRole(SystemRoles.Admin)).Returns(false);
-            currentUser.Setup(s => s.OficinaId).Returns(8);
-            service.Setup(s => s.GetByOficina(8)).ReturnsAsync(new[] { CriarPeca(idOficina: 8) });
-            var controller = new PecaController(service.Object, Mock.Of<IMapper>(), currentUser.Object);
+            var currentUser = CreateOfficeUser(8);
+            service.Setup(item => item.GetByOficina(8)).ReturnsAsync(new[]
+            {
+                CreatePiece(8, id: 1),
+                CreatePiece(8, id: 2),
+                CreatePiece(8, id: 3)
+            });
+            var controller = new PecaController(service.Object, currentUser.Object);
 
-            var result = await controller.GetAll();
+            var result = await controller.GetAll(new PaginationRequest { Page = 1, PageSize = 2 });
 
-            var ok = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<Response>(ok.Value);
-            var data = Assert.IsAssignableFrom<IEnumerable<PecaDTO>>(response.Data);
-            Assert.All(data, p => Assert.Equal(8, p.IdOficina));
-            service.Verify(s => s.GetAll(), Times.Never);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var page = Assert.IsType<PagedResponse<PecaDTO>>(ok.Value);
+            Assert.Equal(3, page.TotalItems);
+            Assert.Equal(2, page.Items.Count);
+            Assert.All(page.Items, piece => Assert.Equal(8, piece.IdOficina));
         }
 
         [Fact]
-        public async Task ServicoPost_DeveForcarOficinaDoJwt_QuandoOficinaCriaServico()
+        public async Task ServicoPost_ForcaOficinaDoJwtERetornaCreated()
         {
             var service = new Mock<IServicoService>();
+            var currentUser = CreateOfficeUser(3);
+            var request = CreateService(idOficina: 999);
+            service.Setup(item => item.CreateForOficina(request, 3))
+                .Callback(() => request.Id = 52)
+                .Returns(Task.CompletedTask);
+            var controller = new ServicoController(service.Object, currentUser.Object);
+
+            var result = await controller.Post(request);
+
+            var created = Assert.IsType<CreatedResult>(result.Result);
+            Assert.Equal("/api/v1/servicos/52", created.Location);
+            service.Verify(item => item.CreateForOficina(request, 3), Times.Once);
+            service.Verify(item => item.Create(It.IsAny<ServicoDTO>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task PecaDelete_RetornaNoContent()
+        {
+            var service = new Mock<IPecaService>();
+            var currentUser = CreateAdminUser();
+            service.Setup(item => item.GetById(4)).ReturnsAsync(CreatePiece(8, id: 4));
+            service.Setup(item => item.Remove(4)).Returns(Task.CompletedTask);
+            var controller = new PecaController(service.Object, currentUser.Object);
+
+            var result = await controller.Delete(4);
+
+            Assert.IsType<NoContentResult>(result);
+        }
+
+        [Fact]
+        public async Task ServicoDelete_RetornaNoContent()
+        {
+            var service = new Mock<IServicoService>();
+            var currentUser = CreateAdminUser();
+            service.Setup(item => item.GetById(4)).ReturnsAsync(CreateService(8));
+            service.Setup(item => item.Remove(4)).Returns(Task.CompletedTask);
+            var controller = new ServicoController(service.Object, currentUser.Object);
+
+            var result = await controller.Delete(4);
+
+            Assert.IsType<NoContentResult>(result);
+        }
+
+        private static Mock<ICurrentUserService> CreateOfficeUser(int oficinaId)
+        {
             var currentUser = new Mock<ICurrentUserService>();
-            currentUser.Setup(s => s.IsInRole(SystemRoles.Admin)).Returns(false);
-            currentUser.Setup(s => s.OficinaId).Returns(3);
-            service.Setup(s => s.CreateForOficina(It.IsAny<ServicoDTO>(), 3)).Returns(Task.CompletedTask);
-            var controller = new ServicoController(service.Object, Mock.Of<IMapper>(), currentUser.Object);
-
-            var result = await controller.Post(CriarServico(idOficina: 999));
-
-            Assert.IsType<OkObjectResult>(result);
-            service.Verify(s => s.CreateForOficina(It.IsAny<ServicoDTO>(), 3), Times.Once);
-            service.Verify(s => s.Create(It.IsAny<ServicoDTO>()), Times.Never);
+            currentUser.Setup(user => user.IsInRole(SystemRoles.Admin)).Returns(false);
+            currentUser.Setup(user => user.IsInRole(SystemRoles.Oficina)).Returns(true);
+            currentUser.Setup(user => user.OficinaId).Returns(oficinaId);
+            return currentUser;
         }
 
-        private static PecaDTO CriarPeca(int? idOficina)
+        private static Mock<ICurrentUserService> CreateAdminUser()
         {
-            return new PecaDTO
-            {
-                Nome = "Filtro",
-                Tipo = "Oleo",
-                Descricao = "Filtro de oleo",
-                Valor = 50,
-                Quantidade = 2,
-                Garantia = DateOnly.FromDateTime(DateTime.Today),
-                Unidade = 1,
-                IdMarca = 1,
-                DataAquisicao = DateOnly.FromDateTime(DateTime.Today),
-                Fornecedor = "Fornecedor",
-                IdOficina = idOficina
-            };
+            var currentUser = new Mock<ICurrentUserService>();
+            currentUser.Setup(user => user.IsInRole(SystemRoles.Admin)).Returns(true);
+            return currentUser;
         }
 
-        private static ServicoDTO CriarServico(int? idOficina)
+        private static PecaDTO CreatePiece(int? idOficina, int id = 0) => new()
         {
-            return new ServicoDTO
-            {
-                Nome = "Troca de oleo",
-                Descricao = "Troca",
-                Valor = 100,
-                Garantia = DateOnly.FromDateTime(DateTime.Today),
-                IdOficina = idOficina
-            };
-        }
+            Id = id,
+            Nome = "Filtro",
+            Tipo = "Oleo",
+            Descricao = "Filtro de oleo",
+            Valor = 50,
+            Quantidade = 2,
+            Garantia = DateOnly.FromDateTime(DateTime.Today),
+            Unidade = 1,
+            IdMarca = 1,
+            DataAquisicao = DateOnly.FromDateTime(DateTime.Today),
+            Fornecedor = "Fornecedor",
+            IdOficina = idOficina
+        };
+
+        private static ServicoDTO CreateService(int? idOficina) => new()
+        {
+            Nome = "Troca de oleo",
+            Descricao = "Troca",
+            Valor = 100,
+            Garantia = DateOnly.FromDateTime(DateTime.Today),
+            IdOficina = idOficina
+        };
     }
 }

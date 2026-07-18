@@ -14,19 +14,63 @@ Accept: application/json
 ###
 
 ### Login as cliente - anonymous
-POST {{SIGO_HostAddress}}/api/clientes/login
+POST {{SIGO_HostAddress}}/api/v1/clientes/login
 Content-Type: application/json
 Accept: application/json
 
 {
+  "cpf": "52998224725",
+  "senha": "change-me"
+}
+
+###
+
+### Direct cliente registration - no e-mail confirmation
+POST {{SIGO_HostAddress}}/api/v1/clientes/cadastros
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cpf": "52998224725",
+  "nome": "Cliente Exemplo",
   "email": "cliente@example.com",
-  "password": "change-me"
+  "senha": "Senha123"
+}
+
+###
+
+### Full cliente registration and direct link - requires Oficina or Funcionario JWT with oficina_id claim
+POST {{SIGO_HostAddress}}/api/v1/clientes
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{AccessToken}}
+
+{
+  "cpf": "52998224725",
+  "nome": "Cliente Exemplo",
+  "email": "cliente@example.com",
+  "dataNasc": "1950-05-10",
+  "sexo": 1,
+  "numero": 120,
+  "rua": "Rua das Flores",
+  "cidade": "Blumenau",
+  "cep": "89010-000",
+  "bairro": "Centro",
+  "estado": "SC",
+  "pais": "Brasil",
+  "complemento": "Casa",
+  "telefones": [
+    {
+      "ddd": 47,
+      "numero": "99999-9999"
+    }
+  ]
 }
 
 ###
 
 ### Protected cliente lookup - requires JWT bearer token
-GET {{SIGO_HostAddress}}/api/clientes/1
+GET {{SIGO_HostAddress}}/api/v1/clientes/1
 Accept: application/json
 Authorization: Bearer {{AccessToken}}
 

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Models;
+using SIGO.Objects.Enums;
 using System.Linq;
 
 namespace SIGO.Data.Repositories
@@ -18,6 +19,7 @@ namespace SIGO.Data.Repositories
             return await _context.Clientes
                 .Include(c => c.Telefones)
                 .Include(c => c.Veiculos)
+                .Where(c => c.Situacao == Situacao.ATIVO)
                 .ToListAsync();
         }
 
@@ -26,13 +28,15 @@ namespace SIGO.Data.Repositories
             return await _context.Clientes
                 .Include(c => c.Telefones)
                 .Include(c => c.Veiculos)
-                .FirstOrDefaultAsync(c => c.Id == id);
+                .FirstOrDefaultAsync(c => c.Id == id && c.Situacao == Situacao.ATIVO);
         }
 
         public async Task<IEnumerable<Cliente>> GetByOficina(int oficinaId)
         {
             return await ClientesComDetalhes()
-                .Where(c => c.ClienteOficinas.Any(co => co.OficinaId == oficinaId && co.Ativo))
+                .Where(c => c.ClienteOficinas.Any(co =>
+                    co.OficinaId == oficinaId && co.Ativo))
+                .Where(c => c.Situacao == Situacao.ATIVO)
                 .ToListAsync();
         }
 
@@ -40,8 +44,9 @@ namespace SIGO.Data.Repositories
         {
             return await ClientesComDetalhes()
                 .FirstOrDefaultAsync(c =>
-                    c.Id == id &&
-                    c.ClienteOficinas.Any(co => co.OficinaId == oficinaId && co.Ativo));
+                    c.Id == id && c.Situacao == Situacao.ATIVO &&
+                    c.ClienteOficinas.Any(co =>
+                        co.OficinaId == oficinaId && co.Ativo));
         }
 
         public async Task<IEnumerable<Cliente>> GetByNameWithDetails(string nome)
@@ -49,7 +54,7 @@ namespace SIGO.Data.Repositories
             return await _context.Clientes
                 .Include(c => c.Telefones)
                 .Include(c => c.Veiculos)
-                .Where(c => c.Nome.Contains(nome))
+                .Where(c => c.Situacao == Situacao.ATIVO && c.Nome.Contains(nome))
                 .ToListAsync();
         }
 
@@ -57,15 +62,16 @@ namespace SIGO.Data.Repositories
         {
             return await ClientesComDetalhes()
                 .Where(c =>
-                    c.Nome.Contains(nome) &&
-                    c.ClienteOficinas.Any(co => co.OficinaId == oficinaId && co.Ativo))
+                    c.Situacao == Situacao.ATIVO && c.Nome.Contains(nome) &&
+                    c.ClienteOficinas.Any(co =>
+                        co.OficinaId == oficinaId && co.Ativo))
                 .ToListAsync();
         }
 
         public async Task<Cliente?> GetById(int id)
         {
             return await _context.Clientes
-                .FirstOrDefaultAsync(c => c.Id == id);
+                .FirstOrDefaultAsync(c => c.Id == id && c.Situacao == Situacao.ATIVO);
         }
 
         public async Task<Cliente> Add(Cliente cliente)
@@ -75,28 +81,14 @@ namespace SIGO.Data.Repositories
             return cliente;
         }
 
-        public async Task<Cliente?> GetByEmail(string email)
-        {
-            var emailNormalizado = NormalizeEmail(email);
-
-            return await _context.Clientes
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c =>
-                    c.Email != null &&
-                    c.Email.Trim().ToLower() == emailNormalizado);
-        }
-
-        public async Task UpdatePasswordHash(int id, string passwordHash)
-        {
-            await _context.Clientes
-                .Where(c => c.Id == id)
-                .ExecuteUpdateAsync(setters => setters.SetProperty(c => c.Senha, passwordHash));
-        }
-
         public async Task<bool> ExistsInOficina(int clienteId, int oficinaId)
         {
             return await _context.ClienteOficinas
-                .AnyAsync(co => co.ClienteId == clienteId && co.OficinaId == oficinaId && co.Ativo);
+                .AnyAsync(co =>
+                    co.ClienteId == clienteId &&
+                    co.OficinaId == oficinaId &&
+                    co.Ativo &&
+                    co.Cliente.Situacao == Situacao.ATIVO);
         }
 
         public async Task<bool> ExistsByCpfCnpj(string cpfCnpj, int? ignoreId = null)
@@ -132,29 +124,54 @@ namespace SIGO.Data.Repositories
                     (!ignoreId.HasValue || c.Id != ignoreId.Value));
         }
 
-        public async Task<IReadOnlyList<Cliente>> GetByCpfCnpjOrEmail(string cpfCnpj, string email)
+        public Task<Cliente?> GetByCpfCnpjAsync(
+            string cpfCnpj,
+            CancellationToken cancellationToken = default)
         {
             var documentoNormalizado = SomenteDigitos(cpfCnpj);
-            var emailNormalizado = email.Trim().ToLowerInvariant();
+            return _context.Clientes.FirstOrDefaultAsync(
+                cliente => cliente.Cpf_Cnpj == documentoNormalizado,
+                cancellationToken);
+        }
 
-            return await _context.Clientes
-                .Where(c =>
-                    (c.Cpf_Cnpj != null &&
-                     c.Cpf_Cnpj.Replace(".", "").Replace("-", "").Replace("/", "") == documentoNormalizado) ||
-                    (c.Email != null &&
-                     c.Email.Trim().ToLower() == emailNormalizado))
-                .ToListAsync();
+        public async Task<bool> DeactivateAsync(
+            int id,
+            CancellationToken cancellationToken = default)
+        {
+            var cliente = await _context.Clientes
+                .Include(entity => entity.Conta)
+                .Include(entity => entity.ClienteOficinas)
+                .FirstOrDefaultAsync(entity => entity.Id == id, cancellationToken);
+            if (cliente is null || cliente.Situacao == Situacao.INATIVO)
+                return false;
+
+            cliente.Situacao = Situacao.INATIVO;
+            var now = DateTime.UtcNow;
+            if (cliente.Conta is not null)
+            {
+                cliente.Conta.Status = EstadoClienteConta.Blocked;
+                cliente.Conta.TokenVersion++;
+                cliente.Conta.UpdatedAt = now;
+            }
+
+            foreach (var relacionamento in cliente.ClienteOficinas.Where(item => item.Ativo))
+            {
+                relacionamento.Ativo = false;
+                relacionamento.UpdatedAt = now;
+                relacionamento.RevogadoEm = now;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
         }
 
         private static string SomenteDigitos(string valor) =>
             new(valor.Where(char.IsDigit).ToArray());
 
-        private static string NormalizeEmail(string email) =>
-            email.Trim().ToLowerInvariant();
-
         private IQueryable<Cliente> ClientesComDetalhes()
         {
             return _context.Clientes
+                .AsNoTracking()
                 .Include(c => c.Telefones)
                 .Include(c => c.Veiculos)
                 .Include(c => c.ClienteOficinas);

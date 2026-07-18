@@ -4,6 +4,7 @@ using SIGO.Data.Repositories;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
+using System.Net.Mail;
 using System.Linq;
 using SIGO.Objects.Contracts;
 using SIGO.Security;
@@ -36,9 +37,18 @@ namespace SIGO.Services.Entities
             if (string.IsNullOrWhiteSpace(login?.Email) || string.IsNullOrEmpty(login.Password))
                 return null;
 
-            var funcionario = await _funcionarioRepository.GetByEmail(login.Email);
+            var email = EmailNormalizer.Normalize(login.Email);
+            var funcionario = await _funcionarioRepository.GetByEmail(email);
 
-            if (funcionario is null || !_passwordHasher.Verify(login.Password, funcionario.Senha))
+            if (funcionario is null)
+                return null;
+
+            var passwordIsValid = _passwordHasher.Verify(login.Password, funcionario.Senha);
+            var isAdmin = NormalizeRole(funcionario.Role) == SystemRoles.Admin;
+            var hasActiveOffice = funcionario.Oficina?.Situacao == SIGO.Objects.Enums.Situacao.ATIVO;
+            if (!passwordIsValid ||
+                funcionario.Situacao != SIGO.Objects.Enums.Situacao.ATIVO ||
+                (!isAdmin && !hasActiveOffice))
                 return null;
 
             if (_passwordHasher.NeedsRehash(funcionario.Senha))
@@ -51,6 +61,12 @@ namespace SIGO.Services.Entities
         {
             var entities = await _funcionarioRepository.GetFuncionarioByNome(nome);
             return _mapper.Map<IEnumerable<FuncionarioDTO>>(entities);
+        }
+
+        public override async Task<FuncionarioDTO?> GetById(int id)
+        {
+            var funcionario = await _funcionarioRepository.GetActiveByIdAsync(id);
+            return _mapper.Map<FuncionarioDTO?>(funcionario);
         }
 
         public async Task<IEnumerable<FuncionarioDTO>> GetByOficina(int oficinaId)
@@ -80,18 +96,22 @@ namespace SIGO.Services.Entities
         {
             await ValidateFuncionario(funcionarioDTO);
             funcionarioDTO.Cpf = _cpfValidator.Normalize(funcionarioDTO.Cpf);
+            funcionarioDTO.Email = EmailNormalizer.Normalize(funcionarioDTO.Email);
             funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
             funcionarioDTO.Senha = _passwordHasher.Hash(funcionarioDTO.Senha);
 
             var funcionario = _mapper.Map<Funcionario>(funcionarioDTO);
             await _funcionarioRepository.Add(funcionario);
+            funcionarioDTO.Id = funcionario.Id;
         }
 
         public override async Task Update(FuncionarioDTO funcionarioDTO, int id)
         {
             await ValidateFuncionario(funcionarioDTO, id);
             funcionarioDTO.Cpf = _cpfValidator.Normalize(funcionarioDTO.Cpf);
+            funcionarioDTO.Email = EmailNormalizer.Normalize(funcionarioDTO.Email);
             funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
+            funcionarioDTO.Id = id;
             var existing = await GetExisting(id);
             ApplyUpdate(existing, funcionarioDTO);
             await _funcionarioRepository.SaveChanges();
@@ -101,7 +121,9 @@ namespace SIGO.Services.Entities
         {
             await ValidateFuncionario(funcionarioDTO, id);
             funcionarioDTO.Cpf = _cpfValidator.Normalize(funcionarioDTO.Cpf);
+            funcionarioDTO.Email = EmailNormalizer.Normalize(funcionarioDTO.Email);
             funcionarioDTO.Role = NormalizeRole(funcionarioDTO.Role);
+            funcionarioDTO.Id = id;
             var existing = await GetExisting(id);
             ApplyUpdate(existing, funcionarioDTO);
 
@@ -109,6 +131,14 @@ namespace SIGO.Services.Entities
                 existing.Senha = _passwordHasher.Hash(funcionarioDTO.Senha);
 
             await _funcionarioRepository.SaveChanges();
+        }
+
+        public async Task DeactivateAsync(
+            int id,
+            CancellationToken cancellationToken = default)
+        {
+            if (!await _funcionarioRepository.DeactivateAsync(id, cancellationToken))
+                throw new KeyNotFoundException($"Funcionário com id {id} não encontrado.");
         }
 
         public async Task ValidarCpf(string? cpf, int? ignoreId = null)
@@ -122,6 +152,7 @@ namespace SIGO.Services.Entities
         {
             var errors = new List<ValidationError>();
             await AddCpfErrors(funcionarioDTO.Cpf, errors, ignoreId);
+            await AddEmailErrors(funcionarioDTO.Email, errors, ignoreId);
             AddRoleErrors(funcionarioDTO.Role, errors);
             AddOficinaErrors(funcionarioDTO.IdOficina, funcionarioDTO.Role, errors);
             ThrowIfInvalid(errors);
@@ -140,6 +171,30 @@ namespace SIGO.Services.Entities
 
             if (existe)
                 errors.Add(new ValidationError(nameof(FuncionarioDTO.Cpf), "CPF já cadastrado."));
+        }
+
+        private async Task AddEmailErrors(
+            string? email,
+            ICollection<ValidationError> errors,
+            int? ignoreId = null)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                errors.Add(new ValidationError(nameof(FuncionarioDTO.Email), "E-mail obrigatório."));
+                return;
+            }
+
+            var emailNormalizado = EmailNormalizer.Normalize(email);
+            if (emailNormalizado.Length > 100 ||
+                !MailAddress.TryCreate(emailNormalizado, out var address) ||
+                !string.Equals(address.Address, emailNormalizado, StringComparison.Ordinal))
+            {
+                errors.Add(new ValidationError(nameof(FuncionarioDTO.Email), "E-mail inválido."));
+                return;
+            }
+
+            if (await _funcionarioRepository.ExistsByEmail(emailNormalizado, ignoreId))
+                errors.Add(new ValidationError(nameof(FuncionarioDTO.Email), "E-mail já cadastrado."));
         }
 
         private static void AddRoleErrors(string? role, ICollection<ValidationError> errors)
@@ -169,7 +224,7 @@ namespace SIGO.Services.Entities
 
         private async Task<Funcionario> GetExisting(int id)
         {
-            var existing = await _funcionarioRepository.GetById(id);
+            var existing = await _funcionarioRepository.GetActiveByIdAsync(id);
             if (existing is null)
                 throw new KeyNotFoundException($"Funcionário com id {id} não encontrado.");
 

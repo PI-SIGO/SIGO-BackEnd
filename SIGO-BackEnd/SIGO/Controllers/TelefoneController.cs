@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SIGO.Errors;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Security;
@@ -9,7 +10,7 @@ using SIGO.Utils;
 
 namespace SIGO.Controllers
 {
-    [Route("api/telefones")]
+    [Route("api/v1/telefones")]
     [ApiController]
     [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
     public class TelefoneController : ControllerBase
@@ -17,7 +18,6 @@ namespace SIGO.Controllers
         private readonly ITelefoneService _telefoneService;
         private readonly IClienteService _clienteService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly Response _response;
         private readonly IMapper _mapper;
 
         public TelefoneController(
@@ -30,7 +30,6 @@ namespace SIGO.Controllers
             _clienteService = clienteService;
             _currentUserService = currentUserService;
             _mapper = mapper;
-            _response = new Response();
         }
 
         [HttpGet("{id:int}")]
@@ -40,7 +39,9 @@ namespace SIGO.Controllers
             var telefoneDto = await _telefoneService.GetById(id);
 
             if (telefoneDto is null)
-                return NotFound(new { Message = "Telefone não encontrado" });
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Telefone não encontrado.");
 
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != telefoneDto.ClienteId)
                 return Forbid();
@@ -53,7 +54,9 @@ namespace SIGO.Controllers
 
         [HttpGet("nome/{nome}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        public async Task<IActionResult> GetByNameWithDetails(string nome)
+        public async Task<IActionResult> GetByNameWithDetails(
+            string nome,
+            [FromQuery] PaginationRequest? pagination = null)
         {
             IEnumerable<TelefoneDTO> clientesDto;
             if (_currentUserService.IsInRole(SystemRoles.Admin))
@@ -69,10 +72,7 @@ namespace SIGO.Controllers
                 clientesDto = await _telefoneService.GetTelefoneByNomeForOficina(nome, oficinaId.Value);
             }
 
-            if (!clientesDto.Any())
-                return NotFound(new { Message = "Nenhum cliente encontrado com esse nome" });
-
-            return Ok(clientesDto);
+            return Ok(PagedResponse<TelefoneDTO>.Create(clientesDto, pagination ?? new PaginationRequest()));
         }
 
         [HttpPost]
@@ -84,11 +84,10 @@ namespace SIGO.Controllers
 
             if (telefoneDTO is null)
             {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-
-                return BadRequest(_response);
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "O corpo da requisição é obrigatório.");
             }
 
             telefoneDTO.Id = 0;
@@ -105,13 +104,8 @@ namespace SIGO.Controllers
                 return Forbid();
             }
 
-            await _telefoneService.Create(telefoneDTO);
-
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = telefoneDTO;
-            _response.Message = "Telefone cadastrado com sucesso";
-
-            return Ok(_response);
+            var telefoneCriado = await _telefoneService.CreateTelefone(telefoneDTO);
+            return Created($"/api/v1/telefones/{telefoneCriado.Id}", telefoneCriado);
         }
 
         [HttpPut("{id:int}")]
@@ -123,20 +117,18 @@ namespace SIGO.Controllers
 
             if (telefoneDTO is null)
             {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-
-                return BadRequest(_response);
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "O corpo da requisição é obrigatório.");
             }
 
             var existingTelefoneDTO = await _telefoneService.GetById(id);
             if (existingTelefoneDTO is null)
             {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "O telefone informado não existe";
-                return NotFound(_response);
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "O telefone informado não existe.");
             }
 
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != existingTelefoneDTO.ClienteId)
@@ -158,13 +150,8 @@ namespace SIGO.Controllers
                 return Forbid();
             }
 
-            await _telefoneService.Update(telefoneDTO, id);
-
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = telefoneDTO;
-            _response.Message = "Telefone atualizado com sucesso";
-
-            return Ok(_response);
+            var telefoneAtualizado = await _telefoneService.UpdateTelefone(telefoneDTO, id);
+            return Ok(telefoneAtualizado);
         }
 
         [HttpDelete("{id:int}")]
@@ -178,10 +165,9 @@ namespace SIGO.Controllers
 
             if (telefoneDTO is null)
             {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "Telefone não encontrado";
-                return NotFound(_response);
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Telefone não encontrado.");
             }
 
             if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != telefoneDTO.ClienteId)
@@ -192,10 +178,7 @@ namespace SIGO.Controllers
 
             await _telefoneService.Remove(id);
 
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = null;
-            _response.Message = "Telefone deletado com sucesso";
-            return Ok(_response);
+            return NoContent();
         }
 
         private static void SanitizeTelefone(TelefoneDTO telefoneDTO)

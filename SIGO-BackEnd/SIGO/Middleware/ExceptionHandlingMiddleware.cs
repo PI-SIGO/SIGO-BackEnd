@@ -74,7 +74,32 @@ namespace SIGO.Middleware
                     type: ApiProblemTypes.Conflict,
                     cancellationToken: context.RequestAborted);
             }
+            catch (DbUpdateException ex) when (IsForeignKeyViolation(ex))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Database foreign key conflict. TraceId={TraceId} Method={Method} Path={Path}",
+                    context.TraceIdentifier,
+                    context.Request.Method,
+                    context.Request.Path.Value);
+
+                await ApiProblemDetailsFactory.WriteAsync(
+                    context,
+                    StatusCodes.Status409Conflict,
+                    detail: "A operacao referencia um recurso inexistente ou que ainda esta em uso.",
+                    type: ApiProblemTypes.Conflict,
+                    cancellationToken: context.RequestAborted);
+            }
             catch (KeyNotFoundException ex)
+            {
+                await ApiProblemDetailsFactory.WriteAsync(
+                    context,
+                    StatusCodes.Status404NotFound,
+                    detail: string.IsNullOrWhiteSpace(ex.Message) ? null : ex.Message,
+                    type: ApiProblemTypes.NotFound,
+                    cancellationToken: context.RequestAborted);
+            }
+            catch (FileNotFoundException ex)
             {
                 await ApiProblemDetailsFactory.WriteAsync(
                     context,
@@ -130,6 +155,12 @@ namespace SIGO.Middleware
         {
             return exception.InnerException is PostgresException postgresException &&
                 postgresException.SqlState == PostgresErrorCodes.UniqueViolation;
+        }
+
+        private static bool IsForeignKeyViolation(DbUpdateException exception)
+        {
+            return exception.InnerException is PostgresException postgresException &&
+                postgresException.SqlState == PostgresErrorCodes.ForeignKeyViolation;
         }
     }
 }

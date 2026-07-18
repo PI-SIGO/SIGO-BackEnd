@@ -11,127 +11,185 @@ namespace SIGO.Tests.Services
 {
     public class PedidoServiceTests
     {
-        private readonly Mock<IPedidoRepository> _repositoryMock = new();
-        private readonly Mock<IMapper> _mapperMock = new();
-        private readonly Mock<IClienteRepository> _clienteRepositoryMock = new();
-        private readonly Mock<IFuncionarioRepository> _funcionarioRepositoryMock = new();
-        private readonly Mock<IVeiculoRepository> _veiculoRepositoryMock = new();
+        private readonly Mock<IPedidoRepository> _orders = new();
+        private readonly Mock<IMapper> _mapper = new();
+        private readonly Mock<IClienteRepository> _clients = new();
+        private readonly Mock<IFuncionarioRepository> _employees = new();
+        private readonly Mock<IVeiculoRepository> _vehicles = new();
+        private readonly Mock<IPecaRepository> _pieces = new();
+        private readonly Mock<IServicoRepository> _services = new();
+
+        public PedidoServiceTests()
+        {
+            _clients.Setup(repository => repository.ExistsInOficina(It.IsAny<int>(), It.IsAny<int>()))
+                .ReturnsAsync(true);
+            _employees.Setup(repository => repository.ExistsInOficina(It.IsAny<int>(), It.IsAny<int>()))
+                .ReturnsAsync(true);
+            _vehicles.Setup(repository => repository.GetById(It.IsAny<int>()))
+                .ReturnsAsync((int id) => new Veiculo { Id = id, ClienteId = 10 });
+            _pieces.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((IReadOnlyCollection<int> ids, CancellationToken _) =>
+                    ids.Select(id => new Peca { Id = id, IdOficina = 3 }).ToArray());
+            _services.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((IReadOnlyCollection<int> ids, CancellationToken _) =>
+                    ids.Select(id => new Servico { Id = id, IdOficina = 3 }).ToArray());
+        }
 
         [Fact]
-        public async Task Create_DeveMapearEAdicionarEntidade()
+        public async Task Create_AdminValidaTenantEDevolveIdPersistido()
         {
-            var dto = new PedidoDTO { Id = 7, Observacao = "novo" };
+            var request = CreateRequest();
             var entity = new Pedido();
+            _mapper.Setup(mapper => mapper.Map<Pedido>(request)).Returns(entity);
+            _orders.Setup(repository => repository.Add(entity))
+                .Callback(() => entity.Id = 77)
+                .Returns(Task.CompletedTask);
 
-            _mapperMock.Setup(m => m.Map<Pedido>(dto)).Returns(entity);
+            await CreateService().Create(request);
 
-            var service = new PedidoService(_repositoryMock.Object, _mapperMock.Object);
-
-            await service.Create(dto);
-
-            _repositoryMock.Verify(r => r.Add(entity), Times.Once);
+            Assert.Equal(77, request.Id);
+            _orders.Verify(repository => repository.Add(entity), Times.Once);
+            _clients.Verify(repository => repository.ExistsInOficina(10, 3), Times.Once);
         }
 
         [Fact]
-        public async Task Update_DeveForcarIdDoDtoEAtualizar()
+        public async Task Create_AdminRejeitaPecaDeOutraOficina()
         {
-            var id = 15;
-            var dto = new PedidoDTO { Id = 0, Observacao = "update" };
-
-            _repositoryMock.Setup(r => r.GetById(id)).ReturnsAsync(new Pedido());
-            _mapperMock.Setup(m => m.Map<Pedido>(It.IsAny<PedidoDTO>()))
-                .Returns<PedidoDTO>(source => new Pedido { Id = source.Id });
-
-            var service = new PedidoService(_repositoryMock.Object, _mapperMock.Object);
-
-            await service.Update(dto, id);
-
-            Assert.Equal(id, dto.Id);
-            _repositoryMock.Verify(r => r.SaveChanges(), Times.Once);
-        }
-
-        [Fact]
-        public async Task Update_DeveLancarExcecao_QuandoPedidoNaoExiste()
-        {
-            var id = 20;
-            var dto = new PedidoDTO();
-
-            _repositoryMock.Setup(r => r.GetById(id)).ReturnsAsync((Pedido)null!);
-
-            var service = new PedidoService(_repositoryMock.Object, _mapperMock.Object);
-
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Update(dto, id));
-        }
-
-        [Fact]
-        public async Task GetById_DeveBuscarPedidoComPecasEServicos()
-        {
-            var pedido = new Pedido
+            var request = CreateRequest();
+            request.Pedido_Pecas.Add(new Pedido_PecaDTO
             {
-                Id = 3,
-                Pedido_Pecas = new List<Pedido_Peca>
-                {
-                    new() { IdPedido = 3, IdPeca = 7, Quantidade = 2 }
-                },
-                Pedido_Servicos = new List<Pedido_Servico>
-                {
-                    new() { IdPedido = 3, IdServico = 11, QuantVezes = 1 }
-                }
-            };
+                IdPeca = 9,
+                Quantidade = 1,
+                Estado = "Nova"
+            });
+            _pieces.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Peca { Id = 9, IdOficina = 99 } });
 
-            var dto = new PedidoDTO
-            {
-                Id = 3,
-                Pedido_Pecas = new List<Pedido_PecaDTO>
-                {
-                    new() { IdPedido = 3, IdPeca = 7, Quantidade = 2 }
-                },
-                Pedido_Servicos = new List<Pedido_ServicoDTO>
-                {
-                    new() { IdPedido = 3, IdServico = 11, QuantVezes = 1 }
-                }
-            };
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
 
-            _repositoryMock.Setup(r => r.GetByIdWithDetails(3)).ReturnsAsync(pedido);
-            _mapperMock.Setup(m => m.Map<PedidoDTO>(pedido)).Returns(dto);
-
-            var service = new PedidoService(_repositoryMock.Object, _mapperMock.Object);
-
-            var result = await service.GetById(3);
-
-            Assert.Single(result.Pedido_Pecas);
-            Assert.Single(result.Pedido_Servicos);
-            _repositoryMock.Verify(r => r.GetByIdWithDetails(3), Times.Once);
-            _repositoryMock.Verify(r => r.GetById(It.IsAny<int>()), Times.Never);
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.Pedido_Pecas) &&
+                error.Message.Contains("nao pertence a oficina"));
+            _orders.Verify(repository => repository.Add(It.IsAny<Pedido>()), Times.Never);
         }
 
         [Fact]
-        public async Task CreateForOficina_DeveRejeitarVeiculoDeOutroCliente()
+        public async Task Create_AdminRejeitaServicoDeOutraOficina()
         {
-            var dto = new PedidoDTO
+            var request = CreateRequest();
+            request.Pedido_Servicos.Add(new Pedido_ServicoDTO { IdServico = 4, QuantVezes = 1 });
+            _services.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Servico { Id = 4, IdOficina = 22 } });
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.Pedido_Servicos) &&
+                error.Message.Contains("nao pertence a oficina"));
+        }
+
+        [Fact]
+        public async Task Update_SincronizaPecasEServicosEmUmaOperacaoDeRepositorio()
+        {
+            var existing = new Pedido
             {
+                Id = 15,
+                idOficina = 3,
                 idCliente = 10,
                 idFuncionario = 5,
-                idVeiculo = 99
+                idVeiculo = 20,
+                Pedido_Pecas = new List<Pedido_Peca>(),
+                Pedido_Servicos = new List<Pedido_Servico>()
             };
+            var request = CreateRequest();
+            request.Pedido_Pecas.Add(new Pedido_PecaDTO
+            {
+                IdPeca = 8,
+                Quantidade = 2,
+                Estado = "Nova",
+                DataInstalacao = DateOnly.FromDateTime(DateTime.Today)
+            });
+            request.Pedido_Servicos.Add(new Pedido_ServicoDTO { IdServico = 6, QuantVezes = 2 });
+            _orders.Setup(repository => repository.GetByIdWithDetails(15)).ReturnsAsync(existing);
+            _orders.Setup(repository => repository.SaveWithDetailsAsync(
+                    existing,
+                    It.IsAny<IReadOnlyCollection<Pedido_Peca>>(),
+                    It.IsAny<IReadOnlyCollection<Pedido_Servico>>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
-            _clienteRepositoryMock.Setup(r => r.ExistsInOficina(10, 3)).ReturnsAsync(true);
-            _funcionarioRepositoryMock.Setup(r => r.ExistsInOficina(5, 3)).ReturnsAsync(true);
-            _veiculoRepositoryMock.Setup(r => r.GetById(99)).ReturnsAsync(new Veiculo { Id = 99, ClienteId = 11 });
+            await CreateService().Update(request, 15);
 
-            var service = new PedidoService(
-                _repositoryMock.Object,
-                _mapperMock.Object,
-                _clienteRepositoryMock.Object,
-                _funcionarioRepositoryMock.Object,
-                _veiculoRepositoryMock.Object);
+            Assert.Equal(15, request.Id);
+            _orders.Verify(repository => repository.SaveWithDetailsAsync(
+                existing,
+                It.Is<IReadOnlyCollection<Pedido_Peca>>(items =>
+                    items.Count == 1 && items.Single().IdPeca == 8),
+                It.Is<IReadOnlyCollection<Pedido_Servico>>(items =>
+                    items.Count == 1 && items.Single().IdServico == 6),
+                It.IsAny<CancellationToken>()), Times.Once);
+            _orders.Verify(repository => repository.SaveChanges(), Times.Never);
+        }
 
-            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() => service.CreateForOficina(dto, 3));
+        [Fact]
+        public async Task CreateForOficina_RejeitaVeiculoDeOutroCliente()
+        {
+            var request = CreateRequest();
+            _vehicles.Setup(repository => repository.GetById(20))
+                .ReturnsAsync(new Veiculo { Id = 20, ClienteId = 999 });
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().CreateForOficina(request, 3));
 
             Assert.Contains(exception.Errors, error =>
                 error.Field == nameof(PedidoDTO.idVeiculo) &&
-                error.Message == "Veículo não pertence ao cliente informado.");
-            _repositoryMock.Verify(r => r.Add(It.IsAny<Pedido>()), Times.Never);
+                error.Message == "Veiculo nao pertence ao cliente informado.");
         }
+
+        [Fact]
+        public async Task GetById_CarregaDetalhes()
+        {
+            var entity = new Pedido { Id = 3 };
+            var dto = new PedidoDTO { Id = 3 };
+            _orders.Setup(repository => repository.GetByIdWithDetails(3)).ReturnsAsync(entity);
+            _mapper.Setup(mapper => mapper.Map<PedidoDTO>(entity)).Returns(dto);
+
+            var result = await CreateService().GetById(3);
+
+            Assert.Same(dto, result);
+            _orders.Verify(repository => repository.GetByIdWithDetails(3), Times.Once);
+        }
+
+        private PedidoService CreateService() => new(
+            _orders.Object,
+            _mapper.Object,
+            _clients.Object,
+            _employees.Object,
+            _vehicles.Object,
+            _pieces.Object,
+            _services.Object);
+
+        private static PedidoDTO CreateRequest() => new()
+        {
+            idCliente = 10,
+            idFuncionario = 5,
+            idOficina = 3,
+            idVeiculo = 20,
+            Observacao = "Revisao",
+            DataInicio = DateOnly.FromDateTime(DateTime.Today),
+            DataFim = DateOnly.FromDateTime(DateTime.Today),
+            Pedido_Pecas = new List<Pedido_PecaDTO>(),
+            Pedido_Servicos = new List<Pedido_ServicoDTO>()
+        };
     }
 }

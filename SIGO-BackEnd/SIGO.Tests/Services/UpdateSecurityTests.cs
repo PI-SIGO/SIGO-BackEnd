@@ -44,6 +44,37 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task ClienteUpdate_NaoDeveAlterarSituacaoPeloEndpointDePerfil()
+        {
+            var cliente = new Cliente
+            {
+                Id = 1,
+                Nome = "Cliente",
+                Email = "cliente@test.com",
+                Senha = "hash-original",
+                Cpf_Cnpj = "52998224725",
+                Cep = "12345678",
+                Situacao = SIGO.Objects.Enums.Situacao.ATIVO
+            };
+            var clienteRepository = new Mock<IClienteRepository>();
+            clienteRepository.Setup(repository => repository.GetById(1)).ReturnsAsync(cliente);
+            clienteRepository.Setup(repository => repository.SaveChanges()).ReturnsAsync(1);
+            var service = CreateClienteService(clienteRepository.Object);
+
+            await service.Update(new ClienteRequestDTO
+            {
+                Nome = "Cliente Atualizado",
+                Email = "cliente@test.com",
+                Cpf_Cnpj = "52998224725",
+                Cep = "12345678",
+                senha = null
+            }, 1);
+
+            Assert.Equal(SIGO.Objects.Enums.Situacao.ATIVO, cliente.Situacao);
+            Assert.Equal("Cliente Atualizado", cliente.Nome);
+        }
+
+        [Fact]
         public async Task ClienteUpdate_DeveRejeitarTelefoneDeOutroCliente_AntesDeSalvarCliente()
         {
             var cliente = new Cliente
@@ -233,8 +264,13 @@ namespace SIGO.Tests.Services
         {
             var pedido = new Pedido { Id = 5, idOficina = 9, idCliente = 1, idFuncionario = 2, idVeiculo = 3 };
             var repository = new Mock<IPedidoRepository>();
-            repository.Setup(r => r.GetById(5)).ReturnsAsync(pedido);
-            repository.Setup(r => r.SaveChanges()).ReturnsAsync(1);
+            repository.Setup(r => r.GetByIdWithDetails(5)).ReturnsAsync(pedido);
+            repository.Setup(r => r.SaveWithDetailsAsync(
+                    pedido,
+                    It.IsAny<IReadOnlyCollection<Pedido_Peca>>(),
+                    It.IsAny<IReadOnlyCollection<Pedido_Servico>>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
             var service = new PedidoService(repository.Object, Mock.Of<IMapper>());
 
             await service.Update(new PedidoDTO { idOficina = 0, Observacao = "Atualizado" }, 5);
@@ -244,7 +280,7 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task VeiculoUpdateForOficina_DevePreservarClienteId_QuandoDtoNaoEnviaClienteId()
+        public async Task VeiculoUpdateForOficina_DevePreservarClienteId()
         {
             var veiculo = new Veiculo
             {
@@ -268,9 +304,8 @@ namespace SIGO.Tests.Services
             clienteRepository.Setup(r => r.ExistsInOficina(5, 7)).ReturnsAsync(true);
             var service = CreateVeiculoService(veiculoRepository.Object, clienteRepository.Object);
 
-            await service.UpdateVeiculoForOficina(new VeiculoDTO
+            await service.UpdateVeiculoForOficina(new VeiculoRequestDTO
             {
-                ClienteId = 0,
                 NomeVeiculo = "Atualizado",
                 TipoVeiculo = "Sedan",
                 PlacaVeiculo = "DEF5678",
@@ -289,36 +324,35 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task VeiculoUpdateForOficina_DeveRejeitarTrocaDeCliente()
+        public void VeiculoRequestDTO_NaoDeveExporAssociacaoOuDadosRelacionados()
         {
-            var veiculo = new Veiculo { Id = 2, ClienteId = 5 };
-            var veiculoRepository = new Mock<IVeiculoRepository>();
-            veiculoRepository.Setup(r => r.GetByIdForOficina(2, 7)).ReturnsAsync(veiculo);
-            var clienteRepository = new Mock<IClienteRepository>();
-            var service = CreateVeiculoService(veiculoRepository.Object, clienteRepository.Object);
+            var properties = typeof(VeiculoRequestDTO)
+                .GetProperties()
+                .Select(property => property.Name)
+                .ToHashSet(StringComparer.Ordinal);
 
-            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() => service.UpdateVeiculoForOficina(
-                new VeiculoDTO
-                {
-                    ClienteId = 99,
-                    NomeVeiculo = "Atualizado"
-                },
-                2,
-                7));
+            var expectedProperties = new HashSet<string>(StringComparer.Ordinal)
+            {
+                nameof(VeiculoRequestDTO.NomeVeiculo),
+                nameof(VeiculoRequestDTO.TipoVeiculo),
+                nameof(VeiculoRequestDTO.PlacaVeiculo),
+                nameof(VeiculoRequestDTO.ChassiVeiculo),
+                nameof(VeiculoRequestDTO.AnoFab),
+                nameof(VeiculoRequestDTO.Quilometragem),
+                nameof(VeiculoRequestDTO.Combustivel),
+                nameof(VeiculoRequestDTO.Seguro),
+                nameof(VeiculoRequestDTO.Cor)
+            };
 
-            Assert.Contains(exception.Errors, error =>
-                error.Field == nameof(VeiculoDTO.ClienteId) &&
-                error.Message == "Cliente do veiculo nao pode ser alterado.");
-            Assert.Equal(5, veiculo.ClienteId);
-            clienteRepository.Verify(r => r.ExistsInOficina(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
-            veiculoRepository.Verify(r => r.SaveChanges(), Times.Never);
+            Assert.True(
+                expectedProperties.SetEquals(properties),
+                $"Contrato inesperado: {string.Join(", ", properties.OrderBy(name => name))}");
         }
 
         private static ClienteService CreateClienteService(
             IClienteRepository clienteRepository,
             ITelefoneRepository telefoneRepository = null,
-            IMapper mapper = null,
-            IPasswordHasher passwordHasher = null)
+            IMapper mapper = null)
         {
             var cpfValidator = new CpfValidator();
             var cnpjValidator = new CnpjValidator();
@@ -329,9 +363,7 @@ namespace SIGO.Tests.Services
                 telefoneRepository ?? Mock.Of<ITelefoneRepository>(),
                 mapper ?? Mock.Of<IMapper>(),
                 cpfCnpjValidator,
-                Mock.Of<IClienteOficinaRepository>(),
-                null,
-                passwordHasher ?? Mock.Of<IPasswordHasher>());
+                null);
         }
 
         private static VeiculoService CreateVeiculoService(

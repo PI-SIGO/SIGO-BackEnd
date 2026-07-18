@@ -18,14 +18,16 @@ namespace SIGO.Security
     public static class CustomClaimTypes
     {
         public const string OficinaId = "oficina_id";
+        public const string TokenVersion = "token_version";
     }
 
     public static class RateLimitPolicies
     {
-        public const string CompartilhamentoClienteResgate = "CompartilhamentoClienteResgate";
         public const string ClienteLogin = "ClienteLogin";
         public const string OficinaLogin = "OficinaLogin";
         public const string FuncionarioLogin = "FuncionarioLogin";
         public const string PublicRegistration = "PublicRegistration";
+        public const string ClientePreRegistration = "ClientePreRegistration";
+        public const string ClientePasswordChange = "ClientePasswordChange";
     }
 }

@@ -17,13 +17,10 @@ namespace SIGO.Tests.Mappings
             {
                 Id = 1,
                 ClienteId = 5,
+                Status = SIGO.Objects.Enums.Status.Pendente,
                 Imagens = new List<VeiculoImagem>
                 {
                     new() { Id = 10, VeiculoId = 1, NomeOriginal = "frente.png" }
-                },
-                Marcas = new List<Marca>
-                {
-                    new() { Id = 20, Nome = "Fiat", Desc = "Marca", TipoMarca = "Automovel" }
                 },
                 RegistroServicos = new List<RegistroServico>
                 {
@@ -60,8 +57,8 @@ namespace SIGO.Tests.Mappings
 
             var dto = mapper.Map<VeiculoDTO>(veiculo);
 
+            Assert.Equal(SIGO.Objects.Enums.Status.Pendente, dto.Status);
             Assert.Single(dto.Imagens);
-            Assert.Single(dto.Marcas);
             Assert.Single(dto.RegistroServicos);
             Assert.Single(dto.RegistroServicos.Single().PecasSubstituidas);
             Assert.Single(dto.Pedidos);

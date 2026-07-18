@@ -3,6 +3,7 @@ using SIGO.Data.Interfaces;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Models;
 using SIGO.Services.Interfaces;
+using System.Net.Mail;
 using System.Linq;
 using SIGO.Objects.Contracts;
 using SIGO.Security;
@@ -35,9 +36,14 @@ namespace SIGO.Services.Entities
             if (string.IsNullOrWhiteSpace(login?.Email) || string.IsNullOrEmpty(login.Password))
                 return null;
 
-            var oficina = await _oficinaRepository.GetByEmail(login.Email);
+            var email = EmailNormalizer.Normalize(login.Email);
+            var oficina = await _oficinaRepository.GetByEmail(email);
 
-            if (oficina is null || !_passwordHasher.Verify(login.Password, oficina.Senha))
+            if (oficina is null)
+                return null;
+
+            var passwordIsValid = _passwordHasher.Verify(login.Password, oficina.Senha);
+            if (!passwordIsValid || oficina.Situacao != SIGO.Objects.Enums.Situacao.ATIVO)
                 return null;
 
             if (_passwordHasher.NeedsRehash(oficina.Senha))
@@ -53,20 +59,29 @@ namespace SIGO.Services.Entities
             return _mapper.Map<IEnumerable<OficinaDTO>>(oficinas);
         }
 
+        public override async Task<OficinaDTO?> GetById(int id)
+        {
+            var oficina = await _oficinaRepository.GetActiveByIdAsync(id);
+            return _mapper.Map<OficinaDTO?>(oficina);
+        }
+
         public async Task Create(OficinaRequestDTO oficinaDTO)
         {
             await ValidateOficina(oficinaDTO);
             oficinaDTO.CNPJ = _cnpjValidator.Normalize(oficinaDTO.CNPJ!);
+            oficinaDTO.Email = EmailNormalizer.Normalize(oficinaDTO.Email);
             oficinaDTO.Senha = _passwordHasher.Hash(oficinaDTO.Senha);
 
             var oficina = _mapper.Map<Oficina>(oficinaDTO);
             await _oficinaRepository.Add(oficina);
+            oficinaDTO.Id = oficina.Id;
         }
 
         public override async Task Update(OficinaDTO oficinaDTO, int id)
         {
             await ValidateOficina(oficinaDTO, id);
             oficinaDTO.CNPJ = _cnpjValidator.Normalize(oficinaDTO.CNPJ!);
+            oficinaDTO.Email = EmailNormalizer.Normalize(oficinaDTO.Email);
             var existing = await GetExisting(id);
             ApplyAdminUpdate(existing, oficinaDTO);
             await _oficinaRepository.SaveChanges();
@@ -76,6 +91,7 @@ namespace SIGO.Services.Entities
         {
             await ValidateOficina(oficinaDTO, id);
             oficinaDTO.CNPJ = _cnpjValidator.Normalize(oficinaDTO.CNPJ!);
+            oficinaDTO.Email = EmailNormalizer.Normalize(oficinaDTO.Email);
             var existing = await GetExisting(id);
             ApplyAdminUpdate(existing, oficinaDTO);
 
@@ -102,6 +118,14 @@ namespace SIGO.Services.Entities
             await _oficinaRepository.SaveChanges();
         }
 
+        public async Task DeactivateAsync(
+            int id,
+            CancellationToken cancellationToken = default)
+        {
+            if (!await _oficinaRepository.DeactivateAsync(id, cancellationToken))
+                throw new KeyNotFoundException($"Oficina com id {id} não encontrada.");
+        }
+
         public async Task ValidarCnpj(string? cnpj, int? ignoreId = null)
         {
             var errors = new List<ValidationError>();
@@ -113,6 +137,7 @@ namespace SIGO.Services.Entities
         {
             var errors = new List<ValidationError>();
             await AddCnpjErrors(oficinaDTO.CNPJ, errors, ignoreId);
+            await AddEmailErrors(oficinaDTO.Email, errors, ignoreId);
             ThrowIfInvalid(errors);
         }
 
@@ -130,6 +155,30 @@ namespace SIGO.Services.Entities
                 errors.Add(new ValidationError(nameof(OficinaDTO.CNPJ), "CNPJ já cadastrado."));
         }
 
+        private async Task AddEmailErrors(
+            string? email,
+            ICollection<ValidationError> errors,
+            int? ignoreId = null)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                errors.Add(new ValidationError(nameof(OficinaDTO.Email), "E-mail obrigatório."));
+                return;
+            }
+
+            var emailNormalizado = EmailNormalizer.Normalize(email);
+            if (emailNormalizado.Length > 100 ||
+                !MailAddress.TryCreate(emailNormalizado, out var address) ||
+                !string.Equals(address.Address, emailNormalizado, StringComparison.Ordinal))
+            {
+                errors.Add(new ValidationError(nameof(OficinaDTO.Email), "E-mail inválido."));
+                return;
+            }
+
+            if (await _oficinaRepository.ExistsByEmail(emailNormalizado, ignoreId))
+                errors.Add(new ValidationError(nameof(OficinaDTO.Email), "E-mail já cadastrado."));
+        }
+
         private static void ThrowIfInvalid(IReadOnlyCollection<ValidationError> errors)
         {
             if (errors.Count > 0)
@@ -138,7 +187,7 @@ namespace SIGO.Services.Entities
 
         private async Task<Oficina> GetExisting(int id)
         {
-            var existing = await _oficinaRepository.GetById(id);
+            var existing = await _oficinaRepository.GetActiveByIdAsync(id);
             if (existing is null)
                 throw new KeyNotFoundException($"Oficina com id {id} não encontrada.");
 

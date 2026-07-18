@@ -1,23 +1,22 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SIGO.Errors;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
-using SIGO.Validation;
 
 namespace SIGO.Controllers
 {
-    [Route("api/pedidos")]
     [ApiController]
+    [Route("api/v1/pedidos")]
     [Authorize(Policy = AuthorizationPolicies.SelfServiceAccess)]
-    public class PedidoController : ControllerBase
+    public sealed class PedidoController : ControllerBase
     {
         private readonly IPedidoService _pedidoService;
         private readonly IServicoService _servicoService;
         private readonly IFuncionarioService _funcionarioService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly Response _response;
 
         public PedidoController(
             IPedidoService pedidoService,
@@ -29,251 +28,128 @@ namespace SIGO.Controllers
             _servicoService = servicoService;
             _funcionarioService = funcionarioService;
             _currentUserService = currentUserService;
-            _response = new Response();
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
-        public async Task<IActionResult> GetAll()
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
+        public async Task<ActionResult<PagedResponse<PedidoDTO>>> GetAll(
+            [FromQuery] PaginationRequest? pagination = null)
         {
-            IEnumerable<PedidoDTO> pedidos;
+            pagination ??= new PaginationRequest();
+            IEnumerable<PedidoDTO> orders;
             if (_currentUserService.IsInRole(SystemRoles.Cliente))
             {
-                var clienteId = _currentUserService.UserId;
-                if (!clienteId.HasValue)
-                    return Forbid();
-
-                pedidos = await _pedidoService.GetByCliente(clienteId.Value);
+                orders = await _pedidoService.GetByCliente(RequireUserId());
             }
-            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            else if (IsOfficeScopedActor())
             {
-                var oficinaId = _currentUserService.OficinaId;
-                if (!oficinaId.HasValue)
-                    return Forbid();
-
-                pedidos = await _pedidoService.GetByOficina(oficinaId.Value);
+                orders = await _pedidoService.GetByOficina(RequireOfficeId());
             }
             else
             {
-                pedidos = await _pedidoService.GetAll();
+                orders = await _pedidoService.GetAll();
             }
 
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = pedidos;
-            _response.Message = "Pedidos listados com sucesso";
-
-            return Ok(_response);
+            return Ok(PagedResponse<PedidoDTO>.Create(orders, pagination));
         }
 
         [HttpGet("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Cliente}")]
-        public async Task<IActionResult> GetById(int id)
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario},{SystemRoles.Cliente}")]
+        public async Task<ActionResult<PedidoDTO>> GetById(int id)
         {
-            PedidoDTO? pedido;
+            var order = IsOfficeScopedActor()
+                ? await _pedidoService.GetByIdForOficina(id, RequireOfficeId())
+                : await _pedidoService.GetById(id);
 
-            if (_currentUserService.IsInRole(SystemRoles.Oficina))
-            {
-                var oficinaId = _currentUserService.OficinaId;
-                if (!oficinaId.HasValue)
-                    return Forbid();
-
-                pedido = await _pedidoService.GetByIdForOficina(id, oficinaId.Value);
-            }
-            else
-            {
-                pedido = await _pedidoService.GetById(id);
-            }
-
-            if (pedido is null)
-            {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "Pedido não encontrado";
-                return NotFound(_response);
-            }
-
-            if (_currentUserService.IsInRole(SystemRoles.Cliente) && _currentUserService.UserId != pedido.idCliente)
+            if (order is null)
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Pedido não encontrado.");
+            if (_currentUserService.IsInRole(SystemRoles.Cliente) && order.idCliente != RequireUserId())
                 return Forbid();
 
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = pedido;
-            _response.Message = "Pedido encontrado com sucesso";
-            return Ok(_response);
+            return Ok(order);
         }
 
         [HttpGet("me/servicos")]
         [Authorize(Roles = SystemRoles.Cliente)]
-        public async Task<IActionResult> GetMyServices()
+        public async Task<ActionResult<PagedResponse<ServicoDTO>>> GetMyServices(
+            [FromQuery] PaginationRequest? pagination = null)
         {
-            var clienteId = _currentUserService.UserId;
-            if (!clienteId.HasValue)
-                return Forbid();
-
-            var pedidos = await _pedidoService.GetByCliente(clienteId.Value);
-            var serviceIds = pedidos
-                .SelectMany(p => p.Pedido_Servicos)
-                .Select(ps => ps.IdServico)
-                .Distinct()
-                .ToList();
-
-            var services = await _servicoService.GetAll();
-            var result = services.Where(s => serviceIds.Contains(s.Id)).ToList();
-            return Ok(result);
+            pagination ??= new PaginationRequest();
+            var orders = await _pedidoService.GetByCliente(RequireUserId());
+            var serviceIds = orders
+                .SelectMany(order => order.Pedido_Servicos)
+                .Select(item => item.IdServico)
+                .ToHashSet();
+            var services = (await _servicoService.GetAll())
+                .Where(service => serviceIds.Contains(service.Id));
+            return Ok(PagedResponse<ServicoDTO>.Create(services, pagination));
         }
 
         [HttpGet("me/funcionarios")]
         [Authorize(Roles = SystemRoles.Cliente)]
-        public async Task<IActionResult> GetMyEmployees()
+        public async Task<ActionResult<PagedResponse<FuncionarioDTO>>> GetMyEmployees(
+            [FromQuery] PaginationRequest? pagination = null)
         {
-            var clienteId = _currentUserService.UserId;
-            if (!clienteId.HasValue)
-                return Forbid();
-
-            var pedidos = await _pedidoService.GetByCliente(clienteId.Value);
-            var employeeIds = pedidos
-                .Select(p => p.idFuncionario)
-                .Distinct()
-                .ToList();
-
-            var employees = await _funcionarioService.GetAll();
-            var result = employees.Where(f => employeeIds.Contains(f.Id)).ToList();
-            return Ok(result);
+            pagination ??= new PaginationRequest();
+            var orders = await _pedidoService.GetByCliente(RequireUserId());
+            var employeeIds = orders.Select(order => order.idFuncionario).ToHashSet();
+            var employees = (await _funcionarioService.GetAll())
+                .Where(employee => employeeIds.Contains(employee.Id));
+            return Ok(PagedResponse<FuncionarioDTO>.Create(employees, pagination));
         }
 
         [HttpPost]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
-        public async Task<IActionResult> Post([FromBody] PedidoDTO pedidoDTO)
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        public async Task<ActionResult<PedidoDTO>> Post([FromBody] PedidoDTO request)
         {
-            if (pedidoDTO is null)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-                return BadRequest(_response);
-            }
+            if (IsOfficeScopedActor())
+                await _pedidoService.CreateForOficina(request, RequireOfficeId());
+            else
+                await _pedidoService.Create(request);
 
-            try
-            {
-                pedidoDTO.Id = 0;
-                if (_currentUserService.IsInRole(SystemRoles.Oficina))
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    await _pedidoService.CreateForOficina(pedidoDTO, oficinaId.Value);
-                }
-                else
-                {
-                    await _pedidoService.Create(pedidoDTO);
-                }
-
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = pedidoDTO;
-                _response.Message = "Pedido cadastrado com sucesso";
-                return Ok(_response);
-            }
-            catch (BusinessValidationException ex)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Message = "Dados inválidos";
-                _response.Data = ex.Errors;
-                return BadRequest(_response);
-            }
+            return Created($"/api/v1/pedidos/{request.Id}", request);
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
-        public async Task<IActionResult> Put(int id, [FromBody] PedidoDTO pedidoDTO)
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        public async Task<ActionResult<PedidoDTO>> Put(int id, [FromBody] PedidoDTO request)
         {
-            if (pedidoDTO is null)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Data = null;
-                _response.Message = "Dados inválidos";
-                return BadRequest(_response);
-            }
+            if (IsOfficeScopedActor())
+                await _pedidoService.UpdateForOficina(request, id, RequireOfficeId());
+            else
+                await _pedidoService.Update(request, id);
 
-            try
-            {
-                PedidoDTO? existingPedido;
-                if (_currentUserService.IsInRole(SystemRoles.Oficina))
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    existingPedido = await _pedidoService.GetByIdForOficina(id, oficinaId.Value);
-                }
-                else
-                {
-                    existingPedido = await _pedidoService.GetById(id);
-                }
-
-                if (existingPedido is null)
-                {
-                    _response.Code = ResponseEnum.NOT_FOUND;
-                    _response.Data = null;
-                    _response.Message = "Pedido não encontrado";
-                    return NotFound(_response);
-                }
-
-                if (_currentUserService.IsInRole(SystemRoles.Oficina))
-                {
-                    await _pedidoService.UpdateForOficina(pedidoDTO, id, existingPedido.idOficina);
-                }
-                else
-                {
-                    await _pedidoService.Update(pedidoDTO, id);
-                }
-
-                _response.Code = ResponseEnum.SUCCESS;
-                _response.Data = pedidoDTO;
-                _response.Message = "Pedido atualizado com sucesso";
-                return Ok(_response);
-            }
-            catch (BusinessValidationException ex)
-            {
-                _response.Code = ResponseEnum.INVALID;
-                _response.Message = "Dados inválidos";
-                _response.Data = ex.Errors;
-                return BadRequest(_response);
-            }
+            return Ok(request);
         }
 
         [HttpDelete("{id:int}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)
         {
-            PedidoDTO? existingPedido;
-            if (_currentUserService.IsInRole(SystemRoles.Oficina))
-            {
-                var oficinaId = _currentUserService.OficinaId;
-                if (!oficinaId.HasValue)
-                    return Forbid();
-
-                existingPedido = await _pedidoService.GetByIdForOficina(id, oficinaId.Value);
-            }
-            else
-            {
-                existingPedido = await _pedidoService.GetById(id);
-            }
-
-            if (existingPedido is null)
-            {
-                _response.Code = ResponseEnum.NOT_FOUND;
-                _response.Data = null;
-                _response.Message = "Pedido não encontrado";
-                return NotFound(_response);
-            }
+            var existing = _currentUserService.IsInRole(SystemRoles.Oficina)
+                ? await _pedidoService.GetByIdForOficina(id, RequireOfficeId())
+                : await _pedidoService.GetById(id);
+            if (existing is null)
+                return this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Pedido não encontrado.");
 
             await _pedidoService.Remove(id);
-
-            _response.Code = ResponseEnum.SUCCESS;
-            _response.Data = null;
-            _response.Message = "Pedido removido com sucesso";
-            return Ok(_response);
+            return NoContent();
         }
 
+        private int RequireOfficeId() =>
+            _currentUserService.OficinaId
+            ?? throw new UnauthorizedAccessException("Token nao contem oficina_id.");
+
+        private bool IsOfficeScopedActor() =>
+            _currentUserService.IsInRole(SystemRoles.Oficina) ||
+            _currentUserService.IsInRole(SystemRoles.Funcionario);
+
+        private int RequireUserId() =>
+            _currentUserService.UserId
+            ?? throw new UnauthorizedAccessException("Token nao contem identificador do usuario.");
     }
 }

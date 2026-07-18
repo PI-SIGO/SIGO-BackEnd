@@ -69,6 +69,12 @@ namespace SIGO.Objects.Models
 
         public ICollection<ClienteOficina> ClienteOficinas { get; set; } = new List<ClienteOficina>();
 
+        public ClienteConta? Conta { get; set; }
+
+        public ICollection<ClienteContato> Contatos { get; set; } = new List<ClienteContato>();
+
+        public ICollection<AuditoriaSeguranca> AuditoriasSeguranca { get; set; } = new List<AuditoriaSeguranca>();
+
 
         public Cliente()
         {

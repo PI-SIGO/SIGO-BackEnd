@@ -13,6 +13,10 @@ namespace SIGO.Objects.Models
         public int VeiculoId { get; set; }
         public Veiculo Veiculo { get; set; }
 
+        [Column("id_oficina")]
+        public int OficinaId { get; set; }
+        public Oficina Oficina { get; set; }
+
         [Column("id_servico")]
         public int? ServicoId { get; set; }
         public Servico? Servico { get; set; }

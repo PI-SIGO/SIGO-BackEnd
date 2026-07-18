@@ -39,6 +39,9 @@ namespace SIGO.Security
             if (request.OficinaId.HasValue)
                 claims.Add(new Claim(CustomClaimTypes.OficinaId, request.OficinaId.Value.ToString()));
 
+            if (request.TokenVersion.HasValue)
+                claims.Add(new Claim(CustomClaimTypes.TokenVersion, request.TokenVersion.Value.ToString()));
+
             var token = new JwtSecurityToken(
                 issuer: _jwtOptions.Issuer,
                 audience: _jwtOptions.Audience,

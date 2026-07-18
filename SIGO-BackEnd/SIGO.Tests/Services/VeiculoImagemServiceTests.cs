@@ -25,7 +25,7 @@ namespace SIGO.Tests.Services
             {
                 Id = 8,
                 VeiculoId = 4,
-                Url = "/api/veiculos/4/imagens/foto.png",
+                Url = "/api/v1/veiculos/4/imagens/foto.png",
                 NomeArquivo = "foto.png",
                 NomeOriginal = "foto.png",
                 ContentType = "image/png",
@@ -45,7 +45,7 @@ namespace SIGO.Tests.Services
                     {
                         Id = 8,
                         VeiculoId = 4,
-                        Url = "/api/veiculos/4/imagens/foto.png",
+                        Url = "/api/v1/veiculos/4/imagens/foto.png",
                         NomeOriginal = "foto.png",
                         ContentType = "image/png",
                         TamanhoBytes = 12,
@@ -87,7 +87,7 @@ namespace SIGO.Tests.Services
         [Fact]
         public async Task RemoveImagemForCliente_DeveRemoverImagemDoVeiculoEArquivo()
         {
-            var imagem = new VeiculoImagem { Id = 8, VeiculoId = 4, Url = "/api/veiculos/4/imagens/foto.png" };
+            var imagem = new VeiculoImagem { Id = 8, VeiculoId = 4, Url = "/api/v1/veiculos/4/imagens/foto.png" };
             var veiculo = new Veiculo
             {
                 Id = 4,

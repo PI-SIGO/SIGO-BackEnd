@@ -24,6 +24,9 @@ namespace SIGO.Objects.Models
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("revogado_em")]
+        public DateTime? RevogadoEm { get; set; }
+
         public ICollection<Pedido> Pedidos { get; set; } = new List<Pedido>();
     }
 }
