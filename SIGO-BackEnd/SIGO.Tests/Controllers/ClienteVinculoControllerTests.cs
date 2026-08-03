@@ -76,6 +76,38 @@ public sealed class ClienteVinculoControllerTests
             CancellationToken.None), Times.Once);
     }
 
+    [Fact]
+    public async Task DeactivateLinkForOficina_DeveDesativarSomenteVinculoDaOficinaDoJwt()
+    {
+        var controller = CreateController(7, 7, new[] { SystemRoles.Oficina });
+
+        var result = await controller.DeactivateLinkForOficina(42, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        _vinculoServiceMock.Verify(service => service.DeactivateForOficinaAsync(
+            42,
+            7,
+            It.Is<SecurityAuditContext>(context =>
+                context.TipoAtor == TipoAtorAuditoria.Oficina &&
+                context.AtorId == 7),
+            CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeactivateLinkForOficina_DeveRetornarForbid_QuandoJwtNaoTemOficinaId()
+    {
+        var controller = CreateController(7, null, new[] { SystemRoles.Oficina });
+
+        var result = await controller.DeactivateLinkForOficina(42, CancellationToken.None);
+
+        Assert.IsType<ForbidResult>(result);
+        _vinculoServiceMock.Verify(service => service.DeactivateForOficinaAsync(
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<SecurityAuditContext>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private ClienteVinculoController CreateController(int? userId, int? oficinaId, string[] roles)
     {
         _currentUserServiceMock.Setup(service => service.UserId).Returns(userId);

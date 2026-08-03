@@ -16,15 +16,19 @@ namespace SIGO.Objects.Models
         [Column("quantVezes")]
         public int QuantVezes { get; set; }
 
+        [Column("valor_unitario")]
+        public decimal ValorUnitario { get; set; }
+
         public Pedido_Servico()
         {
         }
 
-         public Pedido_Servico(int idPedido, int idServico, int quantVezes)
+         public Pedido_Servico(int idPedido, int idServico, int quantVezes, decimal valorUnitario)
         {
             IdPedido = idPedido;
             IdServico = idServico;
             QuantVezes = quantVezes;
+            ValorUnitario = valorUnitario;
         }
     }
 }

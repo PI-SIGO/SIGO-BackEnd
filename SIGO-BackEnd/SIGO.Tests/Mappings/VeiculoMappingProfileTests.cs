@@ -45,11 +45,23 @@ namespace SIGO.Tests.Mappings
                         idVeiculo = 1,
                         Pedido_Pecas = new List<Pedido_Peca>
                         {
-                            new() { IdPedido = 50, IdPeca = 60, Quantidade = 1 }
+                            new()
+                            {
+                                IdPedido = 50,
+                                IdPeca = 60,
+                                Quantidade = 1,
+                                ValorUnitario = 25m
+                            }
                         },
                         Pedido_Servicos = new List<Pedido_Servico>
                         {
-                            new() { IdPedido = 50, IdServico = 70, QuantVezes = 1 }
+                            new()
+                            {
+                                IdPedido = 50,
+                                IdServico = 70,
+                                QuantVezes = 1,
+                                ValorUnitario = 80m
+                            }
                         }
                     }
                 }
@@ -64,6 +76,8 @@ namespace SIGO.Tests.Mappings
             Assert.Single(dto.Pedidos);
             Assert.Single(dto.Pedidos.Single().Pedido_Pecas);
             Assert.Single(dto.Pedidos.Single().Pedido_Servicos);
+            Assert.Equal(25m, dto.Pedidos.Single().Pedido_Pecas.Single().ValorUnitario);
+            Assert.Equal(80m, dto.Pedidos.Single().Pedido_Servicos.Single().ValorUnitario);
         }
 
         private static IMapper CreateMapper()

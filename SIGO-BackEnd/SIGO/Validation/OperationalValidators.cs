@@ -10,9 +10,7 @@ namespace SIGO.Validation
             RuleFor(request => request.idCliente).GreaterThan(0);
             RuleFor(request => request.idFuncionario).GreaterThan(0);
             RuleFor(request => request.idVeiculo).GreaterThan(0);
-            RuleFor(request => request.ValorTotal).GreaterThanOrEqualTo(0);
             RuleFor(request => request.DescontoReais).GreaterThanOrEqualTo(0);
-            RuleFor(request => request.DescontoTotalReais).GreaterThanOrEqualTo(0);
             RuleFor(request => request.DescontoServicoReais).GreaterThanOrEqualTo(0);
             RuleFor(request => request.descontoPecaReais).GreaterThanOrEqualTo(0);
             RuleFor(request => request.DescontoPorcentagem).InclusiveBetween(0, 100);
@@ -45,6 +43,16 @@ namespace SIGO.Validation
                 .NotNull()
                 .Must(items => items is null || items.Select(item => item.IdServico).Distinct().Count() == items.Count)
                 .WithMessage("Um servico nao pode aparecer mais de uma vez no pedido.");
+
+            RuleFor(request => request)
+                .Must(request => request.DescontoReais <= 0 || request.DescontoPorcentagem <= 0)
+                .WithMessage("Informe o desconto geral em reais ou porcentagem, nunca os dois.");
+            RuleFor(request => request)
+                .Must(request => request.DescontoServicoReais <= 0 || request.DescontoServicoPorcentagem <= 0)
+                .WithMessage("Informe o desconto de servicos em reais ou porcentagem, nunca os dois.");
+            RuleFor(request => request)
+                .Must(request => request.descontoPecaReais <= 0 || request.DescontoPecaPorcentagem <= 0)
+                .WithMessage("Informe o desconto de pecas em reais ou porcentagem, nunca os dois.");
         }
     }
 

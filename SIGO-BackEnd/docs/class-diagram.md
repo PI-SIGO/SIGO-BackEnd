@@ -168,6 +168,7 @@ class Pedido_Peca {
   int IdPedido
   int IdPeca
   int Quantidade
+  decimal ValorUnitario
   DateOnly DataInstalacao
   string Estado
   string Observacao
@@ -177,6 +178,7 @@ class Pedido_Servico {
   int IdPedido
   int IdServico
   int QuantVezes
+  decimal ValorUnitario
 }
 
 %% Enums

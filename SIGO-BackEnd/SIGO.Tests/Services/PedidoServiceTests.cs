@@ -57,6 +57,92 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task Create_DeveCalcularTotalEDescontosComPrecosDoCatalogo()
+        {
+            var request = CreateRequest();
+            request.ValorTotal = 9999m;
+            request.DescontoTotalReais = 9999m;
+            request.DescontoServicoPorcentagem = 10m;
+            request.descontoPecaReais = 5m;
+            request.DescontoPorcentagem = 10m;
+            request.Pedido_Pecas.Add(new Pedido_PecaDTO
+            {
+                IdPeca = 8,
+                Quantidade = 2,
+                Estado = "Nova"
+            });
+            request.Pedido_Servicos.Add(new Pedido_ServicoDTO
+            {
+                IdServico = 6,
+                QuantVezes = 3
+            });
+
+            _pieces.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Peca { Id = 8, IdOficina = 3, Valor = 40m } });
+            _services.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Servico { Id = 6, IdOficina = 3, Valor = 100m } });
+
+            var entity = new Pedido();
+            _mapper.Setup(mapper => mapper.Map<Pedido>(request)).Returns(entity);
+            _orders.Setup(repository => repository.Add(entity)).Returns(Task.CompletedTask);
+
+            await CreateService().Create(request);
+
+            Assert.Equal(310.50m, request.ValorTotal);
+            Assert.Equal(69.50m, request.DescontoTotalReais);
+            Assert.Equal(310.50m, request.ValorLiquido);
+            Assert.Equal(380m, request.ValorBruto);
+            Assert.Equal(80m, request.SubtotalPecas);
+            Assert.Equal(300m, request.SubtotalServicos);
+            Assert.Equal(40m, request.Pedido_Pecas.Single().ValorUnitario);
+            Assert.Equal(100m, request.Pedido_Servicos.Single().ValorUnitario);
+        }
+
+        [Fact]
+        public async Task Create_DeveRejeitarDescontoEmReaisEPorcentagemNoMesmoNivel()
+        {
+            var request = CreateRequest();
+            request.DescontoReais = 10m;
+            request.DescontoPorcentagem = 5m;
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.DescontoReais) &&
+                error.Message.Contains("nunca os dois"));
+            _orders.Verify(repository => repository.Add(It.IsAny<Pedido>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Create_DeveRejeitarDescontoFixoMaiorQueSubtotal()
+        {
+            var request = CreateRequest();
+            request.DescontoServicoReais = 101m;
+            request.Pedido_Servicos.Add(new Pedido_ServicoDTO
+            {
+                IdServico = 6,
+                QuantVezes = 1
+            });
+            _services.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Servico { Id = 6, IdOficina = 3, Valor = 100m } });
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.DescontoServicoReais) &&
+                error.Message.Contains("nao pode superar"));
+            _orders.Verify(repository => repository.Add(It.IsAny<Pedido>()), Times.Never);
+        }
+
+        [Fact]
         public async Task Create_AdminRejeitaPecaDeOutraOficina()
         {
             var request = CreateRequest();
@@ -120,6 +206,14 @@ namespace SIGO.Tests.Services
                 DataInstalacao = DateOnly.FromDateTime(DateTime.Today)
             });
             request.Pedido_Servicos.Add(new Pedido_ServicoDTO { IdServico = 6, QuantVezes = 2 });
+            _pieces.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Peca { Id = 8, IdOficina = 3, Valor = 25m } });
+            _services.Setup(repository => repository.GetByIdsAsync(
+                    It.IsAny<IReadOnlyCollection<int>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { new Servico { Id = 6, IdOficina = 3, Valor = 60m } });
             _orders.Setup(repository => repository.GetByIdWithDetails(15)).ReturnsAsync(existing);
             _orders.Setup(repository => repository.SaveWithDetailsAsync(
                     existing,
@@ -134,11 +228,17 @@ namespace SIGO.Tests.Services
             _orders.Verify(repository => repository.SaveWithDetailsAsync(
                 existing,
                 It.Is<IReadOnlyCollection<Pedido_Peca>>(items =>
-                    items.Count == 1 && items.Single().IdPeca == 8),
+                    items.Count == 1 &&
+                    items.Single().IdPeca == 8 &&
+                    items.Single().ValorUnitario == 25m),
                 It.Is<IReadOnlyCollection<Pedido_Servico>>(items =>
-                    items.Count == 1 && items.Single().IdServico == 6),
+                    items.Count == 1 &&
+                    items.Single().IdServico == 6 &&
+                    items.Single().ValorUnitario == 60m),
                 It.IsAny<CancellationToken>()), Times.Once);
             _orders.Verify(repository => repository.SaveChanges(), Times.Never);
+            Assert.Equal(170m, request.ValorTotal);
+            Assert.Equal(170m, request.ValorLiquido);
         }
 
         [Fact]

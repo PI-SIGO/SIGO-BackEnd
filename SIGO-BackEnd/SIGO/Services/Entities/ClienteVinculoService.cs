@@ -188,6 +188,43 @@ public sealed class ClienteVinculoService : IClienteVinculoService
             cancellationToken);
     }
 
+    public async Task DeactivateForOficinaAsync(
+        int clienteId,
+        int oficinaId,
+        SecurityAuditContext auditContext,
+        CancellationToken cancellationToken = default)
+    {
+        if (clienteId <= 0 || oficinaId <= 0)
+        {
+            throw new BusinessValidationException(new[]
+            {
+                new ValidationError("vinculo", "Cliente e oficina devem ser validos.")
+            });
+        }
+
+        await _identityRepository.ExecuteInTransactionAsync(
+            async token =>
+            {
+                var now = UtcNow();
+                var deactivated = await _vinculoRepository.DeactivateByOficinaAsync(
+                    oficinaId,
+                    clienteId,
+                    now,
+                    token);
+                if (!deactivated)
+                    throw new KeyNotFoundException("Vinculo entre cliente e oficina nao encontrado.");
+
+                await AddLinkAuditAsync(
+                    clienteId,
+                    auditContext,
+                    TipoEventoAuditoria.VinculoRevogado,
+                    now,
+                    token);
+                return true;
+            },
+            cancellationToken);
+    }
+
     private static Cliente CreateCliente(
         PreCadastrarClienteDTO request,
         string cpf,

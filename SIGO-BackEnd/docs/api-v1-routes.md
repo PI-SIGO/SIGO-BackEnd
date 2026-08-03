@@ -22,6 +22,7 @@ Este documento descreve o contrato implementado. Todas as rotas de negócio usam
 | `POST /api/v1/clientes` | Oficina, Funcionário | Cadastro completo feito pela oficina: recebe CPF, nome, e-mail, observação, razão, nascimento, sexo, endereço e até cinco telefones. CPF novo cria um `Cliente` ativo sem credencial; CPF existente reutiliza o mesmo `ClienteId`. O vínculo `ClienteOficina` é criado imediatamente. A oficina não define senha, situação ou IDs pelo corpo da requisição. |
 | `GET /api/v1/clientes/me/vinculos` | Cliente | Lista as oficinas relacionadas à conta do cliente e informa se cada vínculo está ativo. |
 | `DELETE /api/v1/clientes/me/vinculos/{oficinaId}` | Cliente | Revoga o vínculo com a oficina sem apagar cliente, veículos ou histórico. A oficina não pode recuperar o acesso repetindo o pré-cadastro. |
+| `DELETE /api/v1/oficinas/me/clientes/{clienteId}/vinculo` | Oficina | Desativa somente o vínculo do cliente com a oficina autenticada. O cliente deixa de aparecer para ela, mas permanece ativo, conserva veículos e histórico e continua vinculado às demais oficinas. Um novo atendimento ou cadastro completo pode reativar esse vínculo no futuro. |
 
 O fluxo direto por CPF foi escolhido para a demonstração acadêmica. Ele não comprova a identidade civil do titular e precisará de verificação adicional antes de uso em produção.
 
@@ -134,15 +135,21 @@ Todas estas rotas aceitam `Admin`, `Oficina` e `Funcionario`. Fora do perfil Adm
 | `GET /api/v1/pedidos/{id}` | Admin, Oficina, Funcionário, Cliente | Busca unitária dentro do escopo. |
 | `GET /api/v1/pedidos/me/servicos` | Cliente | Lista paginada dos serviços encontrados nos pedidos do cliente. |
 | `GET /api/v1/pedidos/me/funcionarios` | Cliente | Lista paginada dos funcionários relacionados aos pedidos do cliente. |
-| `POST /api/v1/pedidos` | Admin, Oficina, Funcionário | Valida cliente vinculado, funcionário ativo, veículo do cliente, peças e serviços na mesma oficina. Para funcionário, a oficina sempre vem do JWT. |
-| `PUT /api/v1/pedidos/{id}` | Admin, Oficina, Funcionário | Repete as validações e sincroniza peças e serviços em uma transação. Funcionário só altera pedidos da oficina do JWT. |
+| `POST /api/v1/pedidos` | Admin, Oficina, Funcionário | Valida cliente vinculado, funcionário ativo, veículo do cliente, peças e serviços na mesma oficina. Busca os preços do catálogo, grava uma cópia do valor unitário em cada item e calcula `valorBruto`, `descontoTotalReais` e `valorTotal`. Para funcionário, a oficina sempre vem do JWT. |
+| `PUT /api/v1/pedidos/{id}` | Admin, Oficina, Funcionário | Repete as validações e o cálculo financeiro, atualizando os itens e seus preços históricos em uma transação. Funcionário só altera pedidos da oficina do JWT. |
 | `DELETE /api/v1/pedidos/{id}` | Admin, Oficina | Exclui dentro do escopo e retorna `204`. |
+
+`valorBruto` representa a soma das peças e serviços antes dos descontos. `descontoTotalReais` representa todos os descontos aplicados. `valorTotal` e seu alias `valorLiquido` representam o valor final a pagar. Esses valores são calculados pelo backend; valores enviados pelo cliente são ignorados. Para cada nível (`geral`, `serviços` e `peças`), informe desconto em reais ou porcentagem, nunca ambos. Descontos específicos são aplicados primeiro e o desconto geral incide sobre o saldo restante. Um desconto fixo não pode superar seu respectivo subtotal.
 
 ## Relatório de histórico do veículo
 
 | Método e rota | Acesso | Funcionamento |
 |---|---|---|
-| `GET /api/v1/relatorios/veiculos/{veiculoId}` | Todos os perfis | Gera PDF do histórico. Aceita `from`, `to` e `tipo`; os filtros são aplicados tanto a registros quanto a pedidos. |
+| `GET /api/v1/relatorios/veiculos/{veiculoId}/historico` | Todos os perfis | Retorna o histórico estruturado em JSON, incluindo cliente, veículo, oficina, funcionário responsável, serviços, peças, valores, quilometragem e datas. |
+| `GET /api/v1/relatorios/veiculos/{veiculoId}` | Todos os perfis | Gera o PDF do mesmo histórico consolidado. |
+| `GET /api/v1/relatorios/veiculos/{veiculoId}/excel` | Todos os perfis | Gera uma planilha `.xlsx` com as abas `Resumo` e `Historico`, usando ClosedXML. |
+
+As três rotas aceitam os filtros opcionais `from`, `to` e `tipo`. Cliente acessa apenas veículo próprio; oficina e funcionário acessam somente o histórico realizado pela oficina do JWT; Admin possui visão global. O JSON mantém os identificadores técnicos; PDF e Excel mostram somente os nomes e dados legíveis, sem IDs.
 
 `RegistroServico` é um dado interno usado na composição do relatório; não possui controller nem rotas CRUD públicas.
 

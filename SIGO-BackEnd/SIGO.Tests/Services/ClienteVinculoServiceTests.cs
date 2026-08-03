@@ -263,6 +263,71 @@ public sealed class ClienteVinculoServiceTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task DeactivateForOficinaAsync_DeveDesativarSomenteVinculoDaOficina()
+    {
+        var identityRepository = CreateBooleanTransactionalIdentityRepository();
+        var vinculoRepository = new Mock<IClienteOficinaRepository>();
+        AuditoriaSeguranca? audit = null;
+        vinculoRepository
+            .Setup(repository => repository.DeactivateByOficinaAsync(
+                7,
+                42,
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        identityRepository
+            .Setup(repository => repository.AddAuditoriaAsync(
+                It.IsAny<AuditoriaSeguranca>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<AuditoriaSeguranca, CancellationToken>((item, _) => audit = item)
+            .Returns(Task.CompletedTask);
+        var service = CreateService(identityRepository, vinculoRepository);
+
+        await service.DeactivateForOficinaAsync(
+            42,
+            7,
+            new SecurityAuditContext(TipoAtorAuditoria.Oficina, 7, "127.0.0.1", "test"));
+
+        vinculoRepository.Verify(repository => repository.DeactivateByOficinaAsync(
+            7,
+            42,
+            It.IsAny<DateTime>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        vinculoRepository.Verify(repository => repository.DeactivateAsync(
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        Assert.NotNull(audit);
+        Assert.Equal(TipoAtorAuditoria.Oficina, audit!.TipoAtor);
+        Assert.Equal(TipoEventoAuditoria.VinculoRevogado, audit.Evento);
+    }
+
+    [Fact]
+    public async Task DeactivateForOficinaAsync_DeveFalhar_QuandoVinculoNaoExiste()
+    {
+        var identityRepository = CreateBooleanTransactionalIdentityRepository();
+        var vinculoRepository = new Mock<IClienteOficinaRepository>();
+        vinculoRepository
+            .Setup(repository => repository.DeactivateByOficinaAsync(
+                7,
+                42,
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        var service = CreateService(identityRepository, vinculoRepository);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.DeactivateForOficinaAsync(
+            42,
+            7,
+            new SecurityAuditContext(TipoAtorAuditoria.Oficina, 7, "127.0.0.1", "test")));
+
+        identityRepository.Verify(repository => repository.AddAuditoriaAsync(
+            It.IsAny<AuditoriaSeguranca>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static Mock<IClienteIdentityRepository> CreateTransactionalIdentityRepository()
     {
         var repository = new Mock<IClienteIdentityRepository>();
@@ -271,6 +336,18 @@ public sealed class ClienteVinculoServiceTests
                 It.IsAny<Func<CancellationToken, Task<PreCadastroClienteResultadoDTO>>>(),
                 It.IsAny<CancellationToken>()))
             .Returns<Func<CancellationToken, Task<PreCadastroClienteResultadoDTO>>, CancellationToken>(
+                (operation, token) => operation(token));
+        return repository;
+    }
+
+    private static Mock<IClienteIdentityRepository> CreateBooleanTransactionalIdentityRepository()
+    {
+        var repository = new Mock<IClienteIdentityRepository>();
+        repository
+            .Setup(item => item.ExecuteInTransactionAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<Func<CancellationToken, Task<bool>>, CancellationToken>(
                 (operation, token) => operation(token));
         return repository;
     }

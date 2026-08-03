@@ -99,5 +99,28 @@ namespace SIGO.Data.Repositories
             await _context.SaveChangesAsync(cancellationToken);
             return true;
         }
+
+        public async Task<bool> DeactivateByOficinaAsync(
+            int oficinaId,
+            int clienteId,
+            DateTime updatedAt,
+            CancellationToken cancellationToken = default)
+        {
+            var relacionamento = await GetAsync(oficinaId, clienteId, cancellationToken);
+            if (relacionamento is null)
+                return false;
+
+            if (!relacionamento.Ativo)
+                return true;
+
+            relacionamento.Ativo = false;
+            relacionamento.UpdatedAt = updatedAt;
+
+            // RevogadoEm identifica uma revogacao feita pelo titular e impede
+            // reativacao automatica. A oficina apenas encerra o proprio vinculo.
+            relacionamento.RevogadoEm = null;
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
     }
 }

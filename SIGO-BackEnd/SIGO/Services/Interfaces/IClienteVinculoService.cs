@@ -20,5 +20,11 @@ namespace SIGO.Services.Interfaces
             int oficinaId,
             SecurityAuditContext auditContext,
             CancellationToken cancellationToken = default);
+
+        Task DeactivateForOficinaAsync(
+            int clienteId,
+            int oficinaId,
+            SecurityAuditContext auditContext,
+            CancellationToken cancellationToken = default);
     }
 }

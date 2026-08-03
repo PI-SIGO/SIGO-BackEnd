@@ -806,6 +806,11 @@ namespace SIGO.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("quantidade");
 
+                    b.Property<decimal>("ValorUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor_unitario");
+
                     b.HasKey("IdPedido", "IdPeca");
 
                     b.HasIndex("IdPeca");
@@ -826,6 +831,11 @@ namespace SIGO.Migrations
                     b.Property<int>("QuantVezes")
                         .HasColumnType("integer")
                         .HasColumnName("quantVezes");
+
+                    b.Property<decimal>("ValorUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("valor_unitario");
 
                     b.HasKey("IdPedido", "IdServico");
 

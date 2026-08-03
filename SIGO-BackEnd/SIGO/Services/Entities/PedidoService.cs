@@ -97,7 +97,8 @@ namespace SIGO.Services.Entities
         private async Task CreateCoreAsync(PedidoDTO pedidoDTO, int oficinaId)
         {
             NormalizeCollections(pedidoDTO);
-            await ValidateTenantReferencesAsync(pedidoDTO, oficinaId);
+            var catalog = await ValidateTenantReferencesAsync(pedidoDTO, oficinaId);
+            ApplyFinancialValues(pedidoDTO, catalog);
 
             pedidoDTO.Id = 0;
             pedidoDTO.idOficina = oficinaId;
@@ -117,7 +118,8 @@ namespace SIGO.Services.Entities
             int oficinaId)
         {
             NormalizeCollections(pedidoDTO);
-            await ValidateTenantReferencesAsync(pedidoDTO, oficinaId);
+            var catalog = await ValidateTenantReferencesAsync(pedidoDTO, oficinaId);
+            ApplyFinancialValues(pedidoDTO, catalog);
 
             pedidoDTO.Id = id;
             pedidoDTO.idOficina = oficinaId;
@@ -129,6 +131,7 @@ namespace SIGO.Services.Entities
                 IdPedido = id,
                 IdPeca = piece.IdPeca,
                 Quantidade = piece.Quantidade,
+                ValorUnitario = piece.ValorUnitario,
                 DataInstalacao = piece.DataInstalacao,
                 Estado = piece.Estado,
                 Observacao = piece.Observacao
@@ -137,13 +140,16 @@ namespace SIGO.Services.Entities
             {
                 IdPedido = id,
                 IdServico = service.IdServico,
-                QuantVezes = service.QuantVezes
+                QuantVezes = service.QuantVezes,
+                ValorUnitario = service.ValorUnitario
             }).ToArray();
 
             await _pedidoRepository.SaveWithDetailsAsync(existing, pieces, services);
         }
 
-        private async Task ValidateTenantReferencesAsync(PedidoDTO pedidoDTO, int oficinaId)
+        private async Task<OrderCatalog> ValidateTenantReferencesAsync(
+            PedidoDTO pedidoDTO,
+            int oficinaId)
         {
             var errors = new List<ValidationError>();
 
@@ -189,14 +195,16 @@ namespace SIGO.Services.Entities
                 }
             }
 
-            await AddPieceErrorsAsync(pedidoDTO, oficinaId, errors);
-            await AddServiceErrorsAsync(pedidoDTO, oficinaId, errors);
+            var pieces = await AddPieceErrorsAsync(pedidoDTO, oficinaId, errors);
+            var services = await AddServiceErrorsAsync(pedidoDTO, oficinaId, errors);
 
             if (errors.Count > 0)
                 throw new BusinessValidationException(errors);
+
+            return new OrderCatalog(pieces, services);
         }
 
-        private async Task AddPieceErrorsAsync(
+        private async Task<IReadOnlyList<Peca>> AddPieceErrorsAsync(
             PedidoDTO pedidoDTO,
             int oficinaId,
             ICollection<ValidationError> errors)
@@ -207,11 +215,18 @@ namespace SIGO.Services.Entities
                 errors.Add(new ValidationError(
                     nameof(PedidoDTO.Pedido_Pecas),
                     "Uma peca nao pode aparecer mais de uma vez no pedido."));
-                return;
+                return Array.Empty<Peca>();
             }
 
-            if (_pecaRepository is null || ids.Length == 0)
-                return;
+            if (ids.Length == 0)
+                return Array.Empty<Peca>();
+            if (_pecaRepository is null)
+            {
+                errors.Add(new ValidationError(
+                    nameof(PedidoDTO.Pedido_Pecas),
+                    "Repositorio de pecas indisponivel para calcular o pedido."));
+                return Array.Empty<Peca>();
+            }
 
             var pieces = await _pecaRepository.GetByIdsAsync(ids);
             var foundIds = pieces.Select(piece => piece.Id).ToHashSet();
@@ -228,9 +243,11 @@ namespace SIGO.Services.Entities
                     nameof(PedidoDTO.Pedido_Pecas),
                     $"Peca {piece.Id} nao pertence a oficina do pedido."));
             }
+
+            return pieces;
         }
 
-        private async Task AddServiceErrorsAsync(
+        private async Task<IReadOnlyList<Servico>> AddServiceErrorsAsync(
             PedidoDTO pedidoDTO,
             int oficinaId,
             ICollection<ValidationError> errors)
@@ -241,11 +258,18 @@ namespace SIGO.Services.Entities
                 errors.Add(new ValidationError(
                     nameof(PedidoDTO.Pedido_Servicos),
                     "Um servico nao pode aparecer mais de uma vez no pedido."));
-                return;
+                return Array.Empty<Servico>();
             }
 
-            if (_servicoRepository is null || ids.Length == 0)
-                return;
+            if (ids.Length == 0)
+                return Array.Empty<Servico>();
+            if (_servicoRepository is null)
+            {
+                errors.Add(new ValidationError(
+                    nameof(PedidoDTO.Pedido_Servicos),
+                    "Repositorio de servicos indisponivel para calcular o pedido."));
+                return Array.Empty<Servico>();
+            }
 
             var services = await _servicoRepository.GetByIdsAsync(ids);
             var foundIds = services.Select(service => service.Id).ToHashSet();
@@ -262,7 +286,176 @@ namespace SIGO.Services.Entities
                     nameof(PedidoDTO.Pedido_Servicos),
                     $"Servico {service.Id} nao pertence a oficina do pedido."));
             }
+
+            return services;
         }
+
+        private static void ApplyFinancialValues(PedidoDTO pedidoDTO, OrderCatalog catalog)
+        {
+            var piecesById = catalog.Pieces.ToDictionary(piece => piece.Id);
+            foreach (var line in pedidoDTO.Pedido_Pecas)
+                line.ValorUnitario = RoundMoney(piecesById[line.IdPeca].Valor);
+
+            var servicesById = catalog.Services.ToDictionary(service => service.Id);
+            foreach (var line in pedidoDTO.Pedido_Servicos)
+                line.ValorUnitario = RoundMoney(servicesById[line.IdServico].Valor);
+
+            pedidoDTO.DescontoReais = RoundMoney(pedidoDTO.DescontoReais);
+            pedidoDTO.DescontoServicoReais = RoundMoney(pedidoDTO.DescontoServicoReais);
+            pedidoDTO.descontoPecaReais = RoundMoney(pedidoDTO.descontoPecaReais);
+            pedidoDTO.DescontoPorcentagem = RoundPercentage(pedidoDTO.DescontoPorcentagem);
+            pedidoDTO.DescontoServicoPorcentagem = RoundPercentage(
+                pedidoDTO.DescontoServicoPorcentagem);
+            pedidoDTO.DescontoPecaPorcentagem = RoundPercentage(
+                pedidoDTO.DescontoPecaPorcentagem);
+
+            var errors = new List<ValidationError>();
+            AddInvalidMoneyError(
+                pedidoDTO.DescontoReais,
+                nameof(PedidoDTO.DescontoReais),
+                errors);
+            AddInvalidMoneyError(
+                pedidoDTO.DescontoServicoReais,
+                nameof(PedidoDTO.DescontoServicoReais),
+                errors);
+            AddInvalidMoneyError(
+                pedidoDTO.descontoPecaReais,
+                nameof(PedidoDTO.descontoPecaReais),
+                errors);
+            AddInvalidPercentageError(
+                pedidoDTO.DescontoPorcentagem,
+                nameof(PedidoDTO.DescontoPorcentagem),
+                errors);
+            AddInvalidPercentageError(
+                pedidoDTO.DescontoServicoPorcentagem,
+                nameof(PedidoDTO.DescontoServicoPorcentagem),
+                errors);
+            AddInvalidPercentageError(
+                pedidoDTO.DescontoPecaPorcentagem,
+                nameof(PedidoDTO.DescontoPecaPorcentagem),
+                errors);
+            AddAmbiguousDiscountError(
+                pedidoDTO.DescontoReais,
+                pedidoDTO.DescontoPorcentagem,
+                nameof(PedidoDTO.DescontoReais),
+                "Informe o desconto geral em reais ou porcentagem, nunca os dois.",
+                errors);
+            AddAmbiguousDiscountError(
+                pedidoDTO.DescontoServicoReais,
+                pedidoDTO.DescontoServicoPorcentagem,
+                nameof(PedidoDTO.DescontoServicoReais),
+                "Informe o desconto de servicos em reais ou porcentagem, nunca os dois.",
+                errors);
+            AddAmbiguousDiscountError(
+                pedidoDTO.descontoPecaReais,
+                pedidoDTO.DescontoPecaPorcentagem,
+                nameof(PedidoDTO.descontoPecaReais),
+                "Informe o desconto de pecas em reais ou porcentagem, nunca os dois.",
+                errors);
+
+            var servicesSubtotal = RoundMoney(pedidoDTO.Pedido_Servicos.Sum(item => item.Subtotal));
+            var piecesSubtotal = RoundMoney(pedidoDTO.Pedido_Pecas.Sum(item => item.Subtotal));
+            AddExcessiveFixedDiscountError(
+                pedidoDTO.DescontoServicoReais,
+                servicesSubtotal,
+                nameof(PedidoDTO.DescontoServicoReais),
+                "O desconto de servicos nao pode superar o subtotal dos servicos.",
+                errors);
+            AddExcessiveFixedDiscountError(
+                pedidoDTO.descontoPecaReais,
+                piecesSubtotal,
+                nameof(PedidoDTO.descontoPecaReais),
+                "O desconto de pecas nao pode superar o subtotal das pecas.",
+                errors);
+
+            var servicesDiscount = CalculateDiscount(
+                servicesSubtotal,
+                pedidoDTO.DescontoServicoReais,
+                pedidoDTO.DescontoServicoPorcentagem);
+            var piecesDiscount = CalculateDiscount(
+                piecesSubtotal,
+                pedidoDTO.descontoPecaReais,
+                pedidoDTO.DescontoPecaPorcentagem);
+            var subtotalAfterCategoryDiscounts = RoundMoney(
+                servicesSubtotal + piecesSubtotal - servicesDiscount - piecesDiscount);
+
+            AddExcessiveFixedDiscountError(
+                pedidoDTO.DescontoReais,
+                subtotalAfterCategoryDiscounts,
+                nameof(PedidoDTO.DescontoReais),
+                "O desconto geral nao pode superar o valor restante do pedido.",
+                errors);
+
+            if (errors.Count > 0)
+                throw new BusinessValidationException(errors);
+
+            var generalDiscount = CalculateDiscount(
+                subtotalAfterCategoryDiscounts,
+                pedidoDTO.DescontoReais,
+                pedidoDTO.DescontoPorcentagem);
+
+            var grossTotal = RoundMoney(servicesSubtotal + piecesSubtotal);
+            pedidoDTO.DescontoTotalReais = RoundMoney(
+                servicesDiscount + piecesDiscount + generalDiscount);
+            pedidoDTO.ValorTotal = RoundMoney(grossTotal - pedidoDTO.DescontoTotalReais);
+        }
+
+        private static decimal CalculateDiscount(
+            decimal baseValue,
+            decimal fixedDiscount,
+            decimal percentageDiscount)
+        {
+            if (fixedDiscount > 0m)
+                return fixedDiscount;
+
+            return RoundMoney(baseValue * percentageDiscount / 100m);
+        }
+
+        private static void AddAmbiguousDiscountError(
+            decimal fixedDiscount,
+            decimal percentageDiscount,
+            string field,
+            string message,
+            ICollection<ValidationError> errors)
+        {
+            if (fixedDiscount > 0m && percentageDiscount > 0m)
+                errors.Add(new ValidationError(field, message));
+        }
+
+        private static void AddInvalidMoneyError(
+            decimal value,
+            string field,
+            ICollection<ValidationError> errors)
+        {
+            if (value < 0m)
+                errors.Add(new ValidationError(field, "O desconto nao pode ser negativo."));
+        }
+
+        private static void AddInvalidPercentageError(
+            decimal value,
+            string field,
+            ICollection<ValidationError> errors)
+        {
+            if (value is < 0m or > 100m)
+                errors.Add(new ValidationError(field, "O percentual deve estar entre 0 e 100."));
+        }
+
+        private static void AddExcessiveFixedDiscountError(
+            decimal fixedDiscount,
+            decimal baseValue,
+            string field,
+            string message,
+            ICollection<ValidationError> errors)
+        {
+            if (fixedDiscount > baseValue)
+                errors.Add(new ValidationError(field, message));
+        }
+
+        private static decimal RoundMoney(decimal value) =>
+            Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+        private static decimal RoundPercentage(decimal value) =>
+            Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
         private static void NormalizeCollections(PedidoDTO pedidoDTO)
         {
@@ -302,5 +495,9 @@ namespace SIGO.Services.Entities
             existing.DataInicio = pedidoDTO.DataInicio;
             existing.DataFim = pedidoDTO.DataFim;
         }
+
+        private sealed record OrderCatalog(
+            IReadOnlyList<Peca> Pieces,
+            IReadOnlyList<Servico> Services);
     }
 }

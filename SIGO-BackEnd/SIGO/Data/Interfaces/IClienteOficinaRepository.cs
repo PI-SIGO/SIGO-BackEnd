@@ -21,5 +21,10 @@ namespace SIGO.Data.Interfaces
             int clienteId,
             DateTime updatedAt,
             CancellationToken cancellationToken = default);
+        Task<bool> DeactivateByOficinaAsync(
+            int oficinaId,
+            int clienteId,
+            DateTime updatedAt,
+            CancellationToken cancellationToken = default);
     }
 }

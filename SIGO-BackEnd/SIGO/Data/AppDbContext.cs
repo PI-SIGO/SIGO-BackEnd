@@ -64,6 +64,11 @@ namespace SIGO.Data
                 .HasKey(pp => new { pp.IdPedido, pp.IdPeca });
 
             modelBuilder.Entity<Pedido_Peca>()
+                .Property(pp => pp.ValorUnitario)
+                .HasPrecision(18, 2)
+                .IsRequired();
+
+            modelBuilder.Entity<Pedido_Peca>()
                 .HasOne(pp => pp.Pedido)
                 .WithMany(p => p.Pedido_Pecas)
                 .HasForeignKey(pp => pp.IdPedido)
@@ -77,6 +82,11 @@ namespace SIGO.Data
 
             modelBuilder.Entity<Pedido_Servico>()
                 .HasKey(ps => new { ps.IdPedido, ps.IdServico });
+
+            modelBuilder.Entity<Pedido_Servico>()
+                .Property(ps => ps.ValorUnitario)
+                .HasPrecision(18, 2)
+                .IsRequired();
 
             modelBuilder.Entity<Pedido_Servico>()
                 .HasOne(ps => ps.Pedido)

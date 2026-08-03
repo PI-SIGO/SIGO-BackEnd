@@ -8,6 +8,10 @@
 
         public int Quantidade { get; set; }
 
+        public decimal ValorUnitario { get; set; }
+
+        public decimal Subtotal => ValorUnitario * Quantidade;
+
         public DateOnly DataInstalacao { get; set; }
 
         public string Estado { get; set; }

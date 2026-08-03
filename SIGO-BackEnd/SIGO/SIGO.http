@@ -76,6 +76,70 @@ Authorization: Bearer {{AccessToken}}
 
 ###
 
+### Remove only this workshop's link to a cliente - requires Oficina JWT
+DELETE {{SIGO_HostAddress}}/api/v1/oficinas/me/clientes/6/vinculo
+Authorization: Bearer {{AccessToken}}
+
+###
+
+### Vehicle history as JSON - all authenticated roles, subject to access scope
+GET {{SIGO_HostAddress}}/api/v1/relatorios/veiculos/1/historico?from=2026-01-01&to=2026-12-31
+Accept: application/json
+Authorization: Bearer {{AccessToken}}
+
+###
+
+### Create order - totals and unit prices are calculated by the backend
+POST {{SIGO_HostAddress}}/api/v1/pedidos
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{AccessToken}}
+
+{
+  "idCliente": 7,
+  "idFuncionario": 3,
+  "idVeiculo": 7,
+  "descontoPorcentagem": 5,
+  "descontoServicoPorcentagem": 0,
+  "descontoServicoReais": 0,
+  "descontoPecaPorcentagem": 0,
+  "descontoPecaReais": 10,
+  "observacao": "Revisao",
+  "dataInicio": "2026-08-03",
+  "dataFim": "2026-08-20",
+  "pedido_Pecas": [
+    {
+      "idPeca": 3,
+      "quantidade": 1,
+      "dataInstalacao": "2026-08-03",
+      "estado": "Nova",
+      "observacao": "Instalada durante a revisao"
+    }
+  ],
+  "pedido_Servicos": [
+    {
+      "idServico": 5,
+      "quantVezes": 2
+    }
+  ]
+}
+
+###
+
+### Vehicle history as PDF
+GET {{SIGO_HostAddress}}/api/v1/relatorios/veiculos/1?from=2026-01-01&to=2026-12-31
+Accept: application/pdf
+Authorization: Bearer {{AccessToken}}
+
+###
+
+### Vehicle history as Excel
+GET {{SIGO_HostAddress}}/api/v1/relatorios/veiculos/1/excel?from=2026-01-01&to=2026-12-31
+Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Authorization: Bearer {{AccessToken}}
+
+###
+
 ### OpenAPI document - development environment only
 GET {{SIGO_HostAddress}}/swagger/v1/swagger.json
 Accept: application/json

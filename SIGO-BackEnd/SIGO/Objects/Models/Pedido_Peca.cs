@@ -16,6 +16,9 @@ namespace SIGO.Objects.Models
         [Column("quantidade")]
         public int Quantidade { get; set; }
 
+        [Column("valor_unitario")]
+        public decimal ValorUnitario { get; set; }
+
         [Column("datainstalacao")]
         public DateOnly DataInstalacao { get; set; }
 
@@ -29,11 +32,12 @@ namespace SIGO.Objects.Models
         {
         }
 
-         public Pedido_Peca(int idPedido, int idPeca, int quantidade, DateOnly dataInstalacao, string estado, string observacao)
+         public Pedido_Peca(int idPedido, int idPeca, int quantidade, decimal valorUnitario, DateOnly dataInstalacao, string estado, string observacao)
         {
             IdPedido = idPedido;
             IdPeca = idPeca;
             Quantidade = quantidade;
+            ValorUnitario = valorUnitario;
             DataInstalacao = dataInstalacao;
             Estado = estado;
             Observacao = observacao;

@@ -7,5 +7,9 @@
         public int IdServico { get; set; }
 
         public int QuantVezes { get; set; }
+
+        public decimal ValorUnitario { get; set; }
+
+        public decimal Subtotal => ValorUnitario * QuantVezes;
     }
 }

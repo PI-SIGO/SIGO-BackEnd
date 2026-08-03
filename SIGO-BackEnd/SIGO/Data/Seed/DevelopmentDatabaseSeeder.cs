@@ -77,8 +77,16 @@ namespace SIGO.Data.Seed
                 veiculo.Id,
                 cancellationToken);
 
-            await SeedFullTestPedidoServico(pedido.Id, servico.Id, cancellationToken);
-            await SeedFullTestPedidoPeca(pedido.Id, peca.Id, cancellationToken);
+            await SeedFullTestPedidoServico(
+                pedido.Id,
+                servico.Id,
+                servico.Valor,
+                cancellationToken);
+            await SeedFullTestPedidoPeca(
+                pedido.Id,
+                peca.Id,
+                peca.Valor,
+                cancellationToken);
             await SeedFullTestRegistroServico(
                 veiculo.Id,
                 servico.Id,
@@ -430,7 +438,7 @@ namespace SIGO.Data.Seed
                     idFuncionario = funcionarioId,
                     idOficina = oficinaId,
                     idVeiculo = veiculoId,
-                    ValorTotal = 439.90m,
+                    ValorTotal = 429.90m,
                     DescontoReais = 10m,
                     DescontoPorcentagem = 0m,
                     DescontoTotalReais = 10m,
@@ -449,7 +457,7 @@ namespace SIGO.Data.Seed
             {
                 pedido.idFuncionario = funcionarioId;
                 pedido.idOficina = oficinaId;
-                pedido.ValorTotal = 439.90m;
+                pedido.ValorTotal = 429.90m;
                 pedido.DescontoReais = 10m;
                 pedido.DescontoPorcentagem = 0m;
                 pedido.DescontoTotalReais = 10m;
@@ -468,6 +476,7 @@ namespace SIGO.Data.Seed
         private async Task SeedFullTestPedidoServico(
             int pedidoId,
             int servicoId,
+            decimal valorUnitario,
             CancellationToken cancellationToken)
         {
             var pedidoServico = await _context.Set<Pedido_Servico>()
@@ -481,12 +490,14 @@ namespace SIGO.Data.Seed
                 {
                     IdPedido = pedidoId,
                     IdServico = servicoId,
-                    QuantVezes = 1
+                    QuantVezes = 1,
+                    ValorUnitario = valorUnitario
                 }, cancellationToken);
             }
             else
             {
                 pedidoServico.QuantVezes = 1;
+                pedidoServico.ValorUnitario = valorUnitario;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -495,6 +506,7 @@ namespace SIGO.Data.Seed
         private async Task SeedFullTestPedidoPeca(
             int pedidoId,
             int pecaId,
+            decimal valorUnitario,
             CancellationToken cancellationToken)
         {
             var pedidoPeca = await _context.Set<Pedido_Peca>()
@@ -509,6 +521,7 @@ namespace SIGO.Data.Seed
                     IdPedido = pedidoId,
                     IdPeca = pecaId,
                     Quantidade = 1,
+                    ValorUnitario = valorUnitario,
                     DataInstalacao = DateOnly.FromDateTime(DateTime.UtcNow.Date),
                     Estado = "Nova",
                     Observacao = "Peca instalada pelo seed full."
@@ -517,6 +530,7 @@ namespace SIGO.Data.Seed
             else
             {
                 pedidoPeca.Quantidade = 1;
+                pedidoPeca.ValorUnitario = valorUnitario;
                 pedidoPeca.DataInstalacao = DateOnly.FromDateTime(DateTime.UtcNow.Date);
                 pedidoPeca.Estado = "Nova";
                 pedidoPeca.Observacao = "Peca instalada pelo seed full.";

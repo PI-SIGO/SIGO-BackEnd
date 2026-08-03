@@ -48,12 +48,14 @@ namespace SIGO.Data.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id && p.idOficina == oficinaId);
         }
 
-        public async Task<IEnumerable<Pedido>> GetByVeiculoWithDetailsAsync(int veiculoId)
+        public async Task<IEnumerable<Pedido>> GetByVeiculoWithDetailsAsync(
+            int veiculoId,
+            CancellationToken cancellationToken = default)
         {
             return await PedidosComDetalhes()
                 .Where(p => p.idVeiculo == veiculoId)
                 .OrderByDescending(p => p.DataInicio)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         public async Task SaveWithDetailsAsync(
@@ -86,6 +88,7 @@ namespace SIGO.Data.Repositories
                 }
 
                 existing.Quantidade = requested.Quantidade;
+                existing.ValorUnitario = requested.ValorUnitario;
                 existing.DataInstalacao = requested.DataInstalacao;
                 existing.Estado = requested.Estado;
                 existing.Observacao = requested.Observacao;
@@ -99,6 +102,7 @@ namespace SIGO.Data.Repositories
                     IdPedido = pedido.Id,
                     IdPeca = requested.IdPeca,
                     Quantidade = requested.Quantidade,
+                    ValorUnitario = requested.ValorUnitario,
                     DataInstalacao = requested.DataInstalacao,
                     Estado = requested.Estado,
                     Observacao = requested.Observacao
@@ -121,6 +125,7 @@ namespace SIGO.Data.Repositories
                 }
 
                 existing.QuantVezes = requested.QuantVezes;
+                existing.ValorUnitario = requested.ValorUnitario;
             }
 
             var existingIds = pedido.Pedido_Servicos.Select(service => service.IdServico).ToHashSet();
@@ -130,7 +135,8 @@ namespace SIGO.Data.Repositories
                 {
                     IdPedido = pedido.Id,
                     IdServico = requested.IdServico,
-                    QuantVezes = requested.QuantVezes
+                    QuantVezes = requested.QuantVezes,
+                    ValorUnitario = requested.ValorUnitario
                 });
             }
         }

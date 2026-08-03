@@ -60,6 +60,9 @@ namespace SIGO.Controllers
 
         [HttpDelete("me/vinculos/{oficinaId:int}")]
         [Authorize(Roles = SystemRoles.Cliente)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> RevokeLink(
             int oficinaId,
             CancellationToken cancellationToken)
@@ -71,6 +74,27 @@ namespace SIGO.Controllers
             await _vinculoService.RevokeAsync(
                 clienteId.Value,
                 oficinaId,
+                CreateAuthenticatedAuditContext(),
+                cancellationToken);
+            return NoContent();
+        }
+
+        [HttpDelete("~/api/v1/oficinas/me/clientes/{clienteId:int}/vinculo")]
+        [Authorize(Roles = SystemRoles.Oficina)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeactivateLinkForOficina(
+            int clienteId,
+            CancellationToken cancellationToken)
+        {
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            await _vinculoService.DeactivateForOficinaAsync(
+                clienteId,
+                oficinaId.Value,
                 CreateAuthenticatedAuditContext(),
                 cancellationToken);
             return NoContent();

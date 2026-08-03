@@ -228,6 +228,7 @@ CREATE TABLE pedido_servico (
     "idPedido" integer NOT NULL,
     "idServico" integer NOT NULL,
     "quantVezes" integer NOT NULL,
+    valor_unitario numeric(18,2) NOT NULL,
     CONSTRAINT "PK_pedido_servico" PRIMARY KEY ("idPedido", "idServico"),
     CONSTRAINT "FK_pedido_servico_pedido_idPedido" FOREIGN KEY ("idPedido") REFERENCES pedido (id) ON DELETE CASCADE,
     CONSTRAINT "FK_pedido_servico_servico_idServico" FOREIGN KEY ("idServico") REFERENCES servico (id) ON DELETE RESTRICT
@@ -247,6 +248,7 @@ CREATE TABLE pedido_peca (
     idpedido integer NOT NULL,
     idpeca integer NOT NULL,
     quantidade integer NOT NULL,
+    valor_unitario numeric(18,2) NOT NULL,
     datainstalacao date NOT NULL,
     estado text,
     observacao text,

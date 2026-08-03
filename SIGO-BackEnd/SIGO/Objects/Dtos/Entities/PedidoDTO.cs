@@ -14,6 +14,14 @@
 
         public decimal ValorTotal { get; set; }
 
+        public decimal ValorBruto => SubtotalPecas + SubtotalServicos;
+
+        public decimal ValorLiquido => ValorTotal;
+
+        public decimal SubtotalPecas => Pedido_Pecas.Sum(item => item.Subtotal);
+
+        public decimal SubtotalServicos => Pedido_Servicos.Sum(item => item.Subtotal);
+
         public decimal DescontoReais { get; set; }
 
         public decimal DescontoPorcentagem { get; set; }
