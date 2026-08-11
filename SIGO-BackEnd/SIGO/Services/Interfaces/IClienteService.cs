@@ -15,6 +15,10 @@ namespace SIGO.Services.Interfaces
         Task ValidarCpfCnpj(string? documento, int? ignoreId = null);
         Task ValidarNomeEmail(string? nome, string? email, int? ignoreId = null);
         Task Update(ClienteRequestDTO clienteDTO, int id);
+        Task<ClienteOficinaDTO> UpdateForOficina(
+            ClienteRequestDTO clienteDTO,
+            int clienteId,
+            int oficinaId);
         Task<bool> DeactivateAsync(int id, CancellationToken cancellationToken = default);
     }
 }

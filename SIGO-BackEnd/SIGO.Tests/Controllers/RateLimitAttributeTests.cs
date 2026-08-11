@@ -15,6 +15,7 @@ namespace SIGO.Tests.Controllers
         [InlineData(typeof(ClienteVinculoController), nameof(ClienteVinculoController.RegisterFull), RateLimitPolicies.ClientePreRegistration)]
         [InlineData(typeof(ClienteController), nameof(ClienteController.ChangePassword), RateLimitPolicies.ClientePasswordChange)]
         [InlineData(typeof(OficinaController), nameof(OficinaController.Create), RateLimitPolicies.PublicRegistration)]
+        [InlineData(typeof(CepController), nameof(CepController.ListarDadosEndereco), RateLimitPolicies.CepLookup)]
         public void EndpointSensivel_DeveTerRateLimit(Type controllerType, string methodName, string policyName)
         {
             var attribute = controllerType

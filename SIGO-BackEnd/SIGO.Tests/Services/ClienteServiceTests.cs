@@ -167,6 +167,71 @@ namespace SIGO.Tests.Services
             _clienteRepositoryMock.Verify(repository => repository.Remove(It.IsAny<Cliente>()), Times.Never);
         }
 
+        [Fact]
+        public async Task UpdateForOficina_DeveAtualizarSomenteClienteComVinculoAtivo()
+        {
+            var cliente = CreateLinkedCliente();
+            var request = CreateUpdateRequest();
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
+            var service = CreateService();
+
+            var result = await service.UpdateForOficina(request, 7, 2);
+
+            Assert.Equal("Nome atualizado", cliente.Nome);
+            Assert.Equal("Nome atualizado", result.Nome);
+            _clienteRepositoryMock.Verify(repository => repository.SaveChanges(), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateForOficina_DeveFalhar_QuandoClienteNaoTemVinculoAtivo()
+        {
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync((Cliente?)null);
+            var service = CreateService();
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.UpdateForOficina(CreateUpdateRequest(), 7, 2));
+
+            _clienteRepositoryMock.Verify(repository => repository.SaveChanges(), Times.Never);
+        }
+
+        private static Cliente CreateLinkedCliente() => new()
+        {
+            Id = 7,
+            Nome = "Nome anterior",
+            Email = "cliente@test.com",
+            Cpf_Cnpj = "52998224725",
+            Cep = "89010000",
+            Situacao = Situacao.ATIVO,
+            ClienteOficinas = new List<ClienteOficina>
+            {
+                new() { ClienteId = 7, OficinaId = 2, Ativo = true }
+            },
+            Telefones = new List<Telefone>(),
+            Veiculos = new List<Veiculo>()
+        };
+
+        private static ClienteRequestDTO CreateUpdateRequest() => new()
+        {
+            Nome = "Nome atualizado",
+            Email = "cliente@test.com",
+            Cpf_Cnpj = "529.982.247-25",
+            Obs = string.Empty,
+            razao = string.Empty,
+            Cep = "89010000",
+            Rua = "Rua Atualizada",
+            Cidade = "Blumenau",
+            Bairro = "Centro",
+            Estado = "SC",
+            Pais = "Brasil",
+            Complemento = string.Empty,
+            senha = string.Empty,
+            Telefones = new List<TelefoneDTO>()
+        };
+
         private ClienteService CreateService()
         {
             var cpfCnpjValidator = new CpfCnpjValidator(new CpfValidator(), new CnpjValidator());

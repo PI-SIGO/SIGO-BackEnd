@@ -182,6 +182,9 @@ builder.Services.AddRateLimiter(options =>
 
     options.AddPolicy(RateLimitPolicies.ClientePasswordChange, httpContext =>
         CreateActorIpFixedWindowLimiter(httpContext, RateLimitPolicies.ClientePasswordChange, 5, TimeSpan.FromMinutes(15)));
+
+    options.AddPolicy(RateLimitPolicies.CepLookup, httpContext =>
+        CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.CepLookup, 60, TimeSpan.FromMinutes(1)));
 });
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IClienteService, ClienteService>();

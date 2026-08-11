@@ -178,6 +178,37 @@ namespace SIGO.Controllers
                 : this.ApiProblem(StatusCodes.Status404NotFound, "Cliente não encontrado.");
         }
 
+        [HttpPut("~/api/v1/oficinas/me/clientes/{clienteId:int}")]
+        [Authorize(Roles = SystemRoles.Oficina)]
+        [ProducesResponseType(typeof(ClienteOficinaDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateForOficina(
+            int clienteId,
+            [FromBody] ClienteRequestDTO clienteDTO)
+        {
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            if (clienteDTO is null)
+            {
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "O corpo da requisição é obrigatório.");
+            }
+
+            SanitizeCliente(clienteDTO);
+            var result = await _clienteService.UpdateForOficina(
+                clienteDTO,
+                clienteId,
+                oficinaId.Value);
+
+            return Ok(result);
+        }
+
         [HttpPost("login")]
         [AllowAnonymous]
         [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.ClienteLogin)]
