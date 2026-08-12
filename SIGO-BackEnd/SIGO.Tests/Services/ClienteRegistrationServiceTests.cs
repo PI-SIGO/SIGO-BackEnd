@@ -44,7 +44,7 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task RegisterAsync_CpfPreCadastradoSemContaDeveExigirFluxoVerificado()
+        public async Task RegisterAsync_CpfPreCadastradoSemContaDeveCriarContaNoMesmoCliente()
         {
             var veiculos = new List<Veiculo>
             {
@@ -54,20 +54,41 @@ namespace SIGO.Tests.Services
             var cliente = CreateCliente(42, Situacao.ATIVO);
             cliente.Senha = "hash-legado-da-oficina";
             cliente.Veiculos = veiculos;
+            ClienteConta? contaCriada = null;
             _identityRepositoryMock
                 .Setup(repository => repository.GetClienteByCpfAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
-            await Assert.ThrowsAsync<ConflictException>(() => CreateService().RegisterAsync(
-                CreateRequest(),
-                CreateAuditContext()));
+            _contaRepositoryMock
+                .Setup(repository => repository.GetByClienteIdAsync(
+                    42,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ClienteConta?)null);
+            _contaRepositoryMock
+                .Setup(repository => repository.AddAsync(
+                    It.IsAny<ClienteConta>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback<ClienteConta, CancellationToken>((conta, _) => contaCriada = conta)
+                .Returns(Task.CompletedTask);
 
+            var result = await CreateService().RegisterAsync(
+                CreateRequest(),
+                CreateAuditContext());
+
+            Assert.Equal(42, result.ClienteId);
             Assert.Same(veiculos, cliente.Veiculos);
             Assert.All(cliente.Veiculos, veiculo => Assert.Equal(42, veiculo.ClienteId));
-            Assert.Equal("original@example.com", cliente.Email);
-            Assert.Equal("hash-legado-da-oficina", cliente.Senha);
-            VerifyNoIdentityWasCreated();
+            Assert.Equal("cliente@example.com", cliente.Email);
+            Assert.Null(cliente.Senha);
+            Assert.NotNull(contaCriada);
+            Assert.Equal(42, contaCriada!.ClienteId);
+            Assert.Equal("cliente@example.com", contaCriada.EmailNormalizado);
+            Assert.Equal("hash-seguro", contaCriada.PasswordHash);
+            Assert.Equal(EstadoClienteConta.Active, contaCriada.Status);
+            _identityRepositoryMock.Verify(repository => repository.AddClienteAsync(
+                It.IsAny<Cliente>(),
+                It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
