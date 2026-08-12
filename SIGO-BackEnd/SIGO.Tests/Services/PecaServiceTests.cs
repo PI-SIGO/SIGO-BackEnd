@@ -40,6 +40,28 @@ namespace SIGO.Tests.Services
             Assert.Contains(exception.Errors, error => error.Field == nameof(PecaDTO.IdOficina));
         }
 
+        [Fact]
+        public async Task Update_AtualizaQuantidadeEmEstoque()
+        {
+            var repository = new Mock<IPecaRepository>();
+            var existing = new Peca
+            {
+                Id = 7,
+                IdOficina = 3,
+                QuantidadeEstoque = 5
+            };
+            var request = CreateRequest(oficinaId: 3);
+            request.QuantidadeEstoque = 30;
+            repository.Setup(item => item.GetById(7)).ReturnsAsync(existing);
+            repository.Setup(item => item.SaveChanges()).ReturnsAsync(1);
+            var service = new PecaService(repository.Object, Mock.Of<IMapper>());
+
+            await service.Update(request, 7);
+
+            Assert.Equal(30, existing.QuantidadeEstoque);
+            repository.Verify(item => item.SaveChanges(), Times.Once);
+        }
+
         private static PecaDTO CreateRequest(int? oficinaId) => new()
         {
             Nome = "Filtro",
@@ -47,6 +69,7 @@ namespace SIGO.Tests.Services
             Descricao = "Filtro",
             Valor = 50,
             Quantidade = 1,
+            QuantidadeEstoque = 30,
             Garantia = DateOnly.FromDateTime(DateTime.Today),
             Unidade = 1,
             IdMarca = 1,

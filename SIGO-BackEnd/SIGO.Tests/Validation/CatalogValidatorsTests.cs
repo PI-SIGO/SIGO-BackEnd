@@ -7,6 +7,25 @@ namespace SIGO.Tests.Validation;
 public class CatalogValidatorsTests
 {
     [Fact]
+    public void PecaValidator_DeveRejeitarQuantidadeEmEstoqueNegativa()
+    {
+        var result = new PecaValidator().Validate(new PecaDTO
+        {
+            Nome = "Parafuso",
+            Tipo = "Fixacao",
+            Descricao = "Parafuso unitario",
+            Valor = 1,
+            Quantidade = 1,
+            QuantidadeEstoque = -1,
+            Unidade = 1,
+            IdMarca = 1,
+            Fornecedor = "Fornecedor"
+        });
+
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(PecaDTO.QuantidadeEstoque));
+    }
+
+    [Fact]
     public void VeiculoValidator_DeveRejeitarQuilometragemNegativa()
     {
         var dto = CriarVeiculoValido() with { Quilometragem = -1 };
