@@ -293,7 +293,7 @@ namespace SIGO.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Update(int id, VeiculoRequestDTO request)
         {
             {
@@ -310,15 +310,6 @@ namespace SIGO.Controllers
 
                     veiculoAtualizado = await _veiculoService.UpdateVeiculoForCliente(request, id, clienteId.Value);
                 }
-                else if (_currentUserService.IsInRole(SystemRoles.Oficina) ||
-                         _currentUserService.IsInRole(SystemRoles.Funcionario))
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    veiculoAtualizado = await _veiculoService.UpdateVeiculoForOficina(request, id, oficinaId.Value);
-                }
                 else
                 {
                     return Forbid();
@@ -326,6 +317,27 @@ namespace SIGO.Controllers
 
                 return Ok(veiculoAtualizado);
             }
+        }
+
+        [HttpPut("~/api/v1/oficinas/me/veiculos/{veiculoId:int}")]
+        [Authorize(Roles = $"{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        [ProducesResponseType(typeof(VeiculoDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateForOficina(
+            int veiculoId,
+            VeiculoRequestDTO request)
+        {
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            var veiculoAtualizado = await _veiculoService.UpdateVeiculoForOficina(
+                request,
+                veiculoId,
+                oficinaId.Value);
+
+            return Ok(veiculoAtualizado);
         }
 
         [HttpDelete("{id:int}")]
@@ -349,6 +361,21 @@ namespace SIGO.Controllers
             }
 
             await _veiculoService.Remove(id);
+            return NoContent();
+        }
+
+        [HttpDelete("~/api/v1/oficinas/me/veiculos/{veiculoId:int}")]
+        [Authorize(Roles = $"{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteForOficina(int veiculoId)
+        {
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            await _veiculoService.RemoveForOficina(veiculoId, oficinaId.Value);
             return NoContent();
         }
 

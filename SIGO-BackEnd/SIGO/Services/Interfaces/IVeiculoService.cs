@@ -40,6 +40,7 @@ namespace SIGO.Services.Interfaces
         Task<VeiculoImagemArquivoDTO> GetImagemArquivoForOficina(int veiculoId, int oficinaId, string nomeArquivo);
         Task RemoveImagem(int veiculoId, int imagemId);
         Task RemoveImagemForCliente(int veiculoId, int clienteId, int imagemId);
+        Task RemoveForOficina(int veiculoId, int oficinaId);
         Task<VeiculoDTO> UpdateVeiculoForCliente(VeiculoRequestDTO request, int id, int clienteId);
         Task<VeiculoDTO> UpdateVeiculoForOficina(VeiculoRequestDTO request, int id, int oficinaId);
         Task<VeiculoDTO> UpdateVeiculo(VeiculoRequestDTO request, int id);
