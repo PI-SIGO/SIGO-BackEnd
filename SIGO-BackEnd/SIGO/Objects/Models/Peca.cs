@@ -23,6 +23,9 @@ namespace SIGO.Objects.Models
         [Column("quantidade")]
         public int Quantidade { get; set; }
 
+        [Column("quantidade_estoque")]
+        public int QuantidadeEstoque { get; set; }
+
         [Column("garantia")]
         public DateOnly Garantia { get; set; }
 
@@ -45,8 +48,8 @@ namespace SIGO.Objects.Models
 
         public Peca() { }
     
-        public Peca(int id, string nome, string tipo, string descricao, decimal valor, int quantidade, DateOnly garantia, 
-            int unidade, DateOnly dataAquisicao, string fornecedor)
+        public Peca(int id, string nome, string tipo, string descricao, decimal valor, int quantidade, DateOnly garantia,
+            int unidade, DateOnly dataAquisicao, string fornecedor, int quantidadeEstoque = 0)
         {
             Id = id;
             Nome = nome;
@@ -54,6 +57,7 @@ namespace SIGO.Objects.Models
             Descricao = descricao;
             Valor = valor;
             Quantidade = quantidade;
+            QuantidadeEstoque = quantidadeEstoque;
             Garantia = garantia;
             Unidade = unidade;
             DataAquisicao = dataAquisicao;

@@ -67,6 +67,7 @@ namespace SIGO.Services.Entities
             existing.Descricao = pecaDTO.Descricao;
             existing.Valor = pecaDTO.Valor;
             existing.Quantidade = pecaDTO.Quantidade;
+            existing.QuantidadeEstoque = pecaDTO.QuantidadeEstoque;
             existing.Garantia = pecaDTO.Garantia;
             existing.Unidade = pecaDTO.Unidade;
             existing.IdMarca = pecaDTO.IdMarca;

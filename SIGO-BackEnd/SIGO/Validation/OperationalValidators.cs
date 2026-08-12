@@ -75,6 +75,7 @@ namespace SIGO.Validation
             RuleFor(request => request.Descricao).MaximumLength(500);
             RuleFor(request => request.Valor).GreaterThanOrEqualTo(0);
             RuleFor(request => request.Quantidade).GreaterThanOrEqualTo(0);
+            RuleFor(request => request.QuantidadeEstoque).GreaterThanOrEqualTo(0);
             RuleFor(request => request.Unidade).GreaterThan(0);
             RuleFor(request => request.IdMarca).GreaterThan(0);
             RuleFor(request => request.Fornecedor).NotEmpty().MaximumLength(100);

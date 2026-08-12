@@ -17,6 +17,8 @@ namespace SIGO.Objects.Dtos.Entities
 
         public int Quantidade { get; set; }
 
+        public int QuantidadeEstoque { get; set; }
+
         public DateOnly Garantia { get; set; }
 
         public int Unidade { get; set; }

@@ -13,6 +13,7 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Peca>().Property(p => p.Descricao).HasMaxLength(500);
             modelBuilder.Entity<Peca>().Property(p => p.Valor).IsRequired().HasPrecision(18, 2);
             modelBuilder.Entity<Peca>().Property(p => p.Quantidade).IsRequired();
+            modelBuilder.Entity<Peca>().Property(p => p.QuantidadeEstoque).IsRequired().HasDefaultValue(0);
             modelBuilder.Entity<Peca>().Property(p => p.Garantia).IsRequired();
             modelBuilder.Entity<Peca>().Property(p => p.Unidade).IsRequired();
             modelBuilder.Entity<Peca>().Property(p => p.IdOficina);
