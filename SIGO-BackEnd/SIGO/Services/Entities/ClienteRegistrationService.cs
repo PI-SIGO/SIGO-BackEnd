@@ -53,44 +53,34 @@ namespace SIGO.Services.Entities
                     async token =>
                     {
                         var cliente = await _identityRepository.GetClienteByCpfAsync(cpf, token);
-                        if (cliente?.Situacao == Situacao.INATIVO)
-                            throw new ConflictException("O cadastro deste CPF está inativo.");
+                        if (cliente is not null)
+                        {
+                            throw new ConflictException(
+                                "Não foi possível concluir o cadastro com este CPF. " +
+                                "Entre em contato com o suporte para verificar a titularidade.");
+                        }
 
                         if (await _contaRepository.EmailInUseByOtherClienteAsync(
                                 email,
-                                cliente?.Id,
+                                null,
                                 token))
                         {
                             throw new ConflictException("O e-mail informado já está em uso.");
                         }
 
-                        if (cliente is not null &&
-                            await _contaRepository.GetByClienteIdAsync(cliente.Id, token) is not null)
+                        cliente = new Cliente
                         {
-                            throw new ConflictException("Este CPF já possui uma conta cadastrada.");
-                        }
-
-                        if (cliente is null)
-                        {
-                            cliente = new Cliente
-                            {
-                                Nome = request.Nome.Trim(),
-                                Email = email,
-                                Senha = null,
-                                Cpf_Cnpj = cpf,
-                                Numero = 0,
-                                Sexo = Sexo.Outro,
-                                TipoCliente = TipoCliente.FISICO,
-                                Situacao = Situacao.ATIVO
-                            };
-                            await _identityRepository.AddClienteAsync(cliente, token);
-                            await _identityRepository.SaveChangesAsync(token);
-                        }
-                        else
-                        {
-                            cliente.Email = email;
-                            cliente.Senha = null;
-                        }
+                            Nome = request.Nome.Trim(),
+                            Email = email,
+                            Senha = null,
+                            Cpf_Cnpj = cpf,
+                            Numero = 0,
+                            Sexo = Sexo.Outro,
+                            TipoCliente = TipoCliente.FISICO,
+                            Situacao = Situacao.ATIVO
+                        };
+                        await _identityRepository.AddClienteAsync(cliente, token);
+                        await _identityRepository.SaveChangesAsync(token);
 
                         await _contaRepository.AddAsync(new ClienteConta
                         {

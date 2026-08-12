@@ -183,6 +183,15 @@ namespace SIGO.Services.Entities
             await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
         }
 
+        public async Task RemoveForOficina(int veiculoId, int oficinaId)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            if (veiculo is null)
+                throw new KeyNotFoundException($"Veiculo com id {veiculoId} nao encontrado para esta oficina.");
+
+            await _veiculoRepository.Remove(veiculo);
+        }
+
         public async Task<VeiculoDTO> UpdateVeiculo(VeiculoRequestDTO request, int id)
         {
             var existingEntity = await _veiculoRepository.GetById(id);

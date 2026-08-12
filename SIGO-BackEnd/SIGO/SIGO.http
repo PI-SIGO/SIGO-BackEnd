@@ -82,6 +82,32 @@ Authorization: Bearer {{AccessToken}}
 
 ###
 
+### Update a vehicle visible to the authenticated workshop - requires Oficina or Funcionario JWT
+PUT {{SIGO_HostAddress}}/api/v1/oficinas/me/veiculos/1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{AccessToken}}
+
+{
+  "nomeVeiculo": "Gol",
+  "tipoVeiculo": "Hatch",
+  "placaVeiculo": "ABC1D23",
+  "chassiVeiculo": "9BWZZZ377VT004251",
+  "anoFab": 2020,
+  "quilometragem": 45000,
+  "combustivel": "Flex",
+  "seguro": "Sem seguro",
+  "cor": "Prata"
+}
+
+###
+
+### Delete a vehicle visible to the authenticated workshop - requires Oficina or Funcionario JWT
+DELETE {{SIGO_HostAddress}}/api/v1/oficinas/me/veiculos/1
+Authorization: Bearer {{AccessToken}}
+
+###
+
 ### Vehicle history as JSON - all authenticated roles, subject to access scope
 GET {{SIGO_HostAddress}}/api/v1/relatorios/veiculos/1/historico?from=2026-01-01&to=2026-12-31
 Accept: application/json

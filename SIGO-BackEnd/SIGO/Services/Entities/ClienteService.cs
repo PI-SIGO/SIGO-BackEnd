@@ -107,6 +107,33 @@ namespace SIGO.Services.Entities
                 throw new KeyNotFoundException($"Cliente com id {id} não encontrado.");
             }
 
+            await UpdateProfile(existingCliente, clienteDTO, id);
+        }
+
+        public async Task<ClienteOficinaDTO> UpdateForOficina(
+            ClienteRequestDTO clienteDTO,
+            int clienteId,
+            int oficinaId)
+        {
+            var existingCliente = await _clienteRepository.GetByIdWithDetailsForOficina(
+                clienteId,
+                oficinaId);
+            if (existingCliente is null)
+            {
+                throw new KeyNotFoundException("Cliente não encontrado para esta oficina.");
+            }
+
+            await UpdateProfile(existingCliente, clienteDTO, clienteId);
+
+            return MapClienteOficina(existingCliente, oficinaId)
+                ?? throw new KeyNotFoundException("Cliente não encontrado para esta oficina.");
+        }
+
+        private async Task UpdateProfile(
+            Cliente existingCliente,
+            ClienteRequestDTO clienteDTO,
+            int clienteId)
+        {
             if (!string.IsNullOrWhiteSpace(clienteDTO.senha))
             {
                 throw new BusinessValidationException(new[]
@@ -115,13 +142,13 @@ namespace SIGO.Services.Entities
                 });
             }
 
-            var profileUpdate = MapProfileUpdate(clienteDTO, id);
-            await ValidateCliente(profileUpdate, id);
+            var profileUpdate = MapProfileUpdate(clienteDTO, clienteId);
+            await ValidateCliente(profileUpdate, clienteId);
             EnsureIdentityFieldsAreUnchanged(existingCliente, profileUpdate);
-            await EnsureTelefoneIdsBelongToCliente(profileUpdate.Telefones, id);
+            await EnsureTelefoneIdsBelongToCliente(profileUpdate.Telefones, clienteId);
             profileUpdate.Cpf_Cnpj = _cpfCnpjValidator.Normalize(profileUpdate.Cpf_Cnpj!);
 
-            await UpdateClienteAndTelefones(existingCliente, profileUpdate, id);
+            await UpdateClienteAndTelefones(existingCliente, profileUpdate, clienteId);
         }
 
         public async Task<bool> ExistsInOficina(int clienteId, int oficinaId)

@@ -166,6 +166,18 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public void CreateGlobal_DeveSerExclusivoDoCliente()
+        {
+            var attribute = typeof(VeiculoController)
+                .GetMethod(nameof(VeiculoController.Create))!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>()
+                .Single();
+
+            Assert.Equal(SystemRoles.Cliente, attribute.Roles);
+        }
+
+        [Fact]
         public async Task CreateForCliente_DeveCadastrarParaClienteVinculadoDaOficina()
         {
             var request = CriarVeiculoRequest();
@@ -329,55 +341,105 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
-        public async Task Update_DeveAtualizarVeiculoDaOficina()
+        public async Task Update_DeveRetornarForbid_QuandoOficinaUsaRotaGlobal()
         {
             var request = CriarVeiculoRequest();
-            var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
-            _veiculoServiceMock
-                .Setup(s => s.UpdateVeiculoForOficina(request, 4, 2))
-                .ReturnsAsync(veiculo);
-
             var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Oficina });
 
             var result = await controller.Update(4, request);
 
-            Assert.IsType<OkObjectResult>(result);
-            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(request, 4, 2), Times.Once);
-            _veiculoServiceMock.Verify(
-                s => s.UpdateVeiculoForCliente(
-                    It.IsAny<VeiculoRequestDTO>(),
-                    It.IsAny<int>(),
-                    It.IsAny<int>()),
-                Times.Never);
-            _veiculoServiceMock.Verify(
-                s => s.UpdateVeiculo(It.IsAny<VeiculoRequestDTO>(), It.IsAny<int>()),
-                Times.Never);
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(
+                It.IsAny<VeiculoRequestDTO>(),
+                It.IsAny<int>(),
+                It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
-        public async Task Update_DeveAtualizarVeiculoNoEscopoDaOficinaDoFuncionario()
+        public async Task Update_DeveRetornarForbid_QuandoFuncionarioUsaRotaGlobal()
         {
             var request = CriarVeiculoRequest();
-            var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
-            _veiculoServiceMock
-                .Setup(s => s.UpdateVeiculoForOficina(request, 4, 2))
-                .ReturnsAsync(veiculo);
-
             var controller = CreateController(oficinaId: 2, roles: new[] { SystemRoles.Funcionario });
 
             var result = await controller.Update(4, request);
 
-            Assert.IsType<OkObjectResult>(result);
-            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(request, 4, 2), Times.Once);
-            _veiculoServiceMock.Verify(
-                s => s.UpdateVeiculo(It.IsAny<VeiculoRequestDTO>(), It.IsAny<int>()),
-                Times.Never);
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(s => s.UpdateVeiculoForOficina(
+                It.IsAny<VeiculoRequestDTO>(),
+                It.IsAny<int>(),
+                It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateForOficina_DeveAtualizarVeiculoNoEscopoDaOficinaDoJwt()
+        {
+            var request = CriarVeiculoRequest();
+            var veiculo = CriarVeiculoDto(id: 4, clienteId: 5);
+            _veiculoServiceMock
+                .Setup(service => service.UpdateVeiculoForOficina(request, 4, 2))
+                .ReturnsAsync(veiculo);
+            var controller = CreateController(
+                userId: 10,
+                oficinaId: 2,
+                roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.UpdateForOficina(4, request);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Same(veiculo, ok.Value);
+            _veiculoServiceMock.Verify(service => service.UpdateVeiculoForOficina(
+                request,
+                4,
+                2), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateForOficina_DeveRetornarForbid_QuandoJwtNaoTemOficinaId()
+        {
+            var controller = CreateController(roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.UpdateForOficina(4, CriarVeiculoRequest());
+
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(service => service.UpdateVeiculoForOficina(
+                It.IsAny<VeiculoRequestDTO>(),
+                It.IsAny<int>(),
+                It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteForOficina_DeveExcluirVeiculoNoEscopoDaOficinaDoJwt()
+        {
+            var controller = CreateController(
+                userId: 10,
+                oficinaId: 2,
+                roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.DeleteForOficina(4);
+
+            Assert.IsType<NoContentResult>(result);
+            _veiculoServiceMock.Verify(service => service.RemoveForOficina(4, 2), Times.Once);
+            _veiculoServiceMock.Verify(service => service.Remove(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteForOficina_DeveRetornarForbid_QuandoJwtNaoTemOficinaId()
+        {
+            var controller = CreateController(roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.DeleteForOficina(4);
+
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(service => service.RemoveForOficina(
+                It.IsAny<int>(),
+                It.IsAny<int>()), Times.Never);
         }
 
         [Theory]
         [InlineData(nameof(VeiculoController.CreateForCliente))]
         [InlineData(nameof(VeiculoController.AddImagens))]
-        [InlineData(nameof(VeiculoController.Update))]
+        [InlineData(nameof(VeiculoController.UpdateForOficina))]
+        [InlineData(nameof(VeiculoController.DeleteForOficina))]
         public void EscritasOperacionais_DevemAutorizarFuncionario(string methodName)
         {
             var attribute = typeof(VeiculoController)

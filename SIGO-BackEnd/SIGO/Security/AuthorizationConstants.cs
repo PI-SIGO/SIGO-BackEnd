@@ -29,5 +29,6 @@ namespace SIGO.Security
         public const string PublicRegistration = "PublicRegistration";
         public const string ClientePreRegistration = "ClientePreRegistration";
         public const string ClientePasswordChange = "ClientePasswordChange";
+        public const string CepLookup = "CepLookup";
     }
 }

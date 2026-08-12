@@ -57,6 +57,46 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public async Task UpdateForOficina_DeveEditarClienteDaOficinaDoJwt()
+        {
+            var request = CriarClienteDto(id: 7);
+            request.senha = string.Empty;
+            var response = new ClienteOficinaDTO { Id = 7, Nome = request.Nome };
+            _clienteServiceMock
+                .Setup(service => service.UpdateForOficina(request, 7, 2))
+                .ReturnsAsync(response);
+            var controller = CreateController(
+                userId: 9,
+                roles: new[] { SystemRoles.Oficina },
+                oficinaId: 2);
+
+            var result = await controller.UpdateForOficina(7, request);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Same(response, ok.Value);
+            _clienteServiceMock.Verify(service => service.UpdateForOficina(
+                request,
+                7,
+                2), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateForOficina_DeveRetornarForbid_QuandoJwtNaoTemOficinaId()
+        {
+            var controller = CreateController(
+                userId: 9,
+                roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.UpdateForOficina(7, CriarClienteDto());
+
+            Assert.IsType<ForbidResult>(result);
+            _clienteServiceMock.Verify(service => service.UpdateForOficina(
+                It.IsAny<ClienteRequestDTO>(),
+                It.IsAny<int>(),
+                It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
         public void ClienteRequestDTO_NaoDeveExporSituacaoNoContratoDePerfil()
         {
             Assert.Null(typeof(ClienteRequestDTO).GetProperty("Situacao"));
