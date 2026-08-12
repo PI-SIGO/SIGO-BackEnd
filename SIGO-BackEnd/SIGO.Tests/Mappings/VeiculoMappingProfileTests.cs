@@ -17,7 +17,6 @@ namespace SIGO.Tests.Mappings
             {
                 Id = 1,
                 ClienteId = 5,
-                Status = SIGO.Objects.Enums.Status.Pendente,
                 Imagens = new List<VeiculoImagem>
                 {
                     new() { Id = 10, VeiculoId = 1, NomeOriginal = "frente.png" }
@@ -69,7 +68,6 @@ namespace SIGO.Tests.Mappings
 
             var dto = mapper.Map<VeiculoDTO>(veiculo);
 
-            Assert.Equal(SIGO.Objects.Enums.Status.Pendente, dto.Status);
             Assert.Single(dto.Imagens);
             Assert.Single(dto.RegistroServicos);
             Assert.Single(dto.RegistroServicos.Single().PecasSubstituidas);
@@ -78,6 +76,9 @@ namespace SIGO.Tests.Mappings
             Assert.Single(dto.Pedidos.Single().Pedido_Servicos);
             Assert.Equal(25m, dto.Pedidos.Single().Pedido_Pecas.Single().ValorUnitario);
             Assert.Equal(80m, dto.Pedidos.Single().Pedido_Servicos.Single().ValorUnitario);
+            Assert.DoesNotContain(
+                typeof(VeiculoDTO).GetProperties(),
+                property => property.Name == "Status");
         }
 
         private static IMapper CreateMapper()

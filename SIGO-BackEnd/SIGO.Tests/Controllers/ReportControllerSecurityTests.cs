@@ -147,7 +147,6 @@ public class ReportControllerSecurityTests
             1000,
             "Flex",
             "Sim",
-            "Prata",
-            "Ativo"),
+            "Prata"),
         Array.Empty<HistoricoVeiculoEventoDTO>());
 }

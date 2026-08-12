@@ -121,8 +121,7 @@ public sealed class ReportServiceTests
             Quilometragem = 1000,
             Combustivel = "Flex",
             Seguro = "Sim",
-            Cor = "Prata",
-            Status = Status.Pendente
+            Cor = "Prata"
         });
         await context.SaveChangesAsync();
     }

@@ -328,49 +328,6 @@ namespace SIGO.Controllers
             return Ok(veiculoAtualizado);
         }
 
-        [HttpPatch("{id:int}/status")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        [ProducesResponseType(typeof(VeiculoDTO), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        public async Task<IActionResult> UpdateStatus(
-            int id,
-            [FromBody] AtualizarStatusRequestDTO request,
-            CancellationToken cancellationToken = default)
-        {
-            if (request?.Status is not SIGO.Objects.Enums.Status status)
-            {
-                return this.ApiValidationProblem(
-                    StatusCodes.Status422UnprocessableEntity,
-                    nameof(request.Status),
-                    "O status e obrigatorio.");
-            }
-
-            VeiculoDTO updated;
-            if (_currentUserService.IsInRole(SystemRoles.Admin))
-            {
-                updated = await _veiculoService.UpdateStatus(
-                    id,
-                    status,
-                    cancellationToken);
-            }
-            else
-            {
-                var oficinaId = _currentUserService.OficinaId;
-                if (!oficinaId.HasValue)
-                    return Forbid();
-
-                updated = await _veiculoService.UpdateStatusForOficina(
-                    id,
-                    status,
-                    oficinaId.Value,
-                    cancellationToken);
-            }
-
-            return Ok(updated);
-        }
-
         [HttpDelete("{id:int}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
         public async Task<IActionResult> Delete(int id)

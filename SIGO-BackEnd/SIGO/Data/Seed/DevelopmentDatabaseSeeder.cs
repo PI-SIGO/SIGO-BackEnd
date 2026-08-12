@@ -290,7 +290,6 @@ namespace SIGO.Data.Seed
                     Combustivel = "Flex",
                     Seguro = "Seguro teste ativo",
                     Cor = "Azul",
-                    Status = Status.EmAndamento,
                     ClienteId = clienteId
                 };
 
@@ -307,7 +306,6 @@ namespace SIGO.Data.Seed
                 veiculo.Combustivel = "Flex";
                 veiculo.Seguro = "Seguro teste ativo";
                 veiculo.Cor = "Azul";
-                veiculo.Status = Status.EmAndamento;
                 veiculo.ClienteId = clienteId;
             }
 
@@ -849,7 +847,6 @@ namespace SIGO.Data.Seed
                     Combustivel = "Flex",
                     Seguro = "Nao informado",
                     Cor = "Prata",
-                    Status = Status.Pendente,
                     ClienteId = clienteId
                 };
 
@@ -865,7 +862,6 @@ namespace SIGO.Data.Seed
                 veiculo.Combustivel = "Flex";
                 veiculo.Seguro = "Nao informado";
                 veiculo.Cor = "Prata";
-                veiculo.Status = Status.Pendente;
                 veiculo.ClienteId = clienteId;
             }
 
