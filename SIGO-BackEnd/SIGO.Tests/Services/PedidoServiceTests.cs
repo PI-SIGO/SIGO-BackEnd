@@ -2,6 +2,7 @@ using AutoMapper;
 using Moq;
 using SIGO.Data.Interfaces;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Objects.Enums;
 using SIGO.Objects.Models;
 using SIGO.Services.Entities;
 using SIGO.Validation;
@@ -194,10 +195,12 @@ namespace SIGO.Tests.Services
                 idCliente = 10,
                 idFuncionario = 5,
                 idVeiculo = 20,
+                Status = Status.EmAndamento,
                 Pedido_Pecas = new List<Pedido_Peca>(),
                 Pedido_Servicos = new List<Pedido_Servico>()
             };
             var request = CreateRequest();
+            request.Status = Status.Concluido;
             request.Pedido_Pecas.Add(new Pedido_PecaDTO
             {
                 IdPeca = 8,
@@ -239,6 +242,7 @@ namespace SIGO.Tests.Services
             _orders.Verify(repository => repository.SaveChanges(), Times.Never);
             Assert.Equal(170m, request.ValorTotal);
             Assert.Equal(170m, request.ValorLiquido);
+            Assert.Equal(Status.EmAndamento, request.Status);
         }
 
         [Fact]
@@ -268,6 +272,78 @@ namespace SIGO.Tests.Services
 
             Assert.Same(dto, result);
             _orders.Verify(repository => repository.GetByIdWithDetails(3), Times.Once);
+        }
+
+        [Fact]
+        public async Task Create_DeveForcarStatusPendenteNoBackend()
+        {
+            var request = CreateRequest();
+            request.Status = Status.Concluido;
+            var entity = new Pedido();
+            _mapper.Setup(mapper => mapper.Map<Pedido>(request))
+                .Callback(() => entity.Status = request.Status)
+                .Returns(entity);
+            _orders.Setup(repository => repository.Add(entity)).Returns(Task.CompletedTask);
+
+            await CreateService().Create(request);
+
+            Assert.Equal(Status.Pendente, request.Status);
+            Assert.Equal(Status.Pendente, entity.Status);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_DevePersistirStatusDoPedido()
+        {
+            var entity = new Pedido { Id = 3, Status = Status.Pendente };
+            var dto = new PedidoDTO { Id = 3, Status = Status.EmAndamento };
+            _orders.Setup(repository => repository.GetByIdWithDetails(3)).ReturnsAsync(entity);
+            _orders.Setup(repository => repository.SaveChanges(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(1);
+            _mapper.Setup(mapper => mapper.Map<PedidoDTO>(entity)).Returns(dto);
+
+            var result = await CreateService().UpdateStatus(
+                3,
+                Status.EmAndamento,
+                CancellationToken.None);
+
+            Assert.Equal(Status.EmAndamento, entity.Status);
+            Assert.Same(dto, result);
+            _orders.Verify(repository => repository.SaveChanges(
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateStatusForOficina_DeveBuscarPedidoNoTenant()
+        {
+            var entity = new Pedido { Id = 3, idOficina = 7, Status = Status.Pendente };
+            _orders.Setup(repository => repository.GetByIdForOficina(3, 7)).ReturnsAsync(entity);
+            _orders.Setup(repository => repository.SaveChanges(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(1);
+            _mapper.Setup(mapper => mapper.Map<PedidoDTO>(entity))
+                .Returns(new PedidoDTO { Id = 3, Status = Status.Concluido });
+
+            await CreateService().UpdateStatusForOficina(
+                3,
+                Status.Concluido,
+                7,
+                CancellationToken.None);
+
+            Assert.Equal(Status.Concluido, entity.Status);
+            _orders.Verify(repository => repository.GetByIdForOficina(3, 7), Times.Once);
+            _orders.Verify(repository => repository.GetByIdWithDetails(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_DeveRejeitarValorForaDoEnum()
+        {
+            var invalidStatus = (Status)999;
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() =>
+                CreateService().UpdateStatus(3, invalidStatus, CancellationToken.None));
+
+            Assert.Contains(exception.Errors, error => error.Field == nameof(PedidoDTO.Status));
+            _orders.Verify(repository => repository.SaveChanges(
+                It.IsAny<CancellationToken>()), Times.Never);
         }
 
         private PedidoService CreateService() => new(

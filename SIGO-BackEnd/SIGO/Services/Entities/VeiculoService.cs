@@ -102,12 +102,6 @@ namespace SIGO.Services.Entities
             return await CreateInternal(request, clienteId);
         }
 
-        public async Task<VeiculoDTO> CreateForCliente(VeiculoRequestDTO request, int clienteId)
-        {
-            await EnsureClienteAtivo(clienteId);
-            return await CreateInternal(request, clienteId);
-        }
-
         public async Task<VeiculoDTO> CreateForOficina(
             VeiculoRequestDTO request,
             int clienteId,
@@ -235,6 +229,39 @@ namespace SIGO.Services.Entities
             await _veiculoRepository.SaveChanges();
             return RestrictHistoriesToOficina(
                 _mapper.Map<VeiculoDTO>(existingEntity),
+                oficinaId);
+        }
+
+        public async Task<VeiculoDTO> UpdateStatus(
+            int id,
+            Status status,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureValidStatus(status);
+            var existing = await _veiculoRepository.GetById(id);
+            if (existing is null)
+                throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado.");
+
+            existing.Status = status;
+            await _veiculoRepository.SaveChanges(cancellationToken);
+            return _mapper.Map<VeiculoDTO>(existing);
+        }
+
+        public async Task<VeiculoDTO> UpdateStatusForOficina(
+            int id,
+            Status status,
+            int oficinaId,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureValidStatus(status);
+            var existing = await _veiculoRepository.GetByIdForOficina(id, oficinaId);
+            if (existing is null)
+                throw new KeyNotFoundException($"Veiculo com id {id} nao encontrado para esta oficina.");
+
+            existing.Status = status;
+            await _veiculoRepository.SaveChanges(cancellationToken);
+            return RestrictHistoriesToOficina(
+                _mapper.Map<VeiculoDTO>(existing),
                 oficinaId);
         }
 
@@ -416,6 +443,17 @@ namespace SIGO.Services.Entities
             existing.Combustivel = request.Combustivel;
             existing.Seguro = request.Seguro;
             existing.Cor = request.Cor;
+        }
+
+        private static void EnsureValidStatus(Status status)
+        {
+            if (Enum.IsDefined(status))
+                return;
+
+            throw new BusinessValidationException(new[]
+            {
+                new ValidationError(nameof(VeiculoDTO.Status), "Status de veiculo invalido.")
+            });
         }
     }
 }

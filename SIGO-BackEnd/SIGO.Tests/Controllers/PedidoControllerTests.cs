@@ -5,6 +5,7 @@ using Moq;
 using SIGO.Controllers;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Objects.Enums;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
 using Xunit;
@@ -182,6 +183,79 @@ namespace SIGO.Tests.Controllers
             Assert.IsType<OkObjectResult>(result.Result);
             _pedidoService.Verify(service => service.UpdateForOficina(request, 10, 7), Times.Once);
             _pedidoService.Verify(service => service.Update(It.IsAny<PedidoDTO>(), It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_AdminAtualizaPedidoGlobal()
+        {
+            var updated = CreateOrder(id: 10);
+            updated.Status = Status.EmAndamento;
+            _pedidoService.Setup(service => service.UpdateStatus(
+                    10,
+                    Status.EmAndamento,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(updated);
+
+            var result = await CreateController(roles: SystemRoles.Admin).UpdateStatus(
+                10,
+                new AtualizarStatusRequestDTO { Status = Status.EmAndamento },
+                CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Same(updated, ok.Value);
+            _pedidoService.Verify(service => service.UpdateStatus(
+                10,
+                Status.EmAndamento,
+                It.IsAny<CancellationToken>()), Times.Once);
+            _pedidoService.Verify(service => service.UpdateStatusForOficina(
+                It.IsAny<int>(),
+                It.IsAny<Status>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_FuncionarioUsaEscopoDaOficinaDoJwt()
+        {
+            var updated = CreateOrder(id: 10);
+            updated.Status = Status.AguardandoPecas;
+            _pedidoService.Setup(service => service.UpdateStatusForOficina(
+                    10,
+                    Status.AguardandoPecas,
+                    7,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(updated);
+
+            var result = await CreateController(oficinaId: 7, roles: SystemRoles.Funcionario)
+                .UpdateStatus(
+                    10,
+                    new AtualizarStatusRequestDTO { Status = Status.AguardandoPecas },
+                    CancellationToken.None);
+
+            Assert.IsType<OkObjectResult>(result.Result);
+            _pedidoService.Verify(service => service.UpdateStatusForOficina(
+                10,
+                Status.AguardandoPecas,
+                7,
+                It.IsAny<CancellationToken>()), Times.Once);
+            _pedidoService.Verify(service => service.UpdateStatus(
+                It.IsAny<int>(),
+                It.IsAny<Status>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public void UpdateStatus_DeveSerOperacionalENaoAutorizarCliente()
+        {
+            var attribute = Assert.Single(typeof(PedidoController)
+                .GetMethod(nameof(PedidoController.UpdateStatus))!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>());
+
+            Assert.Contains(SystemRoles.Admin, attribute.Roles ?? string.Empty);
+            Assert.Contains(SystemRoles.Oficina, attribute.Roles ?? string.Empty);
+            Assert.Contains(SystemRoles.Funcionario, attribute.Roles ?? string.Empty);
+            Assert.DoesNotContain(SystemRoles.Cliente, attribute.Roles ?? string.Empty);
         }
 
         [Theory]

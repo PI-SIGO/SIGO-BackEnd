@@ -10,5 +10,14 @@ namespace SIGO.Services.Interfaces
         Task<PedidoDTO?> GetByIdForOficina(int id, int oficinaId);
         Task CreateForOficina(PedidoDTO pedidoDTO, int oficinaId);
         Task UpdateForOficina(PedidoDTO pedidoDTO, int id, int oficinaId);
+        Task<PedidoDTO> UpdateStatus(
+            int id,
+            SIGO.Objects.Enums.Status status,
+            CancellationToken cancellationToken = default);
+        Task<PedidoDTO> UpdateStatusForOficina(
+            int id,
+            SIGO.Objects.Enums.Status status,
+            int oficinaId,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -19,7 +19,6 @@ namespace SIGO.Services.Interfaces
         Task<VeiculoDTO?> GetByIdForCliente(int id, int clienteId);
         Task<VeiculoDTO?> GetByIdForOficina(int id, int oficinaId);
         Task<VeiculoDTO> CreateVeiculo(VeiculoRequestDTO request, int clienteId);
-        Task<VeiculoDTO> CreateForCliente(VeiculoRequestDTO request, int clienteId);
         Task<VeiculoDTO> CreateForOficina(VeiculoRequestDTO request, int clienteId, int oficinaId);
         Task<IReadOnlyCollection<VeiculoImagemDTO>> AddImagens(
             int veiculoId,
@@ -44,5 +43,14 @@ namespace SIGO.Services.Interfaces
         Task<VeiculoDTO> UpdateVeiculoForCliente(VeiculoRequestDTO request, int id, int clienteId);
         Task<VeiculoDTO> UpdateVeiculoForOficina(VeiculoRequestDTO request, int id, int oficinaId);
         Task<VeiculoDTO> UpdateVeiculo(VeiculoRequestDTO request, int id);
+        Task<VeiculoDTO> UpdateStatus(
+            int id,
+            SIGO.Objects.Enums.Status status,
+            CancellationToken cancellationToken = default);
+        Task<VeiculoDTO> UpdateStatusForOficina(
+            int id,
+            SIGO.Objects.Enums.Status status,
+            int oficinaId,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -1,4 +1,5 @@
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Objects.Enums;
 using SIGO.Validation;
 using Xunit;
 
@@ -28,6 +29,24 @@ namespace SIGO.Tests.Services
             Assert.False(result.IsValid);
             Assert.Contains(result.Errors, error => error.PropertyName == nameof(PedidoDTO.DataFim));
             Assert.Contains(result.Errors, error => error.PropertyName == nameof(PedidoDTO.Pedido_Pecas));
+        }
+
+        [Fact]
+        public void AtualizarStatusRequestValidator_ExigeStatusValido()
+        {
+            var missing = new AtualizarStatusRequestValidator().Validate(
+                new AtualizarStatusRequestDTO());
+            var invalid = new AtualizarStatusRequestValidator().Validate(
+                new AtualizarStatusRequestDTO { Status = (Status)999 });
+
+            Assert.False(missing.IsValid);
+            Assert.False(invalid.IsValid);
+            Assert.All(missing.Errors, error => Assert.Equal(
+                nameof(AtualizarStatusRequestDTO.Status),
+                error.PropertyName));
+            Assert.All(invalid.Errors, error => Assert.Equal(
+                nameof(AtualizarStatusRequestDTO.Status),
+                error.PropertyName));
         }
     }
 }

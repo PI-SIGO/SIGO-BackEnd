@@ -124,6 +124,36 @@ namespace SIGO.Controllers
             return Ok(request);
         }
 
+        [HttpPatch("{id:int}/status")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        [ProducesResponseType(typeof(PedidoDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+        public async Task<ActionResult<PedidoDTO>> UpdateStatus(
+            int id,
+            [FromBody] AtualizarStatusRequestDTO request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request?.Status is not SIGO.Objects.Enums.Status status)
+            {
+                return this.ApiValidationProblem(
+                    StatusCodes.Status422UnprocessableEntity,
+                    nameof(request.Status),
+                    "O status e obrigatorio.");
+            }
+
+            var updated = IsOfficeScopedActor()
+                ? await _pedidoService.UpdateStatusForOficina(
+                    id,
+                    status,
+                    RequireOfficeId(),
+                    cancellationToken)
+                : await _pedidoService.UpdateStatus(id, status, cancellationToken);
+
+            return Ok(updated);
+        }
+
         [HttpDelete("{id:int}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)

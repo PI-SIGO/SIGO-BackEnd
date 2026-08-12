@@ -26,6 +26,9 @@ namespace SIGO.Objects.Models
         public int idVeiculo { get; set; }
         public Veiculo Veiculo { get; set; }
 
+        [Column("status")]
+        public SIGO.Objects.Enums.Status Status { get; set; } = SIGO.Objects.Enums.Status.Pendente;
+
         [Column("valorTotal")]
         public decimal ValorTotal { get; set; }
 

@@ -5,6 +5,7 @@ using Moq;
 using SIGO.Controllers;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
+using SIGO.Objects.Enums;
 using SIGO.Security;
 using SIGO.Services.Interfaces;
 using Xunit;
@@ -143,38 +144,6 @@ namespace SIGO.Tests.Controllers
             Assert.IsType<ForbidResult>(result);
             _veiculoServiceMock.Verify(s => s.Remove(It.IsAny<int>()), Times.Never);
             _veiculoServiceMock.Verify(s => s.GetByIdForOficina(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task Create_DeveCadastrarVeiculoParaClienteLogado()
-        {
-            var request = CriarVeiculoRequest();
-            var veiculo = CriarVeiculoDto(id: 9, clienteId: 5);
-            _veiculoServiceMock
-                .Setup(s => s.CreateForCliente(request, 5))
-                .ReturnsAsync(veiculo);
-
-            var controller = CreateController(userId: 5, roles: new[] { SystemRoles.Cliente });
-
-            var result = await controller.Create(request);
-
-            Assert.IsType<CreatedResult>(result);
-            _veiculoServiceMock.Verify(s => s.CreateForCliente(request, 5), Times.Once);
-            _veiculoServiceMock.Verify(
-                s => s.CreateVeiculo(It.IsAny<VeiculoRequestDTO>(), It.IsAny<int>()),
-                Times.Never);
-        }
-
-        [Fact]
-        public void CreateGlobal_DeveSerExclusivoDoCliente()
-        {
-            var attribute = typeof(VeiculoController)
-                .GetMethod(nameof(VeiculoController.Create))!
-                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
-                .Cast<AuthorizeAttribute>()
-                .Single();
-
-            Assert.Equal(SystemRoles.Cliente, attribute.Roles);
         }
 
         [Fact]
@@ -405,6 +374,92 @@ namespace SIGO.Tests.Controllers
                 It.IsAny<VeiculoRequestDTO>(),
                 It.IsAny<int>(),
                 It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_AdminAtualizaVeiculoGlobal()
+        {
+            var updated = CriarVeiculoDto(id: 4, clienteId: 5);
+            updated.Status = Status.EmAndamento;
+            _veiculoServiceMock.Setup(service => service.UpdateStatus(
+                    4,
+                    Status.EmAndamento,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(updated);
+
+            var result = await CreateController(roles: new[] { SystemRoles.Admin }).UpdateStatus(
+                4,
+                new AtualizarStatusRequestDTO { Status = Status.EmAndamento },
+                CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Same(updated, ok.Value);
+            _veiculoServiceMock.Verify(service => service.UpdateStatus(
+                4,
+                Status.EmAndamento,
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_FuncionarioUsaEscopoDaOficinaDoJwt()
+        {
+            var updated = CriarVeiculoDto(id: 4, clienteId: 5);
+            updated.Status = Status.AguardandoPecas;
+            _veiculoServiceMock.Setup(service => service.UpdateStatusForOficina(
+                    4,
+                    Status.AguardandoPecas,
+                    2,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(updated);
+
+            var result = await CreateController(
+                    oficinaId: 2,
+                    roles: new[] { SystemRoles.Funcionario })
+                .UpdateStatus(
+                    4,
+                    new AtualizarStatusRequestDTO { Status = Status.AguardandoPecas },
+                    CancellationToken.None);
+
+            Assert.IsType<OkObjectResult>(result);
+            _veiculoServiceMock.Verify(service => service.UpdateStatusForOficina(
+                4,
+                Status.AguardandoPecas,
+                2,
+                It.IsAny<CancellationToken>()), Times.Once);
+            _veiculoServiceMock.Verify(service => service.UpdateStatus(
+                It.IsAny<int>(),
+                It.IsAny<Status>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatus_OficinaSemOficinaIdRetornaForbid()
+        {
+            var result = await CreateController(roles: new[] { SystemRoles.Oficina }).UpdateStatus(
+                4,
+                new AtualizarStatusRequestDTO { Status = Status.Concluido },
+                CancellationToken.None);
+
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(service => service.UpdateStatusForOficina(
+                It.IsAny<int>(),
+                It.IsAny<Status>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public void UpdateStatus_DeveSerOperacionalENaoAutorizarCliente()
+        {
+            var attribute = Assert.Single(typeof(VeiculoController)
+                .GetMethod(nameof(VeiculoController.UpdateStatus))!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>());
+
+            Assert.Contains(SystemRoles.Admin, attribute.Roles ?? string.Empty);
+            Assert.Contains(SystemRoles.Oficina, attribute.Roles ?? string.Empty);
+            Assert.Contains(SystemRoles.Funcionario, attribute.Roles ?? string.Empty);
+            Assert.DoesNotContain(SystemRoles.Cliente, attribute.Roles ?? string.Empty);
         }
 
         [Fact]
