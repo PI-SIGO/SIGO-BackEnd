@@ -148,18 +148,6 @@ namespace SIGO.Controllers
             return Ok(PagedResponse<VeiculoDTO>.Create(veiculos, pagination ?? new PaginationRequest()));
         }
 
-        [HttpPost]
-        [Authorize(Roles = SystemRoles.Cliente)]
-        public async Task<IActionResult> Create(VeiculoRequestDTO request)
-        {
-            var clienteId = _currentUserService.UserId;
-            if (!clienteId.HasValue)
-                return Forbid();
-
-            var veiculoCriado = await _veiculoService.CreateForCliente(request, clienteId.Value);
-            return Created($"/api/v1/veiculos/{veiculoCriado.Id}", veiculoCriado);
-        }
-
         [HttpPost("~/api/v1/clientes/{clienteId:int}/veiculos")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> CreateForCliente(int clienteId, VeiculoRequestDTO request)
@@ -338,6 +326,49 @@ namespace SIGO.Controllers
                 oficinaId.Value);
 
             return Ok(veiculoAtualizado);
+        }
+
+        [HttpPatch("{id:int}/status")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
+        [ProducesResponseType(typeof(VeiculoDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+        public async Task<IActionResult> UpdateStatus(
+            int id,
+            [FromBody] AtualizarStatusRequestDTO request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request?.Status is not SIGO.Objects.Enums.Status status)
+            {
+                return this.ApiValidationProblem(
+                    StatusCodes.Status422UnprocessableEntity,
+                    nameof(request.Status),
+                    "O status e obrigatorio.");
+            }
+
+            VeiculoDTO updated;
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
+            {
+                updated = await _veiculoService.UpdateStatus(
+                    id,
+                    status,
+                    cancellationToken);
+            }
+            else
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                updated = await _veiculoService.UpdateStatusForOficina(
+                    id,
+                    status,
+                    oficinaId.Value,
+                    cancellationToken);
+            }
+
+            return Ok(updated);
         }
 
         [HttpDelete("{id:int}")]

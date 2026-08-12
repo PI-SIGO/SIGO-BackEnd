@@ -20,6 +20,10 @@ namespace SIGO.Data.Builders
             modelBuilder.Entity<Pedido>().Property(p => p.Observacao).HasMaxLength(500);
             modelBuilder.Entity<Pedido>().Property(p => p.DataInicio).IsRequired();
             modelBuilder.Entity<Pedido>().Property(p => p.DataFim).IsRequired();
+            modelBuilder.Entity<Pedido>()
+                .Property(p => p.Status)
+                .IsRequired()
+                .HasDefaultValue(SIGO.Objects.Enums.Status.Pendente);
 
             modelBuilder.Entity<Pedido>()
                 .HasIndex(p => new { p.idVeiculo, p.DataInicio })

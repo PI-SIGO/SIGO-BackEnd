@@ -53,5 +53,10 @@ namespace SIGO.Data.Repositories
             {
                 return await _context.SaveChangesAsync();
             }
+
+            public async Task<int> SaveChanges(CancellationToken cancellationToken)
+            {
+                return await _context.SaveChangesAsync(cancellationToken);
+            }
     }
 }

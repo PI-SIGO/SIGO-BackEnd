@@ -94,6 +94,37 @@ namespace SIGO.Services.Entities
             await UpdateCoreAsync(existing, pedidoDTO, id, oficinaId);
         }
 
+        public async Task<PedidoDTO> UpdateStatus(
+            int id,
+            SIGO.Objects.Enums.Status status,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureValidStatus(status);
+            var existing = await _pedidoRepository.GetByIdWithDetails(id);
+            if (existing is null)
+                throw new KeyNotFoundException($"Pedido com id {id} nao encontrado.");
+
+            existing.Status = status;
+            await _pedidoRepository.SaveChanges(cancellationToken);
+            return _mapper.Map<PedidoDTO>(existing);
+        }
+
+        public async Task<PedidoDTO> UpdateStatusForOficina(
+            int id,
+            SIGO.Objects.Enums.Status status,
+            int oficinaId,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureValidStatus(status);
+            var existing = await _pedidoRepository.GetByIdForOficina(id, oficinaId);
+            if (existing is null)
+                throw new KeyNotFoundException($"Pedido com id {id} nao encontrado para esta oficina.");
+
+            existing.Status = status;
+            await _pedidoRepository.SaveChanges(cancellationToken);
+            return _mapper.Map<PedidoDTO>(existing);
+        }
+
         private async Task CreateCoreAsync(PedidoDTO pedidoDTO, int oficinaId)
         {
             NormalizeCollections(pedidoDTO);
@@ -102,6 +133,7 @@ namespace SIGO.Services.Entities
 
             pedidoDTO.Id = 0;
             pedidoDTO.idOficina = oficinaId;
+            pedidoDTO.Status = SIGO.Objects.Enums.Status.Pendente;
             NormalizeLineIdentifiers(pedidoDTO, pedidoId: 0);
 
             var entity = _mapper.Map<Pedido>(pedidoDTO);
@@ -123,6 +155,7 @@ namespace SIGO.Services.Entities
 
             pedidoDTO.Id = id;
             pedidoDTO.idOficina = oficinaId;
+            pedidoDTO.Status = existing.Status;
             NormalizeLineIdentifiers(pedidoDTO, id);
             ApplyUpdate(existing, pedidoDTO);
 
@@ -494,6 +527,17 @@ namespace SIGO.Services.Entities
             existing.Observacao = pedidoDTO.Observacao;
             existing.DataInicio = pedidoDTO.DataInicio;
             existing.DataFim = pedidoDTO.DataFim;
+        }
+
+        private static void EnsureValidStatus(SIGO.Objects.Enums.Status status)
+        {
+            if (Enum.IsDefined(status))
+                return;
+
+            throw new BusinessValidationException(new[]
+            {
+                new ValidationError(nameof(PedidoDTO.Status), "Status de pedido invalido.")
+            });
         }
 
         private sealed record OrderCatalog(

@@ -12,6 +12,8 @@
 
         public int idVeiculo { get; set; }
 
+        public SIGO.Objects.Enums.Status Status { get; set; } = SIGO.Objects.Enums.Status.Pendente;
+
         public decimal ValorTotal { get; set; }
 
         public decimal ValorBruto => SubtotalPecas + SubtotalServicos;

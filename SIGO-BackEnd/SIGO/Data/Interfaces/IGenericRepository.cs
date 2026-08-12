@@ -8,5 +8,6 @@
         Task Update(T entity);
         Task Remove(T entity);
         Task<int> SaveChanges();
+        Task<int> SaveChanges(CancellationToken cancellationToken);
     }
 }

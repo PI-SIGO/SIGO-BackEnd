@@ -56,6 +56,16 @@ namespace SIGO.Validation
         }
     }
 
+    public sealed class AtualizarStatusRequestValidator : AbstractValidator<AtualizarStatusRequestDTO>
+    {
+        public AtualizarStatusRequestValidator()
+        {
+            RuleFor(request => request.Status)
+                .NotNull()
+                .IsInEnum();
+        }
+    }
+
     public sealed class PecaValidator : AbstractValidator<PecaDTO>
     {
         public PecaValidator()
