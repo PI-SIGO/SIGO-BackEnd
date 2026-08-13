@@ -22,8 +22,7 @@ public sealed record HistoricoVeiculoResumoDTO(
     int QuilometragemAtual,
     string Combustivel,
     string? Seguro,
-    string Cor,
-    string Status);
+    string Cor);
 
 public sealed record HistoricoVeiculoEventoDTO(
     string Origem,

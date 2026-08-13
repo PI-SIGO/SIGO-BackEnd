@@ -1,5 +1,3 @@
-﻿using SIGO.Objects.Enums;
-
 namespace SIGO.Objects.Dtos.Entities
 {
     public class VeiculoDTO
@@ -15,7 +13,6 @@ namespace SIGO.Objects.Dtos.Entities
         public string Seguro { get; set; }
         public string Cor { get; set; }
         public int ClienteId { get; set; }
-        public Status Status { get; set; }
         public ICollection<VeiculoImagemDTO> Imagens { get; set; } = new List<VeiculoImagemDTO>();
         public ICollection<RegistroServicoDTO> RegistroServicos { get; set; } = new List<RegistroServicoDTO>();
         public ICollection<PedidoDTO> Pedidos { get; set; } = new List<PedidoDTO>();

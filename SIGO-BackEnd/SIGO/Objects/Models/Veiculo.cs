@@ -1,4 +1,3 @@
-﻿using SIGO.Objects.Enums;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SIGO.Objects.Models
@@ -36,9 +35,6 @@ namespace SIGO.Objects.Models
         [Column("cor")]
         public string Cor { get; set; }
 
-        [Column("status")]
-        public Status Status { get; set; }
-
         [Column("id_cliente")]
         public int ClienteId { get; set; }
 
@@ -53,7 +49,7 @@ namespace SIGO.Objects.Models
 
         }
         public Veiculo(int id, string nomeVeiculo, string tipoVeiculo, string placaVeiculo, string chassiVeiculo, int anoFab, int quilometragem,
-            string combustivel, string seguro, string cor, Status status)
+            string combustivel, string seguro, string cor)
         {
             Id = id;
             NomeVeiculo = nomeVeiculo;
@@ -65,7 +61,6 @@ namespace SIGO.Objects.Models
             Combustivel = combustivel;
             Seguro = seguro;
             Cor = cor;
-            Status = status;
         }
     }
 }

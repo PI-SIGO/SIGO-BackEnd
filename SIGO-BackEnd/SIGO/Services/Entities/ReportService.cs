@@ -107,8 +107,7 @@ public class ReportService : IReportService
                 vehicle.Quilometragem,
                 vehicle.Combustivel,
                 vehicle.Seguro,
-                vehicle.Cor,
-                vehicle.Status.ToString()),
+                vehicle.Cor),
             events);
     }
 
@@ -384,7 +383,6 @@ public class ReportService : IReportService
             ("Combustivel", history.Veiculo.Combustivel),
             ("Seguro", history.Veiculo.Seguro),
             ("Cor", history.Veiculo.Cor),
-            ("Status", history.Veiculo.Status),
             ("Total de eventos", history.Eventos.Count)
         };
 
