@@ -257,7 +257,7 @@ namespace SIGO.Services.Entities
             {
                 errors.Add(new ValidationError(
                     nameof(PedidoDTO.Pedido_Pecas),
-                    "Repositorio de pecas indisponivel para calcular o pedido."));
+                    "Repositorio de pecas indisponivel para validar o pedido."));
                 return Array.Empty<Peca>();
             }
 
@@ -325,9 +325,16 @@ namespace SIGO.Services.Entities
 
         private static void ApplyFinancialValues(PedidoDTO pedidoDTO, OrderCatalog catalog)
         {
-            var piecesById = catalog.Pieces.ToDictionary(piece => piece.Id);
+            var errors = new List<ValidationError>();
+            if (pedidoDTO.Pedido_Pecas.Any(line => line.ValorUnitario < 0m))
+            {
+                errors.Add(new ValidationError(
+                    nameof(PedidoDTO.Pedido_Pecas),
+                    "O valor unitario da peca nao pode ser negativo."));
+            }
+
             foreach (var line in pedidoDTO.Pedido_Pecas)
-                line.ValorUnitario = RoundMoney(piecesById[line.IdPeca].Valor);
+                line.ValorUnitario = RoundMoney(line.ValorUnitario);
 
             var servicesById = catalog.Services.ToDictionary(service => service.Id);
             foreach (var line in pedidoDTO.Pedido_Servicos)
@@ -342,7 +349,13 @@ namespace SIGO.Services.Entities
             pedidoDTO.DescontoPecaPorcentagem = RoundPercentage(
                 pedidoDTO.DescontoPecaPorcentagem);
 
-            var errors = new List<ValidationError>();
+            if (pedidoDTO.ValorTotal < 0m)
+            {
+                errors.Add(new ValidationError(
+                    nameof(PedidoDTO.ValorTotal),
+                    "O valor total nao pode ser negativo."));
+            }
+
             AddInvalidMoneyError(
                 pedidoDTO.DescontoReais,
                 nameof(PedidoDTO.DescontoReais),
@@ -427,10 +440,8 @@ namespace SIGO.Services.Entities
                 pedidoDTO.DescontoReais,
                 pedidoDTO.DescontoPorcentagem);
 
-            var grossTotal = RoundMoney(servicesSubtotal + piecesSubtotal);
             pedidoDTO.DescontoTotalReais = RoundMoney(
                 servicesDiscount + piecesDiscount + generalDiscount);
-            pedidoDTO.ValorTotal = RoundMoney(grossTotal - pedidoDTO.DescontoTotalReais);
         }
 
         private static decimal CalculateDiscount(

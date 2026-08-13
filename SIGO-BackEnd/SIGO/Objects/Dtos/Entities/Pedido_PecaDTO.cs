@@ -6,6 +6,8 @@
 
         public int IdPeca { get; set; }
 
+        public string NomePeca { get; internal set; }
+
         public int Quantidade { get; set; }
 
         public decimal ValorUnitario { get; set; }

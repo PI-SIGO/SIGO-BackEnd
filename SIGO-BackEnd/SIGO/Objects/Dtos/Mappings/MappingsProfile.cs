@@ -33,9 +33,18 @@ namespace SIGO.Objects.Dtos.Mappings
             CreateMap<OficinaRequestDTO, Oficina>()
                 .ForMember(dest => dest.Senha, opt => opt.MapFrom(src => src.Senha));
             CreateMap<Peca, PecaDTO>().ReverseMap();
-            CreateMap<Pedido_Peca, Pedido_PecaDTO>().ReverseMap();
-            CreateMap<Pedido_Servico, Pedido_ServicoDTO>().ReverseMap();
-            CreateMap<Pedido, PedidoDTO>().ReverseMap();
+            CreateMap<Pedido_Peca, Pedido_PecaDTO>()
+                .ForMember(dest => dest.NomePeca, opt => opt.MapFrom(src => src.Peca != null ? src.Peca.Nome : null));
+            CreateMap<Pedido_PecaDTO, Pedido_Peca>();
+            CreateMap<Pedido_Servico, Pedido_ServicoDTO>()
+                .ForMember(dest => dest.NomeServico, opt => opt.MapFrom(src => src.Servico != null ? src.Servico.Nome : null));
+            CreateMap<Pedido_ServicoDTO, Pedido_Servico>();
+            CreateMap<Pedido, PedidoDTO>()
+                .ForMember(dest => dest.NomeCliente, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Nome : null))
+                .ForMember(dest => dest.NomeFuncionario, opt => opt.MapFrom(src => src.Funcionario != null ? src.Funcionario.Nome : null))
+                .ForMember(dest => dest.NomeOficina, opt => opt.MapFrom(src => src.Oficina != null ? src.Oficina.Nome : null))
+                .ForMember(dest => dest.NomeVeiculo, opt => opt.MapFrom(src => src.Veiculo != null ? src.Veiculo.NomeVeiculo : null));
+            CreateMap<PedidoDTO, Pedido>();
         }
     }
 }
