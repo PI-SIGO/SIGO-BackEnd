@@ -58,7 +58,7 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task Create_DeveCalcularTotalEDescontosComPrecosDoCatalogo()
+        public async Task Create_DevePreservarTotalInformadoECalcularDescontosComPrecosDoCatalogo()
         {
             var request = CreateRequest();
             request.ValorTotal = 9999m;
@@ -70,6 +70,7 @@ namespace SIGO.Tests.Services
             {
                 IdPeca = 8,
                 Quantidade = 2,
+                ValorUnitario = 15m,
                 Estado = "Nova"
             });
             request.Pedido_Servicos.Add(new Pedido_ServicoDTO
@@ -93,14 +94,48 @@ namespace SIGO.Tests.Services
 
             await CreateService().Create(request);
 
-            Assert.Equal(310.50m, request.ValorTotal);
-            Assert.Equal(69.50m, request.DescontoTotalReais);
-            Assert.Equal(310.50m, request.ValorLiquido);
-            Assert.Equal(380m, request.ValorBruto);
-            Assert.Equal(80m, request.SubtotalPecas);
+            Assert.Equal(9999m, request.ValorTotal);
+            Assert.Equal(64.50m, request.DescontoTotalReais);
+            Assert.Equal(9999m, request.ValorLiquido);
+            Assert.Equal(330m, request.ValorBruto);
+            Assert.Equal(30m, request.SubtotalPecas);
             Assert.Equal(300m, request.SubtotalServicos);
-            Assert.Equal(40m, request.Pedido_Pecas.Single().ValorUnitario);
+            Assert.Equal(15m, request.Pedido_Pecas.Single().ValorUnitario);
             Assert.Equal(100m, request.Pedido_Servicos.Single().ValorUnitario);
+        }
+
+        [Fact]
+        public async Task Create_DeveRejeitarValorTotalNegativo()
+        {
+            var request = CreateRequest();
+            request.ValorTotal = -1m;
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.ValorTotal));
+            _orders.Verify(repository => repository.Add(It.IsAny<Pedido>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Create_DeveRejeitarValorUnitarioNegativoNaPeca()
+        {
+            var request = CreateRequest();
+            request.Pedido_Pecas.Add(new Pedido_PecaDTO
+            {
+                IdPeca = 8,
+                Quantidade = 1,
+                ValorUnitario = -1m,
+                Estado = "Nova"
+            });
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(exception.Errors, error =>
+                error.Field == nameof(PedidoDTO.Pedido_Pecas));
+            _orders.Verify(repository => repository.Add(It.IsAny<Pedido>()), Times.Never);
         }
 
         [Fact]
@@ -200,11 +235,13 @@ namespace SIGO.Tests.Services
                 Pedido_Servicos = new List<Pedido_Servico>()
             };
             var request = CreateRequest();
+            request.ValorTotal = 425m;
             request.Status = Status.Concluido;
             request.Pedido_Pecas.Add(new Pedido_PecaDTO
             {
                 IdPeca = 8,
                 Quantidade = 2,
+                ValorUnitario = 17.50m,
                 Estado = "Nova",
                 DataInstalacao = DateOnly.FromDateTime(DateTime.Today)
             });
@@ -233,15 +270,16 @@ namespace SIGO.Tests.Services
                 It.Is<IReadOnlyCollection<Pedido_Peca>>(items =>
                     items.Count == 1 &&
                     items.Single().IdPeca == 8 &&
-                    items.Single().ValorUnitario == 25m),
+                    items.Single().ValorUnitario == 17.50m),
                 It.Is<IReadOnlyCollection<Pedido_Servico>>(items =>
                     items.Count == 1 &&
                     items.Single().IdServico == 6 &&
                     items.Single().ValorUnitario == 60m),
                 It.IsAny<CancellationToken>()), Times.Once);
             _orders.Verify(repository => repository.SaveChanges(), Times.Never);
-            Assert.Equal(170m, request.ValorTotal);
-            Assert.Equal(170m, request.ValorLiquido);
+            Assert.Equal(425m, request.ValorTotal);
+            Assert.Equal(425m, existing.ValorTotal);
+            Assert.Equal(425m, request.ValorLiquido);
             Assert.Equal(Status.EmAndamento, request.Status);
         }
 

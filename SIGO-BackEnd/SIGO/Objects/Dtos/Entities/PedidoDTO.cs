@@ -6,11 +6,19 @@
 
         public int idCliente { get; set; }
 
+        public string NomeCliente { get; internal set; }
+
         public int idFuncionario { get; set; }
+
+        public string NomeFuncionario { get; internal set; }
 
         public int idOficina { get; set; }
 
+        public string NomeOficina { get; internal set; }
+
         public int idVeiculo { get; set; }
+
+        public string NomeVeiculo { get; internal set; }
 
         public SIGO.Objects.Enums.Status Status { get; set; } = SIGO.Objects.Enums.Status.Pendente;
 

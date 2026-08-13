@@ -10,6 +10,7 @@ namespace SIGO.Validation
             RuleFor(request => request.idCliente).GreaterThan(0);
             RuleFor(request => request.idFuncionario).GreaterThan(0);
             RuleFor(request => request.idVeiculo).GreaterThan(0);
+            RuleFor(request => request.ValorTotal).GreaterThanOrEqualTo(0);
             RuleFor(request => request.DescontoReais).GreaterThanOrEqualTo(0);
             RuleFor(request => request.DescontoServicoReais).GreaterThanOrEqualTo(0);
             RuleFor(request => request.descontoPecaReais).GreaterThanOrEqualTo(0);
@@ -25,6 +26,7 @@ namespace SIGO.Validation
             {
                 piece.RuleFor(item => item.IdPeca).GreaterThan(0);
                 piece.RuleFor(item => item.Quantidade).GreaterThan(0);
+                piece.RuleFor(item => item.ValorUnitario).GreaterThanOrEqualTo(0);
                 piece.RuleFor(item => item.Estado).NotEmpty().MaximumLength(100);
                 piece.RuleFor(item => item.Observacao).MaximumLength(500);
             });
