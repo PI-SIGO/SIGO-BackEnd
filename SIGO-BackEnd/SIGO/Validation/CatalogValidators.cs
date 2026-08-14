@@ -8,9 +8,9 @@ public sealed class VeiculoValidator : AbstractValidator<VeiculoRequestDTO>
     public VeiculoValidator()
     {
         RuleFor(request => request.NomeVeiculo).NotEmpty().MaximumLength(100);
-        RuleFor(request => request.TipoVeiculo).NotEmpty().MaximumLength(50);
+        RuleFor(request => request.ModeloVeiculo).NotEmpty().MaximumLength(50);
         RuleFor(request => request.PlacaVeiculo).NotEmpty().MaximumLength(8);
-        RuleFor(request => request.ChassiVeiculo).NotEmpty().MaximumLength(17);
+        RuleFor(request => request.ChassiVeiculo).MaximumLength(17);
         RuleFor(request => request.AnoFab).InclusiveBetween(1886, DateTime.UtcNow.Year + 1);
         RuleFor(request => request.Quilometragem).GreaterThanOrEqualTo(0);
         RuleFor(request => request.Combustivel).NotEmpty().MaximumLength(30);

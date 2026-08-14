@@ -65,7 +65,7 @@ namespace SIGO.Tests.Services
         private static PecaDTO CreateRequest(int? oficinaId) => new()
         {
             Nome = "Filtro",
-            Tipo = "Oleo",
+            EAN = "7891234567890",
             Descricao = "Filtro",
             Valor = 50,
             Quantidade = 1,

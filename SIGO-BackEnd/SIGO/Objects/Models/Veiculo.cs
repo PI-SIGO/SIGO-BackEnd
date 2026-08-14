@@ -11,8 +11,8 @@ namespace SIGO.Objects.Models
         [Column("nome")]
         public string NomeVeiculo { get; set; }
 
-        [Column("tipo")]
-        public string TipoVeiculo { get; set; }
+        [Column("modelo")]
+        public string ModeloVeiculo { get; set; }
 
         [Column("placa")]
         public string PlacaVeiculo { get; set; }
@@ -48,12 +48,12 @@ namespace SIGO.Objects.Models
         {
 
         }
-        public Veiculo(int id, string nomeVeiculo, string tipoVeiculo, string placaVeiculo, string chassiVeiculo, int anoFab, int quilometragem,
+        public Veiculo(int id, string nomeVeiculo, string modeloVeiculo, string placaVeiculo, string chassiVeiculo, int anoFab, int quilometragem,
             string combustivel, string seguro, string cor)
         {
             Id = id;
             NomeVeiculo = nomeVeiculo;
-            TipoVeiculo = tipoVeiculo;
+            ModeloVeiculo = modeloVeiculo;
             PlacaVeiculo = placaVeiculo;
             ChassiVeiculo = chassiVeiculo;
             AnoFab = anoFab;

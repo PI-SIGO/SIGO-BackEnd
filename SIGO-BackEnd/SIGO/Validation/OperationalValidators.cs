@@ -73,11 +73,11 @@ namespace SIGO.Validation
         public PecaValidator()
         {
             RuleFor(request => request.Nome).NotEmpty().MaximumLength(100);
-            RuleFor(request => request.Tipo).NotEmpty().MaximumLength(100);
             RuleFor(request => request.Descricao).MaximumLength(500);
             RuleFor(request => request.Valor).GreaterThanOrEqualTo(0);
             RuleFor(request => request.Quantidade).GreaterThanOrEqualTo(0);
             RuleFor(request => request.QuantidadeEstoque).GreaterThanOrEqualTo(0);
+            RuleFor(request => request.EAN).MaximumLength(13);
             RuleFor(request => request.Unidade).GreaterThan(0);
             RuleFor(request => request.IdMarca).GreaterThan(0);
             RuleFor(request => request.Fornecedor).NotEmpty().MaximumLength(100);

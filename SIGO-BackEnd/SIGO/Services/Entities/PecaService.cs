@@ -63,7 +63,6 @@ namespace SIGO.Services.Entities
                 throw new KeyNotFoundException($"Peça com id {id} não encontrada.");
 
             existing.Nome = pecaDTO.Nome;
-            existing.Tipo = pecaDTO.Tipo;
             existing.Descricao = pecaDTO.Descricao;
             existing.Valor = pecaDTO.Valor;
             existing.Quantidade = pecaDTO.Quantidade;
@@ -72,6 +71,7 @@ namespace SIGO.Services.Entities
             existing.Unidade = pecaDTO.Unidade;
             existing.IdMarca = pecaDTO.IdMarca;
             existing.DataAquisicao = pecaDTO.DataAquisicao;
+            existing.EAN = pecaDTO.EAN;
             existing.Fornecedor = pecaDTO.Fornecedor;
             EnsureOficinaOwner(pecaDTO.IdOficina);
             existing.IdOficina = pecaDTO.IdOficina;

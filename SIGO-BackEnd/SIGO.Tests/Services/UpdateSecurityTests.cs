@@ -287,7 +287,7 @@ namespace SIGO.Tests.Services
                 Id = 2,
                 ClienteId = 5,
                 NomeVeiculo = "Original",
-                TipoVeiculo = "Hatch",
+                ModeloVeiculo = "Hatch",
                 PlacaVeiculo = "ABC1234",
                 ChassiVeiculo = "CHASSI123",
                 AnoFab = 2020,
@@ -307,7 +307,7 @@ namespace SIGO.Tests.Services
             await service.UpdateVeiculoForOficina(new VeiculoRequestDTO
             {
                 NomeVeiculo = "Atualizado",
-                TipoVeiculo = "Sedan",
+                ModeloVeiculo = "Sedan",
                 PlacaVeiculo = "DEF5678",
                 ChassiVeiculo = "CHASSI456",
                 AnoFab = 2021,
@@ -334,7 +334,7 @@ namespace SIGO.Tests.Services
             var expectedProperties = new HashSet<string>(StringComparer.Ordinal)
             {
                 nameof(VeiculoRequestDTO.NomeVeiculo),
-                nameof(VeiculoRequestDTO.TipoVeiculo),
+                nameof(VeiculoRequestDTO.ModeloVeiculo),
                 nameof(VeiculoRequestDTO.PlacaVeiculo),
                 nameof(VeiculoRequestDTO.ChassiVeiculo),
                 nameof(VeiculoRequestDTO.AnoFab),

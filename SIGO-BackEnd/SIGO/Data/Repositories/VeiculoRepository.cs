@@ -42,21 +42,21 @@ namespace SIGO.Data.Repositories
         public async Task<IEnumerable<Veiculo>> GetByTipo(string tipo)
         {
             return await VeiculosComDetalhes()
-                .Where(v => v.TipoVeiculo.Contains(tipo))
+                .Where(v => v.ModeloVeiculo.Contains(tipo))
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<Veiculo>> GetByTipoForCliente(string tipo, int clienteId)
         {
             return await VeiculosDoCliente(clienteId)
-                .Where(v => v.TipoVeiculo.Contains(tipo))
+                .Where(v => v.ModeloVeiculo.Contains(tipo))
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<Veiculo>> GetByTipoForOficina(string tipo, int oficinaId)
         {
             return await VeiculosDaOficina(oficinaId, asNoTracking: true)
-                .Where(v => v.TipoVeiculo.Contains(tipo))
+                .Where(v => v.ModeloVeiculo.Contains(tipo))
                 .ToListAsync();
         }
 

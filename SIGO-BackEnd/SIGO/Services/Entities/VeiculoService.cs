@@ -276,7 +276,7 @@ namespace SIGO.Services.Entities
             var entity = new Veiculo
             {
                 NomeVeiculo = request.NomeVeiculo,
-                TipoVeiculo = request.TipoVeiculo,
+                ModeloVeiculo = request.ModeloVeiculo,
                 PlacaVeiculo = request.PlacaVeiculo,
                 ChassiVeiculo = request.ChassiVeiculo,
                 AnoFab = request.AnoFab,
@@ -400,7 +400,7 @@ namespace SIGO.Services.Entities
         private static void ApplyUpdate(Veiculo existing, VeiculoRequestDTO request)
         {
             existing.NomeVeiculo = request.NomeVeiculo;
-            existing.TipoVeiculo = request.TipoVeiculo;
+            existing.ModeloVeiculo = request.ModeloVeiculo;
             existing.PlacaVeiculo = request.PlacaVeiculo;
             existing.ChassiVeiculo = request.ChassiVeiculo;
             existing.AnoFab = request.AnoFab;
