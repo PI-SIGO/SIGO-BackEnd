@@ -114,7 +114,7 @@ public sealed class ReportServiceTests
             Id = 10,
             ClienteId = 5,
             NomeVeiculo = "Onix",
-            TipoVeiculo = "Carro",
+            ModeloVeiculo = "Carro",
             PlacaVeiculo = "ABC1D23",
             ChassiVeiculo = "12345678901234567",
             AnoFab = 2024,

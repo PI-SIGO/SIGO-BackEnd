@@ -9,8 +9,6 @@ namespace SIGO.Objects.Dtos.Entities
 
         public string Nome { get; set; }
 
-        public string Tipo { get; set; }
-
         public string Descricao { get; set; }
 
         public decimal Valor { get; set; }
@@ -18,6 +16,8 @@ namespace SIGO.Objects.Dtos.Entities
         public int Quantidade { get; set; }
 
         public int QuantidadeEstoque { get; set; }
+
+        public string EAN { get; set; }
 
         public DateOnly Garantia { get; set; }
 

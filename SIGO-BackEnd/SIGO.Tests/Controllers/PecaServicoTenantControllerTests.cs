@@ -119,7 +119,7 @@ namespace SIGO.Tests.Controllers
         {
             Id = id,
             Nome = "Filtro",
-            Tipo = "Oleo",
+            EAN = "7891234567890",
             Descricao = "Filtro de oleo",
             Valor = 50,
             Quantidade = 2,

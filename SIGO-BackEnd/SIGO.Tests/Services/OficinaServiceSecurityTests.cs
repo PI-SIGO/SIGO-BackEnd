@@ -89,7 +89,8 @@ namespace SIGO.Tests.Services
             {
                 CNPJ = "11222333000181",
                 Email = "  OFICINA@EXAMPLE.COM  ",
-                Senha = "Senha123"
+                Senha = "Senha123",
+                Cep = 89010000
             };
             var entity = new Oficina { Id = 11 };
             _cnpjValidator.Setup(validator => validator.IsValid(request.CNPJ)).Returns(true);
@@ -113,7 +114,8 @@ namespace SIGO.Tests.Services
             {
                 CNPJ = "11222333000181",
                 Email = "  OFICINA@EXAMPLE.COM  ",
-                Senha = "Senha123"
+                Senha = "Senha123",
+                Cep = 89010000
             };
             _cnpjValidator.Setup(validator => validator.IsValid(request.CNPJ)).Returns(true);
             _cnpjValidator.Setup(validator => validator.Normalize(request.CNPJ)).Returns("11222333000181");
@@ -128,6 +130,45 @@ namespace SIGO.Tests.Services
                 exception.Errors,
                 error => error.Field == nameof(OficinaDTO.Email) && error.Message == "E-mail já cadastrado.");
             _repository.Verify(repository => repository.Add(It.IsAny<Oficina>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Create_DeveRejeitarCepZero()
+        {
+            var request = new OficinaRequestDTO
+            {
+                CNPJ = "11222333000181",
+                Email = "oficina@example.com",
+                Senha = "Senha123",
+                Cep = 0
+            };
+            _cnpjValidator.Setup(validator => validator.IsValid(request.CNPJ)).Returns(true);
+            _cnpjValidator.Setup(validator => validator.Normalize(request.CNPJ)).Returns("11222333000181");
+            _repository
+                .Setup(repository => repository.ExistsByEmail("oficina@example.com", null))
+                .ReturnsAsync(false);
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(
+                exception.Errors,
+                error => error.Field == nameof(OficinaDTO.Cep) && error.Message == "CEP deve ser maior que zero.");
+            _repository.Verify(repository => repository.Add(It.IsAny<Oficina>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateSelfProfile_DeveRejeitarCepZero()
+        {
+            var request = new OficinaRequestDTO { Cep = 0 };
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().UpdateSelfProfile(request, 7));
+
+            Assert.Contains(
+                exception.Errors,
+                error => error.Field == nameof(OficinaDTO.Cep) && error.Message == "CEP deve ser maior que zero.");
+            _repository.Verify(repository => repository.SaveChanges(), Times.Never);
         }
 
         [Fact]

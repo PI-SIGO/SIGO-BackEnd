@@ -103,6 +103,7 @@ namespace SIGO.Services.Entities
 
         public async Task UpdateSelfProfile(OficinaRequestDTO oficinaDTO, int id)
         {
+            ValidateCep(oficinaDTO.Cep);
             var existing = await GetExisting(id);
 
             existing.Nome = oficinaDTO.Nome;
@@ -138,7 +139,21 @@ namespace SIGO.Services.Entities
             var errors = new List<ValidationError>();
             await AddCnpjErrors(oficinaDTO.CNPJ, errors, ignoreId);
             await AddEmailErrors(oficinaDTO.Email, errors, ignoreId);
+            AddCepErrors(oficinaDTO.Cep, errors);
             ThrowIfInvalid(errors);
+        }
+
+        private static void ValidateCep(int cep)
+        {
+            var errors = new List<ValidationError>();
+            AddCepErrors(cep, errors);
+            ThrowIfInvalid(errors);
+        }
+
+        private static void AddCepErrors(int cep, ICollection<ValidationError> errors)
+        {
+            if (cep <= 0)
+                errors.Add(new ValidationError(nameof(OficinaDTO.Cep), "CEP deve ser maior que zero."));
         }
 
         private async Task AddCnpjErrors(string? cnpj, ICollection<ValidationError> errors, int? ignoreId = null)

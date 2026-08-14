@@ -4,7 +4,7 @@ namespace SIGO.Objects.Dtos.Entities
     {
         public int Id { get; set; }
         public string NomeVeiculo { get; set; }
-        public string TipoVeiculo { get; set; }
+        public string ModeloVeiculo { get; set; }
         public string PlacaVeiculo { get; set; }
         public string ChassiVeiculo { get; set; }
         public int AnoFab { get; set; }

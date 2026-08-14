@@ -282,7 +282,7 @@ namespace SIGO.Data.Seed
                 veiculo = new Veiculo
                 {
                     NomeVeiculo = "Veiculo Full Teste",
-                    TipoVeiculo = "SUV",
+                    ModeloVeiculo = "SUV",
                     PlacaVeiculo = "TST1A23",
                     ChassiVeiculo = "9BWZZZ377VT999999",
                     AnoFab = 2024,
@@ -299,7 +299,7 @@ namespace SIGO.Data.Seed
             else
             {
                 veiculo.NomeVeiculo = "Veiculo Full Teste";
-                veiculo.TipoVeiculo = "SUV";
+                veiculo.ModeloVeiculo = "SUV";
                 veiculo.ChassiVeiculo = "9BWZZZ377VT999999";
                 veiculo.AnoFab = 2024;
                 veiculo.Quilometragem = 12345;
@@ -360,7 +360,6 @@ namespace SIGO.Data.Seed
                 peca = new Peca
                 {
                     Nome = "Filtro Full Teste",
-                    Tipo = "Filtro",
                     Descricao = "Peca completa para teste da listagem de veiculos.",
                     Valor = 89.90m,
                     Quantidade = 10,
@@ -376,7 +375,6 @@ namespace SIGO.Data.Seed
             }
             else
             {
-                peca.Tipo = "Filtro";
                 peca.Descricao = "Peca completa para teste da listagem de veiculos.";
                 peca.Valor = 89.90m;
                 peca.Quantidade = 10;
@@ -839,7 +837,7 @@ namespace SIGO.Data.Seed
                 veiculo = new Veiculo
                 {
                     NomeVeiculo = "Veiculo Seed",
-                    TipoVeiculo = "Carro",
+                    ModeloVeiculo = "Carro",
                     PlacaVeiculo = "SED1A23",
                     ChassiVeiculo = "9BWZZZ377VT004251",
                     AnoFab = 2020,
@@ -855,7 +853,7 @@ namespace SIGO.Data.Seed
             else
             {
                 veiculo.NomeVeiculo = "Veiculo Seed";
-                veiculo.TipoVeiculo = "Carro";
+                veiculo.ModeloVeiculo = "Carro";
                 veiculo.ChassiVeiculo = "9BWZZZ377VT004251";
                 veiculo.AnoFab = 2020;
                 veiculo.Quilometragem = 50000;

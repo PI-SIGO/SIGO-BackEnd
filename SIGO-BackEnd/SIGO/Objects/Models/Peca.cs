@@ -11,9 +11,6 @@ namespace SIGO.Objects.Models
         [Column("nome")]
         public string Nome { get; set; }
 
-        [Column("tipo")]
-        public string Tipo { get; set; }
-
         [Column("descricao")]
         public string Descricao { get; set; }
     
@@ -32,6 +29,9 @@ namespace SIGO.Objects.Models
         [Column("unidade")]
         public int Unidade { get; set; }
 
+        [Column("EAN")]
+        public string EAN { get; set; }
+
         [Column("idmarca")]
         public int IdMarca { get; set; }
         public Marca Marca { get; set; }
@@ -48,12 +48,11 @@ namespace SIGO.Objects.Models
 
         public Peca() { }
     
-        public Peca(int id, string nome, string tipo, string descricao, decimal valor, int quantidade, DateOnly garantia,
+        public Peca(int id, string nome, string descricao, decimal valor, int quantidade, DateOnly garantia,
             int unidade, DateOnly dataAquisicao, string fornecedor, int quantidadeEstoque = 0)
         {
             Id = id;
             Nome = nome;
-            Tipo = tipo;
             Descricao = descricao;
             Valor = valor;
             Quantidade = quantidade;

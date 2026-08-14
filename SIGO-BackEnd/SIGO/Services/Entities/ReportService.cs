@@ -100,7 +100,7 @@ public class ReportService : IReportService
                 vehicle.Id,
                 vehicle.ClienteId,
                 vehicle.NomeVeiculo,
-                vehicle.TipoVeiculo,
+                vehicle.ModeloVeiculo,
                 vehicle.PlacaVeiculo,
                 vehicle.ChassiVeiculo,
                 vehicle.AnoFab,

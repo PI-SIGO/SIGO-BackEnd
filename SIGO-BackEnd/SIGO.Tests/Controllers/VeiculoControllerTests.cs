@@ -483,7 +483,7 @@ namespace SIGO.Tests.Controllers
             {
                 Id = id,
                 NomeVeiculo = "Carro",
-                TipoVeiculo = "Hatch",
+                ModeloVeiculo = "Hatch",
                 PlacaVeiculo = "ABC1234",
                 ChassiVeiculo = $"CHASSI{id}",
                 AnoFab = 2020,
@@ -500,7 +500,7 @@ namespace SIGO.Tests.Controllers
             return new VeiculoRequestDTO
             {
                 NomeVeiculo = "Carro",
-                TipoVeiculo = "Hatch",
+                ModeloVeiculo = "Hatch",
                 PlacaVeiculo = "ABC1234",
                 ChassiVeiculo = "9BGKS48U0KG000001",
                 AnoFab = 2020,
