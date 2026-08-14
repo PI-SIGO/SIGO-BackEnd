@@ -371,7 +371,7 @@ namespace SIGO.Services.Entities
                 .FirstOrDefault(co =>
                     co.OficinaId == oficinaId &&
                     co.ClienteId == cliente.Id &&
-                    co.Ativo);
+                    (co.Ativo || cliente.Situacao == SIGO.Objects.Enums.Situacao.INATIVO));
 
             if (relacionamento is null)
                 return null;

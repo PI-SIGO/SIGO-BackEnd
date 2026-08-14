@@ -176,6 +176,12 @@ namespace SIGO.Services.Entities
             await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
         }
 
+        public async Task RemoveImagemForOficina(int veiculoId, int oficinaId, int imagemId)
+        {
+            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
+        }
+
         public async Task RemoveForOficina(int veiculoId, int oficinaId)
         {
             var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);

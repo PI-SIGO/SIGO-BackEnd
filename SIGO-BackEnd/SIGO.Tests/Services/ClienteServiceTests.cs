@@ -102,6 +102,43 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task GetByOficina_DeveMapearClienteInativoComVinculoRevogado()
+        {
+            var cliente = new Cliente
+            {
+                Id = 7,
+                Nome = "Cliente inativo",
+                Situacao = Situacao.INATIVO,
+                ClienteOficinas = new List<ClienteOficina>
+                {
+                    new()
+                    {
+                        ClienteId = 7,
+                        OficinaId = 2,
+                        Ativo = false,
+                        RevogadoEm = DateTime.UtcNow
+                    }
+                }
+            };
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByOficina(2))
+                .ReturnsAsync(new[] { cliente });
+            _mapperMock
+                .Setup(mapper => mapper.Map<List<TelefoneDTO>>(cliente.Telefones))
+                .Returns(new List<TelefoneDTO>());
+            _mapperMock
+                .Setup(mapper => mapper.Map<List<VeiculoDTO>>(cliente.Veiculos))
+                .Returns(new List<VeiculoDTO>());
+            var service = CreateService();
+
+            var result = await service.GetByOficina(2);
+
+            var returnedClient = Assert.Single(result);
+            Assert.Equal(7, returnedClient.Id);
+            Assert.Equal((int)Situacao.INATIVO, returnedClient.Situacao);
+        }
+
+        [Fact]
         public async Task GetByIdWithDetailsForOficina_DeveOcultarHistoricosDeOutrasOficinas()
         {
             var service = CreateService();

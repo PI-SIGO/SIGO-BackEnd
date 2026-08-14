@@ -28,6 +28,41 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public async Task GetAll_DeveRetornarClientesAtivosEInativosDaOficina()
+        {
+            var clientes = new[]
+            {
+                new ClienteOficinaDTO
+                {
+                    Id = 1,
+                    Nome = "Cliente ativo",
+                    Situacao = (int)SIGO.Objects.Enums.Situacao.ATIVO
+                },
+                new ClienteOficinaDTO
+                {
+                    Id = 2,
+                    Nome = "Cliente inativo",
+                    Situacao = (int)SIGO.Objects.Enums.Situacao.INATIVO
+                }
+            };
+            _clienteServiceMock.Setup(service => service.GetByOficina(7)).ReturnsAsync(clientes);
+            var controller = CreateController(
+                roles: new[] { SystemRoles.Oficina },
+                oficinaId: 7);
+
+            var result = await controller.GetAll();
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<PagedResponse<ClienteOficinaDTO>>(ok.Value);
+            Assert.Equal(2, response.Items.Count);
+            Assert.Contains(response.Items, cliente =>
+                cliente.Situacao == (int)SIGO.Objects.Enums.Situacao.ATIVO);
+            Assert.Contains(response.Items, cliente =>
+                cliente.Situacao == (int)SIGO.Objects.Enums.Situacao.INATIVO);
+            _clienteServiceMock.Verify(service => service.GetByOficina(7), Times.Once);
+        }
+
+        [Fact]
         public async Task Delete_DeveRetornarForbid_QuandoClienteTentaExcluirOutroCadastro()
         {
             var controller = CreateController(userId: 1, roles: new[] { SystemRoles.Cliente });

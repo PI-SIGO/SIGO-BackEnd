@@ -442,6 +442,61 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
+        public void DeleteImagem_DeveAutorizarOficina()
+        {
+            var attribute = typeof(VeiculoController)
+                .GetMethod(nameof(VeiculoController.DeleteImagem))!
+                .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)
+                .Cast<AuthorizeAttribute>()
+                .Single();
+
+            Assert.Contains(SystemRoles.Oficina, attribute.Roles ?? string.Empty);
+        }
+
+        [Fact]
+        public async Task DeleteImagem_DeveRemoverImagemNoEscopoDaOficina()
+        {
+            _veiculoServiceMock
+                .Setup(service => service.RemoveImagemForOficina(4, 2, 8))
+                .Returns(Task.CompletedTask);
+            var controller = CreateController(
+                oficinaId: 2,
+                roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.DeleteImagem(4, 8);
+
+            Assert.IsType<NoContentResult>(result);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagemForOficina(4, 2, 8),
+                Times.Once);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagem(It.IsAny<int>(), It.IsAny<int>()),
+                Times.Never);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagemForCliente(
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteImagem_DeveRetornarForbid_QuandoOficinaNaoTemOficinaId()
+        {
+            var controller = CreateController(roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.DeleteImagem(4, 8);
+
+            Assert.IsType<ForbidResult>(result);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagemForOficina(
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task GetImagemArquivo_DeveRetornarArquivoDoVeiculoDoClienteLogado()
         {
             var stream = new MemoryStream(new byte[] { 1, 2, 3 });

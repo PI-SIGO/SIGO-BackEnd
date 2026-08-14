@@ -256,28 +256,38 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{veiculoId:int}/imagens/{imagemId:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
         public async Task<IActionResult> DeleteImagem(int veiculoId, int imagemId)
         {
-            if (!_currentUserService.IsInRole(SystemRoles.Admin) && !_currentUserService.IsInRole(SystemRoles.Cliente))
-                return Forbid();
-
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                if (_currentUserService.IsInRole(SystemRoles.Admin))
-                {
-                    await _veiculoService.RemoveImagem(veiculoId, imagemId);
-                }
-                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
-                {
-                    var clienteId = _currentUserService.UserId;
-                    if (!clienteId.HasValue)
-                        return Forbid();
-
-                    await _veiculoService.RemoveImagemForCliente(veiculoId, clienteId.Value, imagemId);
-                }
-
-                return NoContent();
+                await _veiculoService.RemoveImagem(veiculoId, imagemId);
             }
+            else if (_currentUserService.IsInRole(SystemRoles.Cliente))
+            {
+                var clienteId = _currentUserService.UserId;
+                if (!clienteId.HasValue)
+                    return Forbid();
+
+                await _veiculoService.RemoveImagemForCliente(veiculoId, clienteId.Value, imagemId);
+            }
+            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                await _veiculoService.RemoveImagemForOficina(
+                    veiculoId,
+                    oficinaId.Value,
+                    imagemId);
+            }
+            else
+            {
+                return Forbid();
+            }
+
+            return NoContent();
         }
 
         [HttpPut("{id:int}")]

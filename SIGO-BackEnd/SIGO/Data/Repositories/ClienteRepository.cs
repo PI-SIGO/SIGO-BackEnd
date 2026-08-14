@@ -34,9 +34,13 @@ namespace SIGO.Data.Repositories
         public async Task<IEnumerable<Cliente>> GetByOficina(int oficinaId)
         {
             return await ClientesComDetalhes()
-                .Where(c => c.ClienteOficinas.Any(co =>
-                    co.OficinaId == oficinaId && co.Ativo))
-                .Where(c => c.Situacao == Situacao.ATIVO)
+                .Where(cliente =>
+                    (cliente.Situacao == Situacao.ATIVO &&
+                     cliente.ClienteOficinas.Any(vinculo =>
+                         vinculo.OficinaId == oficinaId && vinculo.Ativo)) ||
+                    (cliente.Situacao == Situacao.INATIVO &&
+                     cliente.ClienteOficinas.Any(vinculo =>
+                         vinculo.OficinaId == oficinaId)))
                 .ToListAsync();
         }
 

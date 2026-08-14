@@ -106,6 +106,51 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task RemoveImagemForOficina_DeveRemoverImagemDoVeiculoVinculado()
+        {
+            var imagem = new VeiculoImagem
+            {
+                Id = 8,
+                VeiculoId = 4,
+                Url = "/api/v1/veiculos/4/imagens/foto.png"
+            };
+            var veiculo = new Veiculo
+            {
+                Id = 4,
+                ClienteId = 5,
+                Imagens = new List<VeiculoImagem> { imagem }
+            };
+            _veiculoRepositoryMock
+                .Setup(repository => repository.GetByIdForOficina(4, 2))
+                .ReturnsAsync(veiculo);
+            _veiculoRepositoryMock.Setup(repository => repository.SaveChanges()).ReturnsAsync(1);
+            var service = CreateService();
+
+            await service.RemoveImagemForOficina(4, 2, 8);
+
+            Assert.DoesNotContain(imagem, veiculo.Imagens);
+            _veiculoRepositoryMock.Verify(repository => repository.SaveChanges(), Times.Once);
+            _storageServiceMock.Verify(storage => storage.Delete(imagem), Times.Once);
+        }
+
+        [Fact]
+        public async Task RemoveImagemForOficina_NaoDeveExcluirQuandoVeiculoNaoPertenceAOficina()
+        {
+            _veiculoRepositoryMock
+                .Setup(repository => repository.GetByIdForOficina(4, 2))
+                .ReturnsAsync((Veiculo?)null);
+            var service = CreateService();
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.RemoveImagemForOficina(4, 2, 8));
+
+            _veiculoRepositoryMock.Verify(repository => repository.SaveChanges(), Times.Never);
+            _storageServiceMock.Verify(
+                storage => storage.Delete(It.IsAny<VeiculoImagem>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task GetImagemArquivoForCliente_DeveAbrirSomenteImagemDoVeiculoDoCliente()
         {
             var stream = new MemoryStream(new byte[] { 1, 2, 3 });
