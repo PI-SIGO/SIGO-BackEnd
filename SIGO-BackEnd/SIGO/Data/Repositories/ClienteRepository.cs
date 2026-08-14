@@ -35,12 +35,8 @@ namespace SIGO.Data.Repositories
         {
             return await ClientesComDetalhes()
                 .Where(cliente =>
-                    (cliente.Situacao == Situacao.ATIVO &&
-                     cliente.ClienteOficinas.Any(vinculo =>
-                         vinculo.OficinaId == oficinaId && vinculo.Ativo)) ||
-                    (cliente.Situacao == Situacao.INATIVO &&
-                     cliente.ClienteOficinas.Any(vinculo =>
-                         vinculo.OficinaId == oficinaId)))
+                    cliente.ClienteOficinas.Any(vinculo =>
+                        vinculo.OficinaId == oficinaId))
                 .ToListAsync();
         }
 

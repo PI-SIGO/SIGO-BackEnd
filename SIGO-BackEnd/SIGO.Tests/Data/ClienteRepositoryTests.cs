@@ -10,7 +10,7 @@ namespace SIGO.Tests.Data
     public class ClienteRepositoryTests
     {
         [Fact]
-        public async Task GetByOficina_DeveRetornarAtivoVinculadoEInativoHistoricoDaMesmaOficina()
+        public async Task GetByOficina_DeveRetornarVinculosAtivosEInativosDaMesmaOficina()
         {
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -26,7 +26,7 @@ namespace SIGO.Tests.Data
 
             var result = (await repository.GetByOficina(2)).ToArray();
 
-            Assert.Equal(new[] { 1, 2 }, result.Select(cliente => cliente.Id).OrderBy(id => id));
+            Assert.Equal(new[] { 1, 2, 3 }, result.Select(cliente => cliente.Id).OrderBy(id => id));
         }
 
         private static Cliente CreateClient(

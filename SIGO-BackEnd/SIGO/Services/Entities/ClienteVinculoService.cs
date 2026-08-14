@@ -225,6 +225,64 @@ public sealed class ClienteVinculoService : IClienteVinculoService
             cancellationToken);
     }
 
+    public async Task<bool> UpdateStatusForOficinaAsync(
+        int clienteId,
+        int oficinaId,
+        bool ativo,
+        SecurityAuditContext auditContext,
+        CancellationToken cancellationToken = default)
+    {
+        if (clienteId <= 0 || oficinaId <= 0)
+        {
+            throw new BusinessValidationException(new[]
+            {
+                new ValidationError("vinculo", "Cliente e oficina devem ser validos.")
+            });
+        }
+
+        return await _identityRepository.ExecuteInTransactionAsync(
+            async token =>
+            {
+                var relacionamento = await _vinculoRepository.GetAsync(
+                    oficinaId,
+                    clienteId,
+                    token);
+                if (relacionamento is null)
+                    throw new KeyNotFoundException("Vinculo entre cliente e oficina nao encontrado.");
+
+                if (relacionamento.Ativo == ativo)
+                    return ativo;
+
+                var now = UtcNow();
+                if (ativo)
+                {
+                    await _vinculoRepository.AddOrActivateAsync(
+                        oficinaId,
+                        clienteId,
+                        token);
+                }
+                else
+                {
+                    await _vinculoRepository.DeactivateByOficinaAsync(
+                        oficinaId,
+                        clienteId,
+                        now,
+                        token);
+                }
+
+                await AddLinkAuditAsync(
+                    clienteId,
+                    auditContext,
+                    ativo
+                        ? TipoEventoAuditoria.VinculoAtivado
+                        : TipoEventoAuditoria.VinculoRevogado,
+                    now,
+                    token);
+                return ativo;
+            },
+            cancellationToken);
+    }
+
     private static Cliente CreateCliente(
         PreCadastrarClienteDTO request,
         string cpf,

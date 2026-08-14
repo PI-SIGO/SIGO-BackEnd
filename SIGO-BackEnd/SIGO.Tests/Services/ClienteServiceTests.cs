@@ -102,13 +102,13 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
-        public async Task GetByOficina_DeveMapearClienteInativoComVinculoRevogado()
+        public async Task GetByOficina_DeveDiferenciarCadastroAtivoDeVinculoInativo()
         {
             var cliente = new Cliente
             {
                 Id = 7,
                 Nome = "Cliente inativo",
-                Situacao = Situacao.INATIVO,
+                Situacao = Situacao.ATIVO,
                 ClienteOficinas = new List<ClienteOficina>
                 {
                     new()
@@ -135,7 +135,8 @@ namespace SIGO.Tests.Services
 
             var returnedClient = Assert.Single(result);
             Assert.Equal(7, returnedClient.Id);
-            Assert.Equal((int)Situacao.INATIVO, returnedClient.Situacao);
+            Assert.Equal((int)Situacao.ATIVO, returnedClient.Situacao);
+            Assert.False(returnedClient.VinculoAtivo);
         }
 
         [Fact]

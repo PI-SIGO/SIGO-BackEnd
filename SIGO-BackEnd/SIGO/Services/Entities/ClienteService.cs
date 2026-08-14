@@ -49,7 +49,10 @@ namespace SIGO.Services.Entities
         {
             var entities = await _clienteRepository.GetByOficina(oficinaId);
             return entities
-                .Select(entity => MapClienteOficina(entity, oficinaId))
+                .Select(entity => MapClienteOficina(
+                    entity,
+                    oficinaId,
+                    requireActiveLink: false))
                 .Where(dto => dto is not null)
                 .Cast<ClienteOficinaDTO>();
         }
@@ -365,13 +368,16 @@ namespace SIGO.Services.Entities
                 throw new BusinessValidationException(errors);
         }
 
-        private ClienteOficinaDTO? MapClienteOficina(Cliente cliente, int oficinaId)
+        private ClienteOficinaDTO? MapClienteOficina(
+            Cliente cliente,
+            int oficinaId,
+            bool requireActiveLink = true)
         {
             var relacionamento = cliente.ClienteOficinas
                 .FirstOrDefault(co =>
                     co.OficinaId == oficinaId &&
                     co.ClienteId == cliente.Id &&
-                    (co.Ativo || cliente.Situacao == SIGO.Objects.Enums.Situacao.INATIVO));
+                    (!requireActiveLink || co.Ativo));
 
             if (relacionamento is null)
                 return null;
@@ -401,6 +407,7 @@ namespace SIGO.Services.Entities
                 Sexo = (int)cliente.Sexo,
                 TipoCliente = (int)cliente.TipoCliente,
                 Situacao = (int)cliente.Situacao,
+                VinculoAtivo = relacionamento.Ativo,
                 Telefones = _mapper.Map<List<TelefoneDTO>>(cliente.Telefones),
                 Veiculos = vehicles
             };

@@ -52,6 +52,13 @@ namespace SIGO.Data.Repositories
             int clienteId,
             CancellationToken cancellationToken = default)
         {
+            var clienteAtivo = await _context.Clientes.AnyAsync(
+                cliente => cliente.Id == clienteId &&
+                           cliente.Situacao == SIGO.Objects.Enums.Situacao.ATIVO,
+                cancellationToken);
+            if (!clienteAtivo)
+                throw new ConflictException("O cadastro deste cliente esta inativo ou nao existe.");
+
             var now = DateTime.UtcNow;
             var relacionamento = await GetAsync(oficinaId, clienteId, cancellationToken);
 

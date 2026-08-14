@@ -13,10 +13,13 @@ public sealed class ClienteOficinaRepositoryTests
     public async Task DeactivateByOficinaAsync_DevePermitirReativacaoPosterior()
     {
         await using var context = CreateContext();
+        var cliente = CreateActiveClient();
+        context.Clientes.Add(cliente);
         context.ClienteOficinas.Add(new ClienteOficina
         {
             OficinaId = 3,
             ClienteId = 6,
+            Cliente = cliente,
             Ativo = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -45,10 +48,13 @@ public sealed class ClienteOficinaRepositoryTests
     public async Task DeactivateAsync_QuandoRevogadoPeloCliente_DeveBloquearReativacaoAutomatica()
     {
         await using var context = CreateContext();
+        var cliente = CreateActiveClient();
+        context.Clientes.Add(cliente);
         context.ClienteOficinas.Add(new ClienteOficina
         {
             OficinaId = 3,
             ClienteId = 6,
+            Cliente = cliente,
             Ativo = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -69,6 +75,29 @@ public sealed class ClienteOficinaRepositoryTests
             () => repository.AddOrActivateAsync(oficinaId: 3, clienteId: 6));
     }
 
+    [Fact]
+    public async Task AddOrActivateAsync_DeveBloquearCadastroGlobalmenteInativo()
+    {
+        await using var context = CreateContext();
+        var cliente = CreateActiveClient();
+        cliente.Situacao = SIGO.Objects.Enums.Situacao.INATIVO;
+        context.Clientes.Add(cliente);
+        context.ClienteOficinas.Add(new ClienteOficina
+        {
+            OficinaId = 3,
+            ClienteId = 6,
+            Cliente = cliente,
+            Ativo = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+        var repository = new ClienteOficinaRepository(context);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => repository.AddOrActivateAsync(oficinaId: 3, clienteId: 6));
+    }
+
     private static AppDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -77,4 +106,13 @@ public sealed class ClienteOficinaRepositoryTests
 
         return new AppDbContext(options);
     }
+
+    private static Cliente CreateActiveClient() => new()
+    {
+        Id = 6,
+        Nome = "Cliente",
+        Cpf_Cnpj = "52998224725",
+        Situacao = SIGO.Objects.Enums.Situacao.ATIVO,
+        TipoCliente = SIGO.Objects.Enums.TipoCliente.FISICO
+    };
 }

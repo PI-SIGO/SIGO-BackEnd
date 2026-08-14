@@ -108,6 +108,59 @@ public sealed class ClienteVinculoControllerTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task UpdateLinkStatusForOficina_DeveUsarOficinaDoJwt()
+    {
+        var request = new AtualizarStatusVinculoClienteRequestDTO { Ativo = true };
+        _vinculoServiceMock
+            .Setup(service => service.UpdateStatusForOficinaAsync(
+                42,
+                7,
+                true,
+                It.IsAny<SecurityAuditContext>(),
+                CancellationToken.None))
+            .ReturnsAsync(true);
+        var controller = CreateController(9, 7, new[] { SystemRoles.Oficina });
+
+        var result = await controller.UpdateLinkStatusForOficina(
+            42,
+            request,
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<StatusVinculoClienteOficinaDTO>(ok.Value);
+        Assert.Equal(42, response.ClienteId);
+        Assert.True(response.Ativo);
+        _vinculoServiceMock.Verify(service => service.UpdateStatusForOficinaAsync(
+            42,
+            7,
+            true,
+            It.Is<SecurityAuditContext>(context =>
+                context.TipoAtor == TipoAtorAuditoria.Oficina &&
+                context.AtorId == 9),
+            CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateLinkStatusForOficina_DeveRejeitarStatusAusente()
+    {
+        var controller = CreateController(9, 7, new[] { SystemRoles.Oficina });
+
+        var result = await controller.UpdateLinkStatusForOficina(
+            42,
+            new AtualizarStatusVinculoClienteRequestDTO(),
+            CancellationToken.None);
+
+        var problem = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status422UnprocessableEntity, problem.StatusCode);
+        _vinculoServiceMock.Verify(service => service.UpdateStatusForOficinaAsync(
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<bool>(),
+            It.IsAny<SecurityAuditContext>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private ClienteVinculoController CreateController(int? userId, int? oficinaId, string[] roles)
     {
         _currentUserServiceMock.Setup(service => service.UserId).Returns(userId);

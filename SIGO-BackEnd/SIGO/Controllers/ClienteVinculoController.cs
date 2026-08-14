@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SIGO.Errors;
 using SIGO.Objects.Contracts;
 using SIGO.Objects.Dtos.Entities;
 using SIGO.Objects.Enums;
@@ -98,6 +99,40 @@ namespace SIGO.Controllers
                 CreateAuthenticatedAuditContext(),
                 cancellationToken);
             return NoContent();
+        }
+
+        [HttpPatch("~/api/v1/oficinas/me/clientes/{clienteId:int}/vinculo/status")]
+        [Authorize(Roles = SystemRoles.Oficina)]
+        [ProducesResponseType(typeof(StatusVinculoClienteOficinaDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+        public async Task<IActionResult> UpdateLinkStatusForOficina(
+            int clienteId,
+            [FromBody] AtualizarStatusVinculoClienteRequestDTO request,
+            CancellationToken cancellationToken)
+        {
+            var oficinaId = _currentUserService.OficinaId;
+            if (!oficinaId.HasValue)
+                return Forbid();
+
+            if (request?.Ativo is not bool ativo)
+            {
+                return this.ApiValidationProblem(
+                    StatusCodes.Status422UnprocessableEntity,
+                    nameof(request.Ativo),
+                    "O status do vinculo e obrigatorio.");
+            }
+
+            var updatedStatus = await _vinculoService.UpdateStatusForOficinaAsync(
+                clienteId,
+                oficinaId.Value,
+                ativo,
+                CreateAuthenticatedAuditContext(),
+                cancellationToken);
+
+            return Ok(new StatusVinculoClienteOficinaDTO(clienteId, updatedStatus));
         }
 
         private SecurityAuditContext CreateAuthenticatedAuditContext()

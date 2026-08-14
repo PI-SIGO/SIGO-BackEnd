@@ -20,6 +20,7 @@ namespace SIGO.Objects.Dtos.Entities
         public int Sexo { get; set; }
         public int TipoCliente { get; set; }
         public int Situacao { get; set; }
+        public bool VinculoAtivo { get; set; }
         public List<TelefoneDTO>? Telefones { get; set; }
         public List<VeiculoDTO>? Veiculos { get; set; }
     }
