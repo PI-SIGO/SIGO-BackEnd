@@ -15,6 +15,7 @@ namespace SIGO.Tests.Controllers
     {
         private readonly Mock<IVeiculoService> _veiculoServiceMock = new();
         private readonly Mock<ICurrentUserService> _currentUserServiceMock = new();
+        private readonly Mock<IAuditoriaFuncionarioService> _auditoriaServiceMock = new();
 
         [Fact]
         public async Task Get_DeveFiltrarVeiculosDoClienteLogado()
@@ -523,7 +524,8 @@ namespace SIGO.Tests.Controllers
         {
             var controller = new VeiculoController(
                 _veiculoServiceMock.Object,
-                _currentUserServiceMock.Object);
+                _currentUserServiceMock.Object,
+                _auditoriaServiceMock.Object);
 
             _currentUserServiceMock.Setup(s => s.UserId).Returns(userId);
             _currentUserServiceMock.Setup(s => s.OficinaId).Returns(oficinaId);

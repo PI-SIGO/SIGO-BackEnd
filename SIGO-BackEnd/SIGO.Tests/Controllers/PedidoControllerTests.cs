@@ -18,6 +18,7 @@ namespace SIGO.Tests.Controllers
         private readonly Mock<IServicoService> _servicoService = new();
         private readonly Mock<IFuncionarioService> _funcionarioService = new();
         private readonly Mock<ICurrentUserService> _currentUser = new();
+        private readonly Mock<IAuditoriaFuncionarioService> _auditoriaService = new();
 
         [Fact]
         public async Task GetById_RetornaNotFound_QuandoPedidoNaoExiste()
@@ -310,7 +311,8 @@ namespace SIGO.Tests.Controllers
                 _pedidoService.Object,
                 _servicoService.Object,
                 _funcionarioService.Object,
-                _currentUser.Object);
+                _currentUser.Object,
+                _auditoriaService.Object);
         }
 
         private static PedidoDTO CreateOrder(

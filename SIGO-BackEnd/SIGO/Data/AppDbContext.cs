@@ -25,6 +25,7 @@ namespace SIGO.Data
         public DbSet<PecaSubstituida> PecasSubstituidas { get; set; }
         public DbSet<VeiculoImagem> VeiculoImagens { get; set; }
         public DbSet<OpcaoCadastro> OpcoesCadastro { get; set; }
+        public DbSet<AuditoriaFuncionario> AuditoriasFuncionarios { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,7 +35,7 @@ namespace SIGO.Data
             TelefoneBuilder.Build(modelBuilder);
             ServicoBuilder.Build(modelBuilder);
             MarcaBuilder.Build(modelBuilder);
-
+            AuditoriaFuncionarioBuilder.Build(modelBuilder);
             VeiculoBuilder.Build(modelBuilder);
             FuncionarioBuilder.Build(modelBuilder);
             PecaBuilder.Build(modelBuilder);

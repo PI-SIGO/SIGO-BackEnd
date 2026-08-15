@@ -45,6 +45,8 @@ namespace SIGO.Objects.Dtos.Mappings
                 .ForMember(dest => dest.NomeOficina, opt => opt.MapFrom(src => src.Oficina != null ? src.Oficina.Nome : null))
                 .ForMember(dest => dest.NomeVeiculo, opt => opt.MapFrom(src => src.Veiculo != null ? src.Veiculo.NomeVeiculo : null));
             CreateMap<PedidoDTO, Pedido>();
+            CreateMap<AuditoriaFuncionario, AuditoriaFuncionarioDTO>()
+            .ReverseMap();
         }
     }
 }

@@ -4,6 +4,7 @@ namespace SIGO.Security
     {
         int? UserId { get; }
         int? OficinaId { get; }
+        string? UserName { get; }
         bool IsInRole(string role);
     }
 }

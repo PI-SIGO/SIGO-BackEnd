@@ -17,17 +17,20 @@ namespace SIGO.Controllers
         private readonly IServicoService _servicoService;
         private readonly IFuncionarioService _funcionarioService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IAuditoriaFuncionarioService _auditoriaService;
 
         public PedidoController(
             IPedidoService pedidoService,
             IServicoService servicoService,
             IFuncionarioService funcionarioService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IAuditoriaFuncionarioService auditoriaService)
         {
             _pedidoService = pedidoService;
             _servicoService = servicoService;
             _funcionarioService = funcionarioService;
             _currentUserService = currentUserService;
+            _auditoriaService = auditoriaService;
         }
 
         [HttpGet]
@@ -36,7 +39,9 @@ namespace SIGO.Controllers
             [FromQuery] PaginationRequest? pagination = null)
         {
             pagination ??= new PaginationRequest();
+
             IEnumerable<PedidoDTO> orders;
+
             if (_currentUserService.IsInRole(SystemRoles.Cliente))
             {
                 orders = await _pedidoService.GetByCliente(RequireUserId());
@@ -50,7 +55,9 @@ namespace SIGO.Controllers
                 orders = await _pedidoService.GetAll();
             }
 
-            return Ok(PagedResponse<PedidoDTO>.Create(orders, pagination));
+            return Ok(PagedResponse<PedidoDTO>.Create(
+                orders,
+                pagination));
         }
 
         [HttpGet("{id:int}")]
@@ -58,15 +65,23 @@ namespace SIGO.Controllers
         public async Task<ActionResult<PedidoDTO>> GetById(int id)
         {
             var order = IsOfficeScopedActor()
-                ? await _pedidoService.GetByIdForOficina(id, RequireOfficeId())
+                ? await _pedidoService.GetByIdForOficina(
+                    id,
+                    RequireOfficeId())
                 : await _pedidoService.GetById(id);
 
             if (order is null)
+            {
                 return this.ApiProblem(
                     StatusCodes.Status404NotFound,
                     "Pedido não encontrado.");
-            if (_currentUserService.IsInRole(SystemRoles.Cliente) && order.idCliente != RequireUserId())
+            }
+
+            if (_currentUserService.IsInRole(SystemRoles.Cliente) &&
+                order.idCliente != RequireUserId())
+            {
                 return Forbid();
+            }
 
             return Ok(order);
         }
@@ -77,14 +92,21 @@ namespace SIGO.Controllers
             [FromQuery] PaginationRequest? pagination = null)
         {
             pagination ??= new PaginationRequest();
-            var orders = await _pedidoService.GetByCliente(RequireUserId());
+
+            var orders = await _pedidoService.GetByCliente(
+                RequireUserId());
+
             var serviceIds = orders
                 .SelectMany(order => order.Pedido_Servicos)
                 .Select(item => item.IdServico)
                 .ToHashSet();
+
             var services = (await _servicoService.GetAll())
                 .Where(service => serviceIds.Contains(service.Id));
-            return Ok(PagedResponse<ServicoDTO>.Create(services, pagination));
+
+            return Ok(PagedResponse<ServicoDTO>.Create(
+                services,
+                pagination));
         }
 
         [HttpGet("me/funcionarios")]
@@ -93,43 +115,90 @@ namespace SIGO.Controllers
             [FromQuery] PaginationRequest? pagination = null)
         {
             pagination ??= new PaginationRequest();
-            var orders = await _pedidoService.GetByCliente(RequireUserId());
-            var employeeIds = orders.Select(order => order.idFuncionario).ToHashSet();
+
+            var orders = await _pedidoService.GetByCliente(
+                RequireUserId());
+
+            var employeeIds = orders
+                .Select(order => order.idFuncionario)
+                .ToHashSet();
+
             var employees = (await _funcionarioService.GetAll())
-                .Where(employee => employeeIds.Contains(employee.Id));
-            return Ok(PagedResponse<FuncionarioDTO>.Create(employees, pagination));
+                .Where(employee =>
+                    employeeIds.Contains(employee.Id));
+
+            return Ok(PagedResponse<FuncionarioDTO>.Create(
+                employees,
+                pagination));
         }
 
         [HttpPost]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        public async Task<ActionResult<PedidoDTO>> Post([FromBody] PedidoDTO request)
+        public async Task<ActionResult<PedidoDTO>> Post(
+            [FromBody] PedidoDTO request)
         {
             if (IsOfficeScopedActor())
-                await _pedidoService.CreateForOficina(request, RequireOfficeId());
+            {
+                await _pedidoService.CreateForOficina(
+                    request,
+                    RequireOfficeId());
+            }
             else
+            {
                 await _pedidoService.Create(request);
+            }
 
-            return Created($"/api/v1/pedidos/{request.Id}", request);
+            await RegistrarAuditoriaAsync(
+                "CADASTROU",
+                request.Id > 0 ? request.Id : null,
+                request.Id > 0
+                    ? $"Cadastrou o pedido #{request.Id}."
+                    : "Cadastrou um novo pedido.");
+
+            return Created(
+                $"/api/v1/pedidos/{request.Id}",
+                request);
         }
 
         [HttpPut("{id:int}")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        public async Task<ActionResult<PedidoDTO>> Put(int id, [FromBody] PedidoDTO request)
+        public async Task<ActionResult<PedidoDTO>> Put(
+            int id,
+            [FromBody] PedidoDTO request)
         {
             if (IsOfficeScopedActor())
-                await _pedidoService.UpdateForOficina(request, id, RequireOfficeId());
+            {
+                await _pedidoService.UpdateForOficina(
+                    request,
+                    id,
+                    RequireOfficeId());
+            }
             else
-                await _pedidoService.Update(request, id);
+            {
+                await _pedidoService.Update(
+                    request,
+                    id);
+            }
+
+            await RegistrarAuditoriaAsync(
+                "ALTEROU",
+                id,
+                $"Alterou os dados do pedido #{id}.");
 
             return Ok(request);
         }
 
         [HttpPatch("{id:int}/status")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        [ProducesResponseType(typeof(PedidoDTO), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+        [ProducesResponseType(
+            typeof(PedidoDTO),
+            StatusCodes.Status200OK)]
+        [ProducesResponseType(
+            StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(
+            StatusCodes.Status404NotFound)]
+        [ProducesResponseType(
+            StatusCodes.Status422UnprocessableEntity)]
         public async Task<ActionResult<PedidoDTO>> UpdateStatus(
             int id,
             [FromBody] AtualizarStatusRequestDTO request,
@@ -149,7 +218,15 @@ namespace SIGO.Controllers
                     status,
                     RequireOfficeId(),
                     cancellationToken)
-                : await _pedidoService.UpdateStatus(id, status, cancellationToken);
+                : await _pedidoService.UpdateStatus(
+                    id,
+                    status,
+                    cancellationToken);
+
+            await RegistrarAuditoriaAsync(
+                "ALTEROU_STATUS",
+                id,
+                $"Alterou o status do pedido #{id} para {status}.");
 
             return Ok(updated);
         }
@@ -158,21 +235,44 @@ namespace SIGO.Controllers
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var existing = _currentUserService.IsInRole(SystemRoles.Oficina)
-                ? await _pedidoService.GetByIdForOficina(id, RequireOfficeId())
-                : await _pedidoService.GetById(id);
+            var existing =
+                _currentUserService.IsInRole(SystemRoles.Oficina)
+                    ? await _pedidoService.GetByIdForOficina(
+                        id,
+                        RequireOfficeId())
+                    : await _pedidoService.GetById(id);
+
             if (existing is null)
+            {
                 return this.ApiProblem(
                     StatusCodes.Status404NotFound,
                     "Pedido não encontrado.");
+            }
 
             await _pedidoService.Remove(id);
+
             return NoContent();
+        }
+
+        private async Task RegistrarAuditoriaAsync(
+            string acao,
+            int? pedidoId,
+            string descricao)
+        {
+            if (!_currentUserService.IsInRole(SystemRoles.Funcionario))
+                return;
+
+            await _auditoriaService.Registrar(
+                acao,
+                "Pedido",
+                pedidoId,
+                descricao);
         }
 
         private int RequireOfficeId() =>
             _currentUserService.OficinaId
-            ?? throw new UnauthorizedAccessException("Token nao contem oficina_id.");
+            ?? throw new UnauthorizedAccessException(
+                "Token nao contem oficina_id.");
 
         private bool IsOfficeScopedActor() =>
             _currentUserService.IsInRole(SystemRoles.Oficina) ||
@@ -180,6 +280,7 @@ namespace SIGO.Controllers
 
         private int RequireUserId() =>
             _currentUserService.UserId
-            ?? throw new UnauthorizedAccessException("Token nao contem identificador do usuario.");
+            ?? throw new UnauthorizedAccessException(
+                "Token nao contem identificador do usuario.");
     }
 }

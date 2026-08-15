@@ -221,6 +221,14 @@ builder.Services.AddScoped<IPecaRepository, PecaRepository>();
 builder.Services.AddScoped<IOficinaService, OficinaService>();
 builder.Services.AddScoped<IOficinaRepository, OficinaRepository>();
 
+builder.Services.AddScoped<
+    IAuditoriaFuncionarioRepository,
+    AuditoriaFuncionarioRepository>();
+
+builder.Services.AddScoped<
+    IAuditoriaFuncionarioService,
+    AuditoriaFuncionarioService>();
+
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();

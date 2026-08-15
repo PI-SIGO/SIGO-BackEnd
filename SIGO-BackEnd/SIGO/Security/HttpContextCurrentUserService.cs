@@ -30,6 +30,18 @@ namespace SIGO.Security
             }
         }
 
+        public string? UserName
+        {
+            get
+            {
+                return _httpContextAccessor
+                    .HttpContext?
+                    .User
+                    .FindFirst(ClaimTypes.Name)?
+                    .Value;
+            }
+        }
+
         public bool IsInRole(string role)
         {
             return _httpContextAccessor.HttpContext?.User.IsInRole(role) == true;
