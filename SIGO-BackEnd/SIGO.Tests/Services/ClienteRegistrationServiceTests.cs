@@ -56,7 +56,7 @@ namespace SIGO.Tests.Services
             cliente.Veiculos = veiculos;
             ClienteConta? contaCriada = null;
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
@@ -99,7 +99,7 @@ namespace SIGO.Tests.Services
             ClienteContato? contatoCriado = null;
             AuditoriaSeguranca? auditoriaCriada = null;
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Cliente?)null);
@@ -146,6 +146,7 @@ namespace SIGO.Tests.Services
             Assert.Equal(new CadastroClienteResultadoDTO(84, "Cliente Teste", "cliente@example.com"), result);
             Assert.NotNull(clienteCriado);
             Assert.Equal("52998224725", clienteCriado!.Cpf_Cnpj);
+            Assert.Equal(TipoCliente.FISICO, clienteCriado.TipoCliente);
             Assert.Equal("cliente@example.com", clienteCriado.Email);
             Assert.Null(clienteCriado.Senha);
 
@@ -175,11 +176,68 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task RegisterAsync_CnpjNovoDeveCriarClienteJuridico()
+        {
+            Cliente? clienteCriado = null;
+            _identityRepositoryMock
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
+                    "11222333000181",
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Cliente?)null);
+            _identityRepositoryMock
+                .Setup(repository => repository.AddClienteAsync(
+                    It.IsAny<Cliente>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback<Cliente, CancellationToken>((cliente, _) =>
+                {
+                    cliente.Id = 85;
+                    clienteCriado = cliente;
+                })
+                .Returns(Task.CompletedTask);
+            _contaRepositoryMock
+                .Setup(repository => repository.AddAsync(
+                    It.IsAny<ClienteConta>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            _identityRepositoryMock
+                .Setup(repository => repository.GetContatoAsync(
+                    85,
+                    TipoContatoCliente.Email,
+                    "cliente@example.com",
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ClienteContato?)null);
+            _identityRepositoryMock
+                .Setup(repository => repository.AddContatoAsync(
+                    It.IsAny<ClienteContato>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            _identityRepositoryMock
+                .Setup(repository => repository.AddAuditoriaAsync(
+                    It.IsAny<AuditoriaSeguranca>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            var result = await CreateService().RegisterAsync(
+                CreateRequest() with
+                {
+                    Cpf = null,
+                    Cpf_Cnpj = "11.222.333/0001-81",
+                    Nome = "Empresa Teste"
+                },
+                CreateAuditContext());
+
+            Assert.Equal(85, result.ClienteId);
+            Assert.NotNull(clienteCriado);
+            Assert.Equal("11222333000181", clienteCriado!.Cpf_Cnpj);
+            Assert.Equal(TipoCliente.JURIDICO, clienteCriado.TipoCliente);
+        }
+
+        [Fact]
         public async Task RegisterAsync_DeveRejeitarCpfQueJaPossuiConta()
         {
             var cliente = CreateCliente(42, Situacao.ATIVO);
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
@@ -204,7 +262,7 @@ namespace SIGO.Tests.Services
         public async Task RegisterAsync_DeveRejeitarEmailUsadoPorOutroCliente()
         {
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Cliente?)null);
@@ -226,7 +284,7 @@ namespace SIGO.Tests.Services
         public async Task RegisterAsync_DeveRejeitarClienteInativo()
         {
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(CreateCliente(42, Situacao.INATIVO));
@@ -248,7 +306,7 @@ namespace SIGO.Tests.Services
             return new ClienteRegistrationService(
                 _identityRepositoryMock.Object,
                 _contaRepositoryMock.Object,
-                new CpfValidator(),
+                new CpfCnpjValidator(new CpfValidator(), new CnpjValidator()),
                 _passwordHasherMock.Object,
                 new FixedTimeProvider(RegistrationTime));
         }

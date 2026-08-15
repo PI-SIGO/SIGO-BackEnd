@@ -9,8 +9,8 @@ namespace SIGO.Data.Interfaces
             Func<CancellationToken, Task<T>> operation,
             CancellationToken cancellationToken = default);
 
-        Task<Cliente?> GetClienteByCpfAsync(
-            string cpfNormalizado,
+        Task<Cliente?> GetClienteByCpfCnpjAsync(
+            string documentoNormalizado,
             CancellationToken cancellationToken = default);
 
         Task<ClienteContato?> GetContatoAsync(

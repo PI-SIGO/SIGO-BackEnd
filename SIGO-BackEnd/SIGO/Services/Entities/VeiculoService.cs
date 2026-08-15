@@ -136,7 +136,7 @@ namespace SIGO.Services.Entities
             IReadOnlyCollection<IFormFile> imagens,
             CancellationToken cancellationToken = default)
         {
-            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            var veiculo = await _veiculoRepository.GetByIdForOficinaWithImagens(veiculoId, oficinaId);
             return await AddImagensToVeiculo(veiculo, veiculoId, imagens, cancellationToken);
         }
 
@@ -166,7 +166,7 @@ namespace SIGO.Services.Entities
             int oficinaId,
             string nomeArquivo)
         {
-            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            var veiculo = await _veiculoRepository.GetByIdForOficinaWithImagens(veiculoId, oficinaId);
             return OpenImagemFromVeiculo(veiculo, veiculoId, nomeArquivo);
         }
 
@@ -178,7 +178,7 @@ namespace SIGO.Services.Entities
 
         public async Task RemoveImagemForOficina(int veiculoId, int oficinaId, int imagemId)
         {
-            var veiculo = await _veiculoRepository.GetByIdForOficina(veiculoId, oficinaId);
+            var veiculo = await _veiculoRepository.GetByIdForOficinaWithImagens(veiculoId, oficinaId);
             await RemoveImagemFromVeiculo(veiculo, veiculoId, imagemId);
         }
 

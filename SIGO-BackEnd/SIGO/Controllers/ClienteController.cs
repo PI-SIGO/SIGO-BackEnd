@@ -230,7 +230,7 @@ namespace SIGO.Controllers
             {
                 return this.ApiProblem(
                     StatusCodes.Status401Unauthorized,
-                    "CPF ou senha inválidos.");
+                    "CPF/CNPJ ou senha inválidos.");
             }
 
             var token = _jwtTokenService.GenerateToken(new JwtTokenRequest

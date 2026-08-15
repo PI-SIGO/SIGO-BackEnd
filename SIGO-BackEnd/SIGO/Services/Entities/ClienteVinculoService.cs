@@ -17,18 +17,18 @@ public sealed class ClienteVinculoService : IClienteVinculoService
 {
     private readonly IClienteIdentityRepository _identityRepository;
     private readonly IClienteOficinaRepository _vinculoRepository;
-    private readonly ICpfValidator _cpfValidator;
+    private readonly ICpfCnpjValidator _cpfCnpjValidator;
     private readonly TimeProvider _timeProvider;
 
     public ClienteVinculoService(
         IClienteIdentityRepository identityRepository,
         IClienteOficinaRepository vinculoRepository,
-        ICpfValidator cpfValidator,
+        ICpfCnpjValidator cpfCnpjValidator,
         TimeProvider timeProvider)
     {
         _identityRepository = identityRepository;
         _vinculoRepository = vinculoRepository;
-        _cpfValidator = cpfValidator;
+        _cpfCnpjValidator = cpfCnpjValidator;
         _timeProvider = timeProvider;
     }
 
@@ -58,7 +58,7 @@ public sealed class ClienteVinculoService : IClienteVinculoService
     {
         EnsurePreRegistrationIsValid(request, oficinaId);
 
-        var cpf = _cpfValidator.Normalize(request.Cpf);
+        var documento = _cpfCnpjValidator.Normalize(request.Documento);
         var email = NormalizeEmail(request.Email);
         var phones = NormalizePhones(request);
         var now = UtcNow();
@@ -68,17 +68,17 @@ public sealed class ClienteVinculoService : IClienteVinculoService
             return await _identityRepository.ExecuteInTransactionAsync(
                 async token =>
                 {
-                    var cliente = await _identityRepository.GetClienteByCpfAsync(cpf, token);
+                    var cliente = await _identityRepository.GetClienteByCpfCnpjAsync(documento, token);
                     var clienteCriado = cliente is null;
                     if (cliente is null)
                     {
-                        cliente = CreateCliente(request, cpf, email, phones);
+                        cliente = CreateCliente(request, documento, email, phones);
                         await _identityRepository.AddClienteAsync(cliente, token);
                         await _identityRepository.SaveChangesAsync(token);
                     }
                     else if (cliente.Situacao != Situacao.ATIVO)
                     {
-                        throw new ConflictException("O cadastro deste CPF está inativo.");
+                        throw new ConflictException("O cadastro deste CPF/CNPJ está inativo.");
                     }
 
                     var existingRelationship = await _vinculoRepository.GetAsync(
@@ -127,7 +127,7 @@ public sealed class ClienteVinculoService : IClienteVinculoService
                         AtorId = auditContext.AtorId,
                         Evento = TipoEventoAuditoria.VinculoCriado,
                         Resultado = ResultadoAuditoria.Sucesso,
-                        DocumentoMascarado = ClienteDataMasking.MaskDocument(cpf),
+                        DocumentoMascarado = ClienteDataMasking.MaskDocument(documento),
                         ContatoMascarado = contact is null
                             ? null
                             : ClienteDataMasking.MaskContact(contact),
@@ -140,7 +140,7 @@ public sealed class ClienteVinculoService : IClienteVinculoService
                     return new PreCadastroClienteResultadoDTO(
                         cliente.Id,
                         cliente.Nome,
-                        cpf,
+                        documento,
                         relationship.Ativo);
                 },
                 cancellationToken);
@@ -285,21 +285,21 @@ public sealed class ClienteVinculoService : IClienteVinculoService
 
     private static Cliente CreateCliente(
         PreCadastrarClienteDTO request,
-        string cpf,
+        string documento,
         string? email,
         IReadOnlyCollection<NormalizedPhone> phones)
     {
         var cliente = new Cliente
         {
             Nome = request.Nome.Trim(),
-            Cpf_Cnpj = cpf,
+            Cpf_Cnpj = documento,
             Email = email!,
             Senha = null!,
             Obs = TrimOrNull(request.Obs)!,
             Razao = TrimOrNull(request.Razao)!,
             DataNasc = request.DataNasc,
             Sexo = request.Sexo ?? Sexo.Outro,
-            TipoCliente = TipoCliente.FISICO,
+            TipoCliente = GetTipoCliente(documento),
             Situacao = Situacao.ATIVO
         };
 
@@ -446,8 +446,8 @@ public sealed class ClienteVinculoService : IClienteVinculoService
             throw new BusinessValidationException(errors);
         }
 
-        if (!_cpfValidator.IsValid(request.Cpf))
-            errors.Add(new ValidationError(nameof(PreCadastrarClienteDTO.Cpf), "CPF inválido."));
+        if (!_cpfCnpjValidator.IsValid(request.Documento))
+            errors.Add(new ValidationError(nameof(PreCadastrarClienteDTO.Cpf_Cnpj), "CPF/CNPJ inválido."));
         if (string.IsNullOrWhiteSpace(request.Nome) || request.Nome.Trim().Length > 100)
             errors.Add(new ValidationError(nameof(PreCadastrarClienteDTO.Nome), "Nome obrigatório com até 100 caracteres."));
         if (!string.IsNullOrWhiteSpace(request.Email) && NormalizeEmail(request.Email) is null)
@@ -597,6 +597,9 @@ public sealed class ClienteVinculoService : IClienteVinculoService
     private static bool IsConcurrentWrite(PostgresException exception) =>
         exception.SqlState is PostgresErrorCodes.UniqueViolation or
             PostgresErrorCodes.SerializationFailure;
+
+    private static TipoCliente GetTipoCliente(string documentoNormalizado) =>
+        documentoNormalizado.Length == 14 ? TipoCliente.JURIDICO : TipoCliente.FISICO;
 
     private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
 

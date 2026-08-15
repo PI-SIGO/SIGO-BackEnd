@@ -94,6 +94,19 @@ namespace SIGO.Data.Repositories
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
+        public async Task<Veiculo?> GetByIdForOficinaWithImagens(int id, int oficinaId)
+        {
+            return await _context.Veiculos
+                .Include(v => v.Imagens)
+                .Where(v =>
+                    v.Id == id &&
+                    v.Cliente.Situacao == SIGO.Objects.Enums.Situacao.ATIVO &&
+                    v.Cliente.ClienteOficinas.Any(co =>
+                        co.OficinaId == oficinaId &&
+                        co.Ativo))
+                .FirstOrDefaultAsync();
+        }
+
         public async Task UpdateVeiculo(Veiculo veiculo)
         {
             // Atualiza só os campos necessários

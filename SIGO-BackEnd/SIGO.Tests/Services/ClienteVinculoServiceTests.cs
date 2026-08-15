@@ -23,7 +23,7 @@ public sealed class ClienteVinculoServiceTests
         var contacts = new List<ClienteContato>();
 
         identityRepository
-            .Setup(repository => repository.GetClienteByCpfAsync(
+            .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                 "52998224725",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((Cliente?)null);
@@ -82,6 +82,51 @@ public sealed class ClienteVinculoServiceTests
     }
 
     [Fact]
+    public async Task PreRegisterAsync_CnpjNovo_DeveCriarClienteJuridico()
+    {
+        var request = CreateFullPreRegistration() with
+        {
+            Cpf = null,
+            Cpf_Cnpj = "11.222.333/0001-81",
+            Nome = "Empresa Completa"
+        };
+        var identityRepository = CreateTransactionalIdentityRepository();
+        var vinculoRepository = new Mock<IClienteOficinaRepository>();
+        Cliente? createdCliente = null;
+
+        identityRepository
+            .Setup(repository => repository.GetClienteByCpfCnpjAsync(
+                "11222333000181",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Cliente?)null);
+        identityRepository
+            .Setup(repository => repository.AddClienteAsync(
+                It.IsAny<Cliente>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<Cliente, CancellationToken>((cliente, _) =>
+            {
+                cliente.Id = 43;
+                createdCliente = cliente;
+            })
+            .Returns(Task.CompletedTask);
+        vinculoRepository
+            .Setup(repository => repository.AddOrActivateAsync(7, 43, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ClienteOficina { OficinaId = 7, ClienteId = 43, Ativo = true });
+        var service = CreateService(identityRepository, vinculoRepository);
+
+        var result = await service.PreRegisterAsync(
+            request,
+            7,
+            new SecurityAuditContext(TipoAtorAuditoria.Oficina, 7, "127.0.0.1", "test"));
+
+        Assert.Equal(43, result.ClienteId);
+        Assert.Equal("11222333000181", result.Cpf_Cnpj);
+        Assert.NotNull(createdCliente);
+        Assert.Equal("11222333000181", createdCliente!.Cpf_Cnpj);
+        Assert.Equal(TipoCliente.JURIDICO, createdCliente.TipoCliente);
+    }
+
+    [Fact]
     public async Task PreRegisterAsync_DeveReutilizarClienteELigarOficinaDiretamente()
     {
         var request = new PreCadastrarClienteDTO
@@ -93,13 +138,13 @@ public sealed class ClienteVinculoServiceTests
         {
             Id = 42,
             Nome = "Nome já cadastrado",
-            Cpf_Cnpj = request.Cpf,
+            Cpf_Cnpj = request.Documento,
             Situacao = Situacao.ATIVO
         };
         var identityRepository = CreateTransactionalIdentityRepository();
         var vinculoRepository = new Mock<IClienteOficinaRepository>();
         identityRepository
-            .Setup(repository => repository.GetClienteByCpfAsync(request.Cpf, It.IsAny<CancellationToken>()))
+            .Setup(repository => repository.GetClienteByCpfCnpjAsync(request.Documento, It.IsAny<CancellationToken>()))
             .ReturnsAsync(clienteExistente);
         vinculoRepository
             .Setup(repository => repository.AddOrActivateAsync(7, 42, It.IsAny<CancellationToken>()))
@@ -140,13 +185,13 @@ public sealed class ClienteVinculoServiceTests
         {
             Id = 42,
             Nome = "Cliente",
-            Cpf_Cnpj = request.Cpf,
+            Cpf_Cnpj = request.Documento,
             Situacao = Situacao.ATIVO
         };
         var identityRepository = CreateTransactionalIdentityRepository();
         var vinculoRepository = new Mock<IClienteOficinaRepository>();
         identityRepository
-            .Setup(repository => repository.GetClienteByCpfAsync(request.Cpf, It.IsAny<CancellationToken>()))
+            .Setup(repository => repository.GetClienteByCpfCnpjAsync(request.Documento, It.IsAny<CancellationToken>()))
             .ReturnsAsync(cliente);
         vinculoRepository
             .Setup(repository => repository.GetAsync(7, 42, It.IsAny<CancellationToken>()))
@@ -179,7 +224,7 @@ public sealed class ClienteVinculoServiceTests
         {
             Id = 42,
             Nome = "Nome preservado",
-            Cpf_Cnpj = request.Cpf,
+            Cpf_Cnpj = request.Documento,
             Email = null!,
             Obs = "Observação preservada",
             Sexo = Sexo.Outro,
@@ -224,7 +269,7 @@ public sealed class ClienteVinculoServiceTests
         {
             Id = 42,
             Nome = "Nome do titular",
-            Cpf_Cnpj = request.Cpf,
+            Cpf_Cnpj = request.Documento,
             Email = "titular@example.com",
             Rua = "Rua do titular",
             Numero = 10,
@@ -473,7 +518,7 @@ public sealed class ClienteVinculoServiceTests
         Mock<IClienteIdentityRepository> identityRepository)
     {
         identityRepository
-            .Setup(repository => repository.GetClienteByCpfAsync(
+            .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                 new string(cliente.Cpf_Cnpj.Where(char.IsDigit).ToArray()),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(cliente);
@@ -519,7 +564,7 @@ public sealed class ClienteVinculoServiceTests
         return new ClienteVinculoService(
             identityRepository.Object,
             vinculoRepository.Object,
-            new CpfValidator(),
+            new CpfCnpjValidator(new CpfValidator(), new CnpjValidator()),
             TimeProvider.System);
     }
 }

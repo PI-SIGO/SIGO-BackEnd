@@ -15,6 +15,7 @@ namespace SIGO.Tests.TestSupport
 
         public int? UserId { get; }
         public int? OficinaId { get; }
+        public string? UserName { get; init; }
 
         public bool IsInRole(string role) => _roles.Contains(role);
     }

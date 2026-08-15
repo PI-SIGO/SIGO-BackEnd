@@ -20,7 +20,7 @@ namespace SIGO.Tests.Controllers
             service.Setup(item => item.CreateForOficina(request, 8))
                 .Callback(() => request.Id = 41)
                 .Returns(Task.CompletedTask);
-            var controller = new PecaController(service.Object, currentUser.Object);
+            var controller = new PecaController(service.Object, currentUser.Object, CreateAuditService());
 
             var result = await controller.Post(request);
 
@@ -41,7 +41,7 @@ namespace SIGO.Tests.Controllers
                 CreatePiece(8, id: 2),
                 CreatePiece(8, id: 3)
             });
-            var controller = new PecaController(service.Object, currentUser.Object);
+            var controller = new PecaController(service.Object, currentUser.Object, CreateAuditService());
 
             var result = await controller.GetAll(new PaginationRequest { Page = 1, PageSize = 2 });
 
@@ -61,7 +61,7 @@ namespace SIGO.Tests.Controllers
             service.Setup(item => item.CreateForOficina(request, 3))
                 .Callback(() => request.Id = 52)
                 .Returns(Task.CompletedTask);
-            var controller = new ServicoController(service.Object, currentUser.Object);
+            var controller = new ServicoController(service.Object, currentUser.Object, CreateAuditService());
 
             var result = await controller.Post(request);
 
@@ -78,7 +78,7 @@ namespace SIGO.Tests.Controllers
             var currentUser = CreateAdminUser();
             service.Setup(item => item.GetById(4)).ReturnsAsync(CreatePiece(8, id: 4));
             service.Setup(item => item.Remove(4)).Returns(Task.CompletedTask);
-            var controller = new PecaController(service.Object, currentUser.Object);
+            var controller = new PecaController(service.Object, currentUser.Object, CreateAuditService());
 
             var result = await controller.Delete(4);
 
@@ -92,7 +92,7 @@ namespace SIGO.Tests.Controllers
             var currentUser = CreateAdminUser();
             service.Setup(item => item.GetById(4)).ReturnsAsync(CreateService(8));
             service.Setup(item => item.Remove(4)).Returns(Task.CompletedTask);
-            var controller = new ServicoController(service.Object, currentUser.Object);
+            var controller = new ServicoController(service.Object, currentUser.Object, CreateAuditService());
 
             var result = await controller.Delete(4);
 
@@ -107,6 +107,9 @@ namespace SIGO.Tests.Controllers
             currentUser.Setup(user => user.OficinaId).Returns(oficinaId);
             return currentUser;
         }
+
+        private static IAuditoriaFuncionarioService CreateAuditService() =>
+            new Mock<IAuditoriaFuncionarioService>().Object;
 
         private static Mock<ICurrentUserService> CreateAdminUser()
         {

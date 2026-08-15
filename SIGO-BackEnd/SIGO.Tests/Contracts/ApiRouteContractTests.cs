@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
 using SIGO.Controllers;
@@ -155,16 +156,18 @@ public sealed class ApiRouteContractTests
     }
 
     [Fact]
-    public void LoginDoCliente_DeveAceitarSomenteCpfESenha()
+    public void LoginDoCliente_DeveAceitarDocumentoESenha()
     {
         var propertyNames = typeof(LoginClienteDTO)
             .GetProperties()
+            .Where(property => !Attribute.IsDefined(property, typeof(JsonIgnoreAttribute)))
             .Select(property => property.Name)
             .ToHashSet(StringComparer.Ordinal);
 
         Assert.True(propertyNames.SetEquals(new[]
         {
             nameof(LoginClienteDTO.Cpf),
+            nameof(LoginClienteDTO.Cpf_Cnpj),
             nameof(LoginClienteDTO.Senha)
         }));
     }

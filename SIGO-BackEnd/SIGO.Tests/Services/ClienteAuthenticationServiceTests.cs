@@ -22,7 +22,7 @@ namespace SIGO.Tests.Services
         {
             var cliente = CreateActiveClient();
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
@@ -48,12 +48,36 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task AuthenticateAsync_DeveNormalizarCnpjERetornarContaAtiva()
+        {
+            var cliente = CreateActiveClient();
+            cliente.Cpf_Cnpj = "11222333000181";
+            cliente.TipoCliente = TipoCliente.JURIDICO;
+            _identityRepositoryMock
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
+                    "11222333000181",
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(cliente);
+            _passwordHasherMock.Setup(hasher => hasher.Verify("Senha123", "hash-atual")).Returns(true);
+            _passwordHasherMock.Setup(hasher => hasher.NeedsRehash("hash-atual")).Returns(false);
+
+            var result = await CreateService().AuthenticateAsync(new LoginClienteDTO
+            {
+                Cpf_Cnpj = "11.222.333/0001-81",
+                Senha = "Senha123"
+            });
+
+            Assert.NotNull(result);
+            Assert.Equal(42, result!.ClienteId);
+        }
+
+        [Fact]
         public async Task AuthenticateAsync_DeveRejeitarContaBloqueada()
         {
             var cliente = CreateActiveClient();
             cliente.Conta.Status = EstadoClienteConta.Blocked;
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
@@ -75,7 +99,7 @@ namespace SIGO.Tests.Services
         {
             var cliente = CreateActiveClient();
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
@@ -96,7 +120,7 @@ namespace SIGO.Tests.Services
             var cliente = CreateActiveClient();
             var conta = cliente.Conta;
             _identityRepositoryMock
-                .Setup(repository => repository.GetClienteByCpfAsync(
+                .Setup(repository => repository.GetClienteByCpfCnpjAsync(
                     "52998224725",
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(cliente);
@@ -218,7 +242,7 @@ namespace SIGO.Tests.Services
             return new ClienteAuthenticationService(
                 _contaRepositoryMock.Object,
                 _identityRepositoryMock.Object,
-                new CpfValidator(),
+                new CpfCnpjValidator(new CpfValidator(), new CnpjValidator()),
                 _passwordHasherMock.Object,
                 TimeProvider.System);
         }

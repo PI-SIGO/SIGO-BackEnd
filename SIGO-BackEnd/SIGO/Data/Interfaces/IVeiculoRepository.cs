@@ -15,6 +15,7 @@ namespace SIGO.Data.Interfaces
         Task<Veiculo?> GetByIdWithImagens(int id);
         Task<Veiculo?> GetByIdForCliente(int id, int clienteId);
         Task<Veiculo?> GetByIdForOficina(int id, int oficinaId);
+        Task<Veiculo?> GetByIdForOficinaWithImagens(int id, int oficinaId);
         Task UpdateVeiculo(Veiculo veiculo);
     }
 }

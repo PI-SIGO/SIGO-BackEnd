@@ -66,6 +66,63 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task AddImagensForOficina_DevePersistirImagemSomenteQuandoVeiculoPertenceAOficina()
+        {
+            var imagem = Mock.Of<IFormFile>();
+            var veiculo = new Veiculo { Id = 4, ClienteId = 5 };
+            var imagemSalva = new VeiculoImagem
+            {
+                Id = 8,
+                VeiculoId = 4,
+                Url = "/api/v1/veiculos/4/imagens/foto.png",
+                NomeArquivo = "foto.png",
+                NomeOriginal = "foto.png",
+                ContentType = "image/png",
+                TamanhoBytes = 12,
+                CriadoEm = DateTime.UtcNow
+            };
+            _veiculoRepositoryMock
+                .Setup(repository => repository.GetByIdForOficinaWithImagens(4, 2))
+                .ReturnsAsync(veiculo);
+            _veiculoRepositoryMock.Setup(repository => repository.SaveChanges()).ReturnsAsync(1);
+            _storageServiceMock
+                .Setup(storage => storage.SaveAsync(4, imagem, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(imagemSalva);
+            _mapperMock
+                .Setup(mapper => mapper.Map<IReadOnlyCollection<VeiculoImagemDTO>>(It.IsAny<object>()))
+                .Returns(new List<VeiculoImagemDTO>
+                {
+                    new()
+                    {
+                        Id = 8,
+                        VeiculoId = 4,
+                        Url = "/api/v1/veiculos/4/imagens/foto.png",
+                        NomeOriginal = "foto.png",
+                        ContentType = "image/png",
+                        TamanhoBytes = 12,
+                        CriadoEm = imagemSalva.CriadoEm
+                    }
+                });
+            var service = CreateService();
+
+            var result = await service.AddImagensForOficina(
+                4,
+                2,
+                new List<IFormFile> { imagem },
+                CancellationToken.None);
+
+            Assert.Single(result);
+            Assert.Contains(imagemSalva, veiculo.Imagens);
+            _veiculoRepositoryMock.Verify(
+                repository => repository.GetByIdForOficinaWithImagens(4, 2),
+                Times.Once);
+            _veiculoRepositoryMock.Verify(
+                repository => repository.GetByIdForOficina(It.IsAny<int>(), It.IsAny<int>()),
+                Times.Never);
+            _veiculoRepositoryMock.Verify(repository => repository.SaveChanges(), Times.Once);
+        }
+
+        [Fact]
         public async Task AddImagensForCliente_DeveFalharSemSalvarArquivo_QuandoVeiculoNaoPertenceAoCliente()
         {
             _veiculoRepositoryMock.Setup(r => r.GetByIdForCliente(4, 5)).ReturnsAsync((Veiculo)null);
@@ -121,7 +178,7 @@ namespace SIGO.Tests.Services
                 Imagens = new List<VeiculoImagem> { imagem }
             };
             _veiculoRepositoryMock
-                .Setup(repository => repository.GetByIdForOficina(4, 2))
+                .Setup(repository => repository.GetByIdForOficinaWithImagens(4, 2))
                 .ReturnsAsync(veiculo);
             _veiculoRepositoryMock.Setup(repository => repository.SaveChanges()).ReturnsAsync(1);
             var service = CreateService();
@@ -137,7 +194,7 @@ namespace SIGO.Tests.Services
         public async Task RemoveImagemForOficina_NaoDeveExcluirQuandoVeiculoNaoPertenceAOficina()
         {
             _veiculoRepositoryMock
-                .Setup(repository => repository.GetByIdForOficina(4, 2))
+                .Setup(repository => repository.GetByIdForOficinaWithImagens(4, 2))
                 .ReturnsAsync((Veiculo?)null);
             var service = CreateService();
 

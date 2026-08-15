@@ -18,20 +18,20 @@ namespace SIGO.Services.Entities
 
         private readonly IClienteContaRepository _contaRepository;
         private readonly IClienteIdentityRepository _identityRepository;
-        private readonly ICpfValidator _cpfValidator;
+        private readonly ICpfCnpjValidator _cpfCnpjValidator;
         private readonly IPasswordHasher _passwordHasher;
         private readonly TimeProvider _timeProvider;
 
         public ClienteAuthenticationService(
             IClienteContaRepository contaRepository,
             IClienteIdentityRepository identityRepository,
-            ICpfValidator cpfValidator,
+            ICpfCnpjValidator cpfCnpjValidator,
             IPasswordHasher passwordHasher,
             TimeProvider timeProvider)
         {
             _contaRepository = contaRepository;
             _identityRepository = identityRepository;
-            _cpfValidator = cpfValidator;
+            _cpfCnpjValidator = cpfCnpjValidator;
             _passwordHasher = passwordHasher;
             _timeProvider = timeProvider;
         }
@@ -41,7 +41,7 @@ namespace SIGO.Services.Entities
             CancellationToken cancellationToken = default)
         {
             if (login is null ||
-                !_cpfValidator.IsValid(login.Cpf) ||
+                !_cpfCnpjValidator.IsValid(login.Documento) ||
                 string.IsNullOrWhiteSpace(login.Senha) ||
                 login.Senha.Length > 128)
             {
@@ -49,8 +49,8 @@ namespace SIGO.Services.Entities
                 return null;
             }
 
-            var cpf = _cpfValidator.Normalize(login.Cpf);
-            var cliente = await _identityRepository.GetClienteByCpfAsync(cpf, cancellationToken);
+            var documento = _cpfCnpjValidator.Normalize(login.Documento);
+            var cliente = await _identityRepository.GetClienteByCpfCnpjAsync(documento, cancellationToken);
             var conta = cliente?.Conta;
             if (conta is null ||
                 conta.Status != EstadoClienteConta.Active ||
@@ -81,7 +81,7 @@ namespace SIGO.Services.Entities
                 }
                 else
                 {
-                    cliente = await _identityRepository.GetClienteByCpfAsync(cpf, cancellationToken);
+                    cliente = await _identityRepository.GetClienteByCpfCnpjAsync(documento, cancellationToken);
                     conta = cliente?.Conta;
                     if (conta is null ||
                         conta.Status != EstadoClienteConta.Active ||

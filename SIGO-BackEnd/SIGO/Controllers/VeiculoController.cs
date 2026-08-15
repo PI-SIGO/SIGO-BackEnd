@@ -15,13 +15,16 @@ namespace SIGO.Controllers
     {
         private readonly IVeiculoService _veiculoService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IAuditoriaFuncionarioService _auditoriaService;
 
         public VeiculoController(
             IVeiculoService veiculoService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IAuditoriaFuncionarioService auditoriaService)
         {
             _veiculoService = veiculoService;
             _currentUserService = currentUserService;
+            _auditoriaService = auditoriaService;
         }
 
         [HttpGet]
@@ -150,16 +153,22 @@ namespace SIGO.Controllers
 
         [HttpPost("~/api/v1/clientes/{clienteId:int}/veiculos")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        public async Task<IActionResult> CreateForCliente(int clienteId, VeiculoRequestDTO request)
+        public async Task<IActionResult> CreateForCliente(
+    int clienteId,
+    VeiculoRequestDTO request)
         {
             VeiculoDTO veiculoCriado;
+
             if (_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                veiculoCriado = await _veiculoService.CreateVeiculo(request, clienteId);
+                veiculoCriado = await _veiculoService.CreateVeiculo(
+                    request,
+                    clienteId);
             }
             else
             {
                 var oficinaId = _currentUserService.OficinaId;
+
                 if (!oficinaId.HasValue)
                     return Forbid();
 
@@ -169,56 +178,73 @@ namespace SIGO.Controllers
                     oficinaId.Value);
             }
 
-            return Created($"/api/v1/veiculos/{veiculoCriado.Id}", veiculoCriado);
+            await _auditoriaService.Registrar(
+                "CADASTROU",
+                "Veiculo",
+                veiculoCriado.Id,
+                $"Cadastrou o veículo #{veiculoCriado.Id} para o cliente #{clienteId}.");
+
+            return Created(
+                $"/api/v1/veiculos/{veiculoCriado.Id}",
+                veiculoCriado);
         }
 
         [HttpPost("{id:int}/imagens")]
         [Consumes("multipart/form-data")]
         [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
-        public async Task<IActionResult> AddImagens(
-            int id,
-            [FromForm] List<IFormFile> imagens,
-            CancellationToken cancellationToken)
+        public async Task<IActionResult> AddImagens(int id,[FromForm] List<IFormFile> imagens,CancellationToken cancellationToken)
         {
+            IReadOnlyCollection<VeiculoImagemDTO> imagensSalvas;
+
+            if (_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                IReadOnlyCollection<VeiculoImagemDTO> imagensSalvas;
-
-                if (_currentUserService.IsInRole(SystemRoles.Admin))
-                {
-                    imagensSalvas = await _veiculoService.AddImagens(id, imagens, cancellationToken);
-                }
-                else if (_currentUserService.IsInRole(SystemRoles.Cliente))
-                {
-                    var clienteId = _currentUserService.UserId;
-                    if (!clienteId.HasValue)
-                        return Forbid();
-
-                    imagensSalvas = await _veiculoService.AddImagensForCliente(
-                        id,
-                        clienteId.Value,
-                        imagens,
-                        cancellationToken);
-                }
-                else if (_currentUserService.IsInRole(SystemRoles.Oficina) ||
-                         _currentUserService.IsInRole(SystemRoles.Funcionario))
-                {
-                    var oficinaId = _currentUserService.OficinaId;
-                    if (!oficinaId.HasValue)
-                        return Forbid();
-
-                    imagensSalvas = await _veiculoService.AddImagensForOficina(
-                        id,
-                        oficinaId.Value,
-                        imagens,
-                        cancellationToken);
-                }
-                else
-                {
-                    return Forbid();
-                }
-
-                return Created($"/api/v1/veiculos/{id}/imagens", imagensSalvas);
+                imagensSalvas = await _veiculoService.AddImagens(
+                    id,
+                    imagens,
+                    cancellationToken);
             }
+            else if (_currentUserService.IsInRole(SystemRoles.Cliente))
+            {
+                var clienteId = _currentUserService.UserId;
+
+                if (!clienteId.HasValue)
+                    return Forbid();
+
+                imagensSalvas = await _veiculoService.AddImagensForCliente(
+                    id,
+                    clienteId.Value,
+                    imagens,
+                    cancellationToken);
+            }
+            else if (
+                _currentUserService.IsInRole(SystemRoles.Oficina) ||
+                _currentUserService.IsInRole(SystemRoles.Funcionario))
+            {
+                var oficinaId = _currentUserService.OficinaId;
+
+                if (!oficinaId.HasValue)
+                    return Forbid();
+
+                imagensSalvas = await _veiculoService.AddImagensForOficina(
+                    id,
+                    oficinaId.Value,
+                    imagens,
+                    cancellationToken);
+            }
+            else
+            {
+                return Forbid();
+            }
+
+            await _auditoriaService.Registrar(
+                "ADICIONOU_IMAGENS",
+                "Veiculo",
+                id,
+                $"Adicionou {imagensSalvas.Count} imagem(ns) ao veículo #{id}.");
+
+            return Created(
+                $"/api/v1/veiculos/{id}/imagens",
+                imagensSalvas);
         }
 
         [HttpGet("{veiculoId:int}/imagens/{nomeArquivo}")]
@@ -256,7 +282,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{veiculoId:int}/imagens/{imagemId:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> DeleteImagem(int veiculoId, int imagemId)
         {
             if (_currentUserService.IsInRole(SystemRoles.Admin))
@@ -271,7 +297,9 @@ namespace SIGO.Controllers
 
                 await _veiculoService.RemoveImagemForCliente(veiculoId, clienteId.Value, imagemId);
             }
-            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            else if (
+                _currentUserService.IsInRole(SystemRoles.Oficina) ||
+                _currentUserService.IsInRole(SystemRoles.Funcionario))
             {
                 var oficinaId = _currentUserService.OficinaId;
                 if (!oficinaId.HasValue)
@@ -323,17 +351,25 @@ namespace SIGO.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateForOficina(
-            int veiculoId,
-            VeiculoRequestDTO request)
+     int veiculoId,
+     VeiculoRequestDTO request)
         {
             var oficinaId = _currentUserService.OficinaId;
+
             if (!oficinaId.HasValue)
                 return Forbid();
 
-            var veiculoAtualizado = await _veiculoService.UpdateVeiculoForOficina(
-                request,
+            var veiculoAtualizado =
+                await _veiculoService.UpdateVeiculoForOficina(
+                    request,
+                    veiculoId,
+                    oficinaId.Value);
+
+            await _auditoriaService.Registrar(
+                "ALTEROU",
+                "Veiculo",
                 veiculoId,
-                oficinaId.Value);
+                $"Alterou os dados do veículo #{veiculoId}.");
 
             return Ok(veiculoAtualizado);
         }
@@ -370,10 +406,20 @@ namespace SIGO.Controllers
         public async Task<IActionResult> DeleteForOficina(int veiculoId)
         {
             var oficinaId = _currentUserService.OficinaId;
+
             if (!oficinaId.HasValue)
                 return Forbid();
 
-            await _veiculoService.RemoveForOficina(veiculoId, oficinaId.Value);
+            await _veiculoService.RemoveForOficina(
+                veiculoId,
+                oficinaId.Value);
+
+            await _auditoriaService.Registrar(
+                "EXCLUIU",
+                "Veiculo",
+                veiculoId,
+                $"Excluiu o veículo #{veiculoId}.");
+
             return NoContent();
         }
 
