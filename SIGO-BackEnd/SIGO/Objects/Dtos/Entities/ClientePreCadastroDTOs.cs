@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using SIGO.Objects.Enums;
 
 namespace SIGO.Objects.Dtos.Entities
@@ -6,7 +7,10 @@ namespace SIGO.Objects.Dtos.Entities
         int ClienteId,
         string Nome,
         string Cpf,
-        bool VinculoAtivo);
+        bool VinculoAtivo)
+    {
+        public string Cpf_Cnpj => Cpf;
+    }
 
     public sealed record VinculoClienteOficinaResumoDTO(
         int OficinaId,
@@ -17,7 +21,8 @@ namespace SIGO.Objects.Dtos.Entities
 
     public sealed record PreCadastrarClienteDTO
     {
-        public string Cpf { get; init; } = string.Empty;
+        public string? Cpf { get; init; }
+        public string? Cpf_Cnpj { get; init; }
         public string Nome { get; init; } = string.Empty;
         public string? Email { get; init; }
 
@@ -39,6 +44,10 @@ namespace SIGO.Objects.Dtos.Entities
         public string? Complemento { get; init; }
         public IReadOnlyCollection<PreCadastrarTelefoneClienteDTO> Telefones { get; init; } =
             Array.Empty<PreCadastrarTelefoneClienteDTO>();
+
+        [JsonIgnore]
+        public string Documento =>
+            string.IsNullOrWhiteSpace(Cpf_Cnpj) ? Cpf ?? string.Empty : Cpf_Cnpj;
     }
 
     public sealed record PreCadastrarTelefoneClienteDTO

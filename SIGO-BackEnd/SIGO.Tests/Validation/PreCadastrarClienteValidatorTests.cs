@@ -7,12 +7,26 @@ namespace SIGO.Tests.Validation;
 
 public sealed class PreCadastrarClienteValidatorTests
 {
-    private readonly PreCadastrarClienteValidator _validator = new(new CpfValidator());
+    private readonly PreCadastrarClienteValidator _validator = new(new CpfCnpjValidator(new CpfValidator(), new CnpjValidator()));
 
     [Fact]
     public void Validate_CadastroCompletoValido_DeveSerValido()
     {
         var result = _validator.Validate(CreateValidRequest());
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_CadastroComCnpjValido_DeveSerValido()
+    {
+        var request = CreateValidRequest() with
+        {
+            Cpf = null,
+            Cpf_Cnpj = "11.222.333/0001-81"
+        };
+
+        var result = _validator.Validate(request);
 
         Assert.True(result.IsValid);
     }

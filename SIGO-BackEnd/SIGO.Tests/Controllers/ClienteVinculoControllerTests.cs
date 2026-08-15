@@ -35,7 +35,7 @@ public sealed class ClienteVinculoControllerTests
     public async Task RegisterFull_DeveCriarClienteCompletoEVinculoAtivoComOficinaDoJwt()
     {
         var request = CreatePreRegistration();
-        var response = new PreCadastroClienteResultadoDTO(42, request.Nome, request.Cpf, true);
+        var response = new PreCadastroClienteResultadoDTO(42, request.Nome, request.Documento, true);
         _vinculoServiceMock
             .Setup(service => service.PreRegisterAsync(
                 request,

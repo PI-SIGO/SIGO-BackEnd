@@ -6,7 +6,7 @@ namespace SIGO.Tests.Validation;
 
 public sealed class LoginClienteValidatorTests
 {
-    private readonly LoginClienteValidator _validator = new(new CpfValidator());
+    private readonly LoginClienteValidator _validator = new(new CpfCnpjValidator(new CpfValidator(), new CnpjValidator()));
 
     [Fact]
     public void Validate_CpfFormatadoESenhaPreenchida_DeveSerValido()
@@ -20,9 +20,21 @@ public sealed class LoginClienteValidatorTests
         Assert.True(result.IsValid);
     }
 
+    [Fact]
+    public void Validate_CnpjFormatadoESenhaPreenchida_DeveSerValido()
+    {
+        var result = _validator.Validate(new LoginClienteDTO
+        {
+            Cpf_Cnpj = "11.222.333/0001-81",
+            Senha = "Senha123"
+        });
+
+        Assert.True(result.IsValid);
+    }
+
     [Theory]
-    [InlineData("", "Senha123", nameof(LoginClienteDTO.Cpf))]
-    [InlineData("11111111111", "Senha123", nameof(LoginClienteDTO.Cpf))]
+    [InlineData("", "Senha123", nameof(LoginClienteDTO.Cpf_Cnpj))]
+    [InlineData("11111111111", "Senha123", nameof(LoginClienteDTO.Cpf_Cnpj))]
     [InlineData("52998224725", "", nameof(LoginClienteDTO.Senha))]
     public void Validate_CredencialInvalida_DeveRejeitar(
         string cpf,

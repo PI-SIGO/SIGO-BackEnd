@@ -17,20 +17,20 @@ namespace SIGO.Services.Entities
     {
         private readonly IClienteIdentityRepository _identityRepository;
         private readonly IClienteContaRepository _contaRepository;
-        private readonly ICpfValidator _cpfValidator;
+        private readonly ICpfCnpjValidator _cpfCnpjValidator;
         private readonly IPasswordHasher _passwordHasher;
         private readonly TimeProvider _timeProvider;
 
         public ClienteRegistrationService(
             IClienteIdentityRepository identityRepository,
             IClienteContaRepository contaRepository,
-            ICpfValidator cpfValidator,
+            ICpfCnpjValidator cpfCnpjValidator,
             IPasswordHasher passwordHasher,
             TimeProvider timeProvider)
         {
             _identityRepository = identityRepository;
             _contaRepository = contaRepository;
-            _cpfValidator = cpfValidator;
+            _cpfCnpjValidator = cpfCnpjValidator;
             _passwordHasher = passwordHasher;
             _timeProvider = timeProvider;
         }
@@ -42,7 +42,7 @@ namespace SIGO.Services.Entities
         {
             EnsureRequestIsValid(request);
 
-            var cpf = _cpfValidator.Normalize(request.Cpf);
+            var documento = _cpfCnpjValidator.Normalize(request.Documento);
             var email = NormalizeEmail(request.Email);
             var passwordHash = _passwordHasher.Hash(request.Senha);
             var now = UtcNow();
@@ -52,10 +52,10 @@ namespace SIGO.Services.Entities
                 return await _identityRepository.ExecuteInTransactionAsync(
                     async token =>
                     {
-                        var cliente = await _identityRepository.GetClienteByCpfAsync(cpf, token);
+                        var cliente = await _identityRepository.GetClienteByCpfCnpjAsync(documento, token);
                         if (cliente?.Situacao == Situacao.INATIVO)
                         {
-                            throw new ConflictException("O cadastro deste CPF está inativo.");
+                            throw new ConflictException("O cadastro deste CPF/CNPJ está inativo.");
                         }
 
                         if (await _contaRepository.EmailInUseByOtherClienteAsync(
@@ -69,7 +69,7 @@ namespace SIGO.Services.Entities
                         if (cliente is not null &&
                             await _contaRepository.GetByClienteIdAsync(cliente.Id, token) is not null)
                         {
-                            throw new ConflictException("Este CPF já possui uma conta cadastrada.");
+                            throw new ConflictException("Este CPF/CNPJ já possui uma conta cadastrada.");
                         }
 
                         if (cliente is null)
@@ -79,10 +79,10 @@ namespace SIGO.Services.Entities
                                 Nome = request.Nome.Trim(),
                                 Email = email,
                                 Senha = null,
-                                Cpf_Cnpj = cpf,
+                                Cpf_Cnpj = documento,
                                 Numero = 0,
                                 Sexo = Sexo.Outro,
-                                TipoCliente = TipoCliente.FISICO,
+                                TipoCliente = GetTipoCliente(documento),
                                 Situacao = Situacao.ATIVO
                             };
                             await _identityRepository.AddClienteAsync(cliente, token);
@@ -135,7 +135,7 @@ namespace SIGO.Services.Entities
                             AtorId = auditContext.AtorId,
                             Evento = TipoEventoAuditoria.CadastroDiretoConcluido,
                             Resultado = ResultadoAuditoria.Sucesso,
-                            DocumentoMascarado = ClienteDataMasking.MaskDocument(cpf),
+                            DocumentoMascarado = ClienteDataMasking.MaskDocument(documento),
                             ContatoMascarado = ClienteDataMasking.MaskContact(email),
                             IpAddress = auditContext.IpAddress,
                             CorrelationId = auditContext.CorrelationId,
@@ -162,15 +162,15 @@ namespace SIGO.Services.Entities
                 postgresException.SqlState is PostgresErrorCodes.UniqueViolation or
                     PostgresErrorCodes.SerializationFailure)
             {
-                throw new ConflictException("CPF ou e-mail já cadastrado.");
+                throw new ConflictException("CPF/CNPJ ou e-mail já cadastrado.");
             }
         }
 
         private void EnsureRequestIsValid(CadastrarClienteDTO request)
         {
             var errors = new List<ValidationError>();
-            if (request is null || !_cpfValidator.IsValid(request.Cpf))
-                errors.Add(new ValidationError(nameof(CadastrarClienteDTO.Cpf), "CPF inválido."));
+            if (request is null || !_cpfCnpjValidator.IsValid(request.Documento))
+                errors.Add(new ValidationError(nameof(CadastrarClienteDTO.Cpf_Cnpj), "CPF/CNPJ inválido."));
             if (request is null || string.IsNullOrWhiteSpace(request.Nome) || request.Nome.Trim().Length > 100)
                 errors.Add(new ValidationError(nameof(CadastrarClienteDTO.Nome), "Nome obrigatório com até 100 caracteres."));
             if (request is null ||
@@ -199,6 +199,9 @@ namespace SIGO.Services.Entities
 
         private static string NormalizeEmail(string email) =>
             new MailAddress(email.Trim()).Address.ToLowerInvariant();
+
+        private static TipoCliente GetTipoCliente(string documentoNormalizado) =>
+            documentoNormalizado.Length == 14 ? TipoCliente.JURIDICO : TipoCliente.FISICO;
 
         private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
     }

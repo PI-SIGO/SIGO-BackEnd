@@ -6,11 +6,12 @@ namespace SIGO.Validation
 {
     public sealed class LoginClienteValidator : AbstractValidator<LoginClienteDTO>
     {
-        public LoginClienteValidator(ICpfValidator cpfValidator)
+        public LoginClienteValidator(ICpfCnpjValidator cpfCnpjValidator)
         {
-            RuleFor(request => request.Cpf)
-                .NotEmpty().WithMessage("CPF obrigatório.")
-                .Must(cpfValidator.IsValid).WithMessage("CPF inválido.");
+            RuleFor(request => request.Documento)
+                .NotEmpty().WithMessage("CPF/CNPJ obrigatório.")
+                .Must(cpfCnpjValidator.IsValid).WithMessage("CPF/CNPJ inválido.")
+                .OverridePropertyName(nameof(LoginClienteDTO.Cpf_Cnpj));
 
             RuleFor(request => request.Senha)
                 .NotEmpty().WithMessage("Senha obrigatória.")
@@ -20,11 +21,12 @@ namespace SIGO.Validation
 
     public sealed class CadastrarClienteValidator : AbstractValidator<CadastrarClienteDTO>
     {
-        public CadastrarClienteValidator(ICpfValidator cpfValidator)
+        public CadastrarClienteValidator(ICpfCnpjValidator cpfCnpjValidator)
         {
-            RuleFor(request => request.Cpf)
-                .NotEmpty().WithMessage("CPF obrigatório.")
-                .Must(cpfValidator.IsValid).WithMessage("CPF inválido.");
+            RuleFor(request => request.Documento)
+                .NotEmpty().WithMessage("CPF/CNPJ obrigatório.")
+                .Must(cpfCnpjValidator.IsValid).WithMessage("CPF/CNPJ inválido.")
+                .OverridePropertyName(nameof(CadastrarClienteDTO.Cpf_Cnpj));
 
             RuleFor(request => request.Nome)
                 .NotEmpty().WithMessage("Nome obrigatório.")
@@ -48,11 +50,12 @@ namespace SIGO.Validation
 
     public sealed class PreCadastrarClienteValidator : AbstractValidator<PreCadastrarClienteDTO>
     {
-        public PreCadastrarClienteValidator(ICpfValidator cpfValidator)
+        public PreCadastrarClienteValidator(ICpfCnpjValidator cpfCnpjValidator)
         {
-            RuleFor(request => request.Cpf)
-                .NotEmpty().WithMessage("CPF obrigatório.")
-                .Must(cpfValidator.IsValid).WithMessage("CPF inválido.");
+            RuleFor(request => request.Documento)
+                .NotEmpty().WithMessage("CPF/CNPJ obrigatório.")
+                .Must(cpfCnpjValidator.IsValid).WithMessage("CPF/CNPJ inválido.")
+                .OverridePropertyName(nameof(PreCadastrarClienteDTO.Cpf_Cnpj));
 
             RuleFor(request => request.Nome)
                 .NotEmpty().WithMessage("Nome obrigatório.")

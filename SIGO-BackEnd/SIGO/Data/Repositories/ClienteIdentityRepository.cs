@@ -36,15 +36,15 @@ namespace SIGO.Data.Repositories
             }
         }
 
-        public Task<Cliente?> GetClienteByCpfAsync(
-            string cpfNormalizado,
+        public Task<Cliente?> GetClienteByCpfCnpjAsync(
+            string documentoNormalizado,
             CancellationToken cancellationToken = default)
         {
             return _context.Clientes
                 .Include(cliente => cliente.Conta)
                 .Include(cliente => cliente.Telefones)
                 .FirstOrDefaultAsync(
-                    cliente => cliente.Cpf_Cnpj == cpfNormalizado,
+                    cliente => cliente.Cpf_Cnpj == documentoNormalizado,
                     cancellationToken);
         }
 
