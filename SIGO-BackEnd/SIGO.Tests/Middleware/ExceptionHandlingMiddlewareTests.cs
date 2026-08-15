@@ -93,6 +93,30 @@ namespace SIGO.Tests.Middleware
         }
 
         [Fact]
+        public async Task InvokeAsync_DeveRetornarConflict_QuandoPostgresBloqueiaDeletePorRestrict()
+        {
+            var context = CreateHttpContext();
+            var postgresException = new PostgresException(
+                "update or delete violates restrict setting",
+                "ERROR",
+                "ERROR",
+                PostgresErrorCodes.RestrictViolation);
+            var middleware = new ExceptionHandlingMiddleware(
+                _ => throw new DbUpdateException("Database update failed.", postgresException),
+                NullLogger<ExceptionHandlingMiddleware>.Instance);
+
+            await middleware.InvokeAsync(context);
+
+            var json = await ReadResponseJson(context);
+            Assert.Equal(StatusCodes.Status409Conflict, context.Response.StatusCode);
+            Assert.Equal(ApiProblemTypes.Conflict, json.GetProperty("type").GetString());
+            Assert.Equal(
+                "A operacao referencia um recurso inexistente ou que ainda esta em uso.",
+                json.GetProperty("detail").GetString());
+            Assert.DoesNotContain("restrict setting", json.GetRawText(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
         public async Task InvokeAsync_DeveRetornarErroInternoSemVazarMensagem_QuandoExceptionNaoTratada()
         {
             var context = CreateHttpContext();

@@ -160,7 +160,8 @@ namespace SIGO.Middleware
         private static bool IsForeignKeyViolation(DbUpdateException exception)
         {
             return exception.InnerException is PostgresException postgresException &&
-                postgresException.SqlState == PostgresErrorCodes.ForeignKeyViolation;
+                postgresException.SqlState is PostgresErrorCodes.ForeignKeyViolation or
+                    PostgresErrorCodes.RestrictViolation;
         }
     }
 }

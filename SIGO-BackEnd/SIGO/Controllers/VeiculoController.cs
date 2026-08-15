@@ -282,7 +282,7 @@ namespace SIGO.Controllers
         }
 
         [HttpDelete("{veiculoId:int}/imagens/{imagemId:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina}")]
+        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Cliente},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<IActionResult> DeleteImagem(int veiculoId, int imagemId)
         {
             if (_currentUserService.IsInRole(SystemRoles.Admin))
@@ -297,7 +297,9 @@ namespace SIGO.Controllers
 
                 await _veiculoService.RemoveImagemForCliente(veiculoId, clienteId.Value, imagemId);
             }
-            else if (_currentUserService.IsInRole(SystemRoles.Oficina))
+            else if (
+                _currentUserService.IsInRole(SystemRoles.Oficina) ||
+                _currentUserService.IsInRole(SystemRoles.Funcionario))
             {
                 var oficinaId = _currentUserService.OficinaId;
                 if (!oficinaId.HasValue)

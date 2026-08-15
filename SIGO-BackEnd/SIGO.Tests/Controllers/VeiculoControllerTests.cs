@@ -443,7 +443,7 @@ namespace SIGO.Tests.Controllers
         }
 
         [Fact]
-        public void DeleteImagem_DeveAutorizarOficina()
+        public void DeleteImagem_DeveAutorizarOficinaEFuncionario()
         {
             var attribute = typeof(VeiculoController)
                 .GetMethod(nameof(VeiculoController.DeleteImagem))!
@@ -452,6 +452,7 @@ namespace SIGO.Tests.Controllers
                 .Single();
 
             Assert.Contains(SystemRoles.Oficina, attribute.Roles ?? string.Empty);
+            Assert.Contains(SystemRoles.Funcionario, attribute.Roles ?? string.Empty);
         }
 
         [Fact]
@@ -463,6 +464,33 @@ namespace SIGO.Tests.Controllers
             var controller = CreateController(
                 oficinaId: 2,
                 roles: new[] { SystemRoles.Oficina });
+
+            var result = await controller.DeleteImagem(4, 8);
+
+            Assert.IsType<NoContentResult>(result);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagemForOficina(4, 2, 8),
+                Times.Once);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagem(It.IsAny<int>(), It.IsAny<int>()),
+                Times.Never);
+            _veiculoServiceMock.Verify(
+                service => service.RemoveImagemForCliente(
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteImagem_DeveRemoverImagemNoEscopoDaOficinaDoFuncionario()
+        {
+            _veiculoServiceMock
+                .Setup(service => service.RemoveImagemForOficina(4, 2, 8))
+                .Returns(Task.CompletedTask);
+            var controller = CreateController(
+                oficinaId: 2,
+                roles: new[] { SystemRoles.Funcionario });
 
             var result = await controller.DeleteImagem(4, 8);
 
