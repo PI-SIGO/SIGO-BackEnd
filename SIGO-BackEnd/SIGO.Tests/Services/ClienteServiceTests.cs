@@ -251,6 +251,8 @@ namespace SIGO.Tests.Services
             request.Cpf_Cnpj = "11.222.333/0001-81";
             request.Obs = "Observação que não se aplica";
             request.razao = "Empresa SIGO Ltda.";
+            request.DataNasc = null;
+            request.Sexo = null;
             _clienteRepositoryMock
                 .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
                 .ReturnsAsync(cliente);
@@ -261,6 +263,8 @@ namespace SIGO.Tests.Services
             Assert.Equal(TipoCliente.JURIDICO, cliente.TipoCliente);
             Assert.Equal(string.Empty, cliente.Obs);
             Assert.Equal("Empresa SIGO Ltda.", cliente.Razao);
+            Assert.Null(cliente.DataNasc);
+            Assert.Equal(Sexo.Outro, cliente.Sexo);
         }
 
         [Fact]
@@ -330,6 +334,8 @@ namespace SIGO.Tests.Services
             Estado = "SC",
             Pais = "Brasil",
             Complemento = string.Empty,
+            DataNasc = new DateOnly(1990, 5, 10),
+            Sexo = (int)Sexo.Feminino,
             senha = string.Empty,
             Telefones = new List<TelefoneDTO>()
         };

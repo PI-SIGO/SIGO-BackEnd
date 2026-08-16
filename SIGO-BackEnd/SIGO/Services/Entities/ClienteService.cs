@@ -146,7 +146,7 @@ namespace SIGO.Services.Entities
                 });
             }
 
-            var profileUpdate = MapProfileUpdate(clienteDTO, clienteId);
+            var profileUpdate = MapProfileUpdate(existingCliente, clienteDTO, clienteId);
             ApplyClientTypeRules(profileUpdate);
             await ValidateCliente(profileUpdate, clienteId);
             EnsureIdentityFieldsAreUnchanged(existingCliente, profileUpdate);
@@ -439,7 +439,9 @@ namespace SIGO.Services.Entities
             existing.Estado = clienteDTO.Estado;
             existing.Pais = clienteDTO.Pais;
             existing.Complemento = clienteDTO.Complemento;
-            existing.Sexo = (SIGO.Objects.Enums.Sexo)clienteDTO.Sexo;
+            existing.Sexo = clienteDTO.Sexo.HasValue
+                ? (SIGO.Objects.Enums.Sexo)clienteDTO.Sexo.Value
+                : SIGO.Objects.Enums.Sexo.Outro;
             existing.TipoCliente = (SIGO.Objects.Enums.TipoCliente)clienteDTO.TipoCliente;
         }
 
@@ -459,6 +461,8 @@ namespace SIGO.Services.Entities
                 clienteDTO.TipoCliente = (int)TipoCliente.JURIDICO;
                 clienteDTO.Obs = string.Empty;
                 clienteDTO.razao = clienteDTO.razao.Trim();
+                clienteDTO.DataNasc = null;
+                clienteDTO.Sexo = null;
                 return;
             }
 
@@ -467,7 +471,10 @@ namespace SIGO.Services.Entities
             clienteDTO.Obs = clienteDTO.Obs?.Trim() ?? string.Empty;
         }
 
-        private static ClienteDTO MapProfileUpdate(ClienteRequestDTO request, int clienteId)
+        private static ClienteDTO MapProfileUpdate(
+            Cliente existingCliente,
+            ClienteRequestDTO request,
+            int clienteId)
         {
             return new ClienteDTO
             {
@@ -477,7 +484,7 @@ namespace SIGO.Services.Entities
                 Cpf_Cnpj = request.Cpf_Cnpj,
                 Obs = request.Obs,
                 razao = request.razao,
-                DataNasc = request.DataNasc,
+                DataNasc = request.DataNasc ?? existingCliente.DataNasc,
                 Numero = request.Numero,
                 Rua = request.Rua,
                 Cidade = request.Cidade,
@@ -486,7 +493,7 @@ namespace SIGO.Services.Entities
                 Estado = request.Estado,
                 Pais = request.Pais,
                 Complemento = request.Complemento,
-                Sexo = request.Sexo,
+                Sexo = request.Sexo ?? (int)existingCliente.Sexo,
                 TipoCliente = request.TipoCliente,
                 Telefones = request.Telefones ?? new List<TelefoneDTO>()
             };
