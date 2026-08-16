@@ -19,6 +19,7 @@ namespace SIGO.Data
         public DbSet<ClienteOficina> ClienteOficinas { get; set; }
         public DbSet<ClienteConta> ClienteContas { get; set; }
         public DbSet<ClienteContato> ClienteContatos { get; set; }
+        public DbSet<TokenRedefinicaoSenha> TokensRedefinicaoSenha { get; set; }
         public DbSet<AuditoriaSeguranca> AuditoriasSeguranca { get; set; }
         public DbSet<Pedido> Pedidos { get; set; }
         public DbSet<RegistroServico> RegistroServicos { get; set; }
@@ -43,6 +44,7 @@ namespace SIGO.Data
             ClienteOficinaBuilder.Build(modelBuilder);
             ClienteContaBuilder.Build(modelBuilder);
             ClienteContatoBuilder.Build(modelBuilder);
+            TokenRedefinicaoSenhaBuilder.Build(modelBuilder);
             AuditoriaSegurancaBuilder.Build(modelBuilder);
             PedidoBuilder.Build(modelBuilder);
             RegistroServicoBuilder.Build(modelBuilder);

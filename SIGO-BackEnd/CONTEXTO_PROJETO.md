@@ -112,6 +112,7 @@ Controllers existentes:
 
 - `CepController` -> consulta CEP
 - `ClienteController` -> consulta, atualizacao, inativacao, login e senha
+- `AuthController` -> solicitacao e conclusao da recuperacao de senha por e-mail
 - `ClienteRegistrationController` -> cadastro publico direto em `POST /api/v1/clientes/cadastros`
 - `ClienteVinculoController` -> cadastro completo pela oficina com vinculo direto e consulta/inativacao de vinculos
 - `FuncionarioController` -> CRUD + busca por nome/id
@@ -163,7 +164,9 @@ Cadastro direto do cliente:
 2. Se o CPF ainda nao existir, o sistema cria o `Cliente` e sua `ClienteConta`.
 3. Se uma oficina ja tiver criado um `Cliente` com esse CPF, mas ele ainda nao tiver conta, o sistema cria a `ClienteConta` apontando diretamente para o mesmo `Cliente.Id`.
 4. Como veiculos, pedidos e demais dados continuam associados ao mesmo `Cliente.Id`, nada precisa ser copiado ou transferido para a nova conta.
-5. O email e registrado em `ClienteContato` apenas como dado de contato. Nao existe envio de codigo, link ou confirmacao por email nesse fluxo.
+5. O email e registrado em `ClienteContato` como dado de contato. O cadastro direto
+   nao exige confirmacao; o envio de link existe apenas quando o titular solicita
+   recuperacao de senha.
 6. Se o CPF ja possuir conta, o cliente estiver inativo ou o email pertencer a outra conta, o cadastro retorna conflito.
 
 Cadastro completo direto pela oficina:
@@ -180,6 +183,17 @@ Login do cliente:
 1. O cliente autentica em `POST /api/v1/clientes/login` usando `cpf` e `senha`.
 2. O CPF e normalizado e localiza o mesmo `Cliente.Id` usado por veiculos, pedidos e vinculos.
 3. Oficina e funcionario continuam autenticando com email e senha em suas rotas proprias.
+
+Recuperacao de senha:
+
+1. `POST /api/v1/auth/forgot-password` recebe somente o e-mail e responde de forma
+   generica, exista ou nao uma conta.
+2. A API procura Cliente, Funcionario e Oficina automaticamente. Emails compartilhados
+   entre tipos de conta geram um token independente para cada conta.
+3. Somente o hash SHA-256 do token aleatorio e persistido. O link expira, e de uso
+   unico e aponta para o frontend.
+4. `POST /api/v1/auth/reset-password` valida o token, grava a nova senha com BCrypt e
+   invalida o token na mesma transacao.
 
 Cadastro de veiculo:
 

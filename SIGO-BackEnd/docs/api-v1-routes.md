@@ -18,7 +18,7 @@ Este documento descreve o contrato implementado. Todas as rotas de negócio usam
 
 | Método e rota | Acesso | Funcionamento |
 |---|---|---|
-| `POST /api/v1/clientes/cadastros` | Público | Recebe CPF, nome, e-mail e senha. Se o CPF já foi cadastrado por uma oficina, cria a conta no mesmo `ClienteId`; veículos e pedidos existentes aparecem automaticamente. Se o CPF não existe, cria um cliente básico e a conta. |
+| `POST /api/v1/clientes/cadastros` | Público | Recebe CPF ou CNPJ, nome, e-mail e senha. Se o documento já foi cadastrado por uma oficina, cria a conta no mesmo `ClienteId`; veículos e pedidos existentes aparecem automaticamente. Se o documento não existe, cria um cliente básico e a conta. |
 | `POST /api/v1/clientes` | Oficina, Funcionário | Cadastro completo feito pela oficina: recebe CPF, nome, e-mail, observação, razão, nascimento, sexo, endereço e até cinco telefones. CPF novo cria um `Cliente` ativo sem credencial; CPF existente reutiliza o mesmo `ClienteId`. O vínculo `ClienteOficina` é criado imediatamente. A oficina não define senha, situação ou IDs pelo corpo da requisição. |
 | `GET /api/v1/clientes/me/vinculos` | Cliente | Lista as oficinas relacionadas à conta do cliente e informa se cada vínculo está ativo. |
 | `DELETE /api/v1/clientes/me/vinculos/{oficinaId}` | Cliente | Revoga o vínculo com a oficina sem apagar cliente, veículos ou histórico. A oficina não pode recuperar o acesso repetindo o pré-cadastro. |
@@ -30,12 +30,19 @@ O fluxo direto por CPF foi escolhido para a demonstração acadêmica. Ele não 
 
 | Método e rota | Acesso | Funcionamento |
 |---|---|---|
-| `POST /api/v1/clientes/login` | Público | Valida `cpf` e `senha`; retorna `accessToken` e `tokenType`. Exige cliente e conta ativos. O e-mail continua sendo apenas dado de contato. |
+| `POST /api/v1/clientes/login` | Público | Valida `cpf` ou `cpf_Cnpj` e `senha`; retorna `accessToken` e `tokenType`. Exige cliente e conta ativos. O e-mail continua sendo apenas dado de contato. |
 | `PUT /api/v1/clientes/me/senha` | Cliente | Confere a senha atual, altera o hash e invalida os JWTs anteriores. |
 | `POST /api/v1/oficinas/login` | Público | Retorna JWT somente para oficina ativa. |
 | `POST /api/v1/funcionarios/login` | Público | Retorna JWT somente para funcionário ativo em oficina ativa; administrador ativo não depende de oficina. |
+| `POST /api/v1/auth/forgot-password` | Público | Recebe somente `email` e sempre retorna `202` com mensagem genérica. Localiza automaticamente contas ativas de Cliente, Funcionário e Oficina, gera um token seguro por conta encontrada, persiste somente o hash e envia o link por e-mail. |
+| `POST /api/v1/auth/reset-password/validate` | Público | Recebe `token` no corpo e informa apenas se o link ainda é válido, não expirou e não foi utilizado. |
+| `POST /api/v1/auth/reset-password` | Público | Recebe `token`, `newPassword` e `confirmPassword`; valida e consome o token uma única vez, grava o novo hash BCrypt e retorna `204`. Para Cliente, também incrementa `TokenVersion`. |
 
 JWTs são revalidados contra o estado atual. Inativação, mudança de perfil ou transferência de funcionário invalida imediatamente uma sessão incompatível.
+
+O pedido de recuperação não revela se o e-mail está cadastrado. Se o mesmo e-mail
+pertencer a tipos de conta diferentes, cada conta recebe um link próprio identificado
+no e-mail; o usuário não escolhe o tipo de acesso na solicitação.
 
 ## Clientes
 
@@ -45,7 +52,7 @@ JWTs são revalidados contra o estado atual. Inativação, mudança de perfil ou
 | `GET /api/v1/clientes/{id}` | Admin, Oficina, Funcionário, Cliente | Cliente acessa apenas o próprio cadastro; oficina e funcionário apenas cliente vinculado. Inclui telefones e veículos. |
 | `GET /api/v1/clientes/nome/{nome}` | Admin, Oficina, Funcionário | Pesquisa parcial e paginada, sempre dentro do escopo da oficina quando aplicável. |
 | `GET /api/v1/clientes/oficinas/{oficinaId}` | Admin, Oficina, Funcionário | Lista os clientes da oficina. Não-admin só pode informar o próprio `oficinaId`. |
-| `PUT /api/v1/clientes/{id}` | Admin, Cliente | Atualiza o perfil e telefones. CPF, e-mail e situação não fazem parte do contrato editável; senha usa a rota dedicada. |
+| `PUT /api/v1/clientes/{id}` | Admin, Cliente | Atualiza o perfil e telefones. CPF, e-mail e situação não fazem parte do contrato editável; senha usa a rota dedicada. O tipo é derivado do documento: CPF mantém `Obs` e limpa `Razao`; CNPJ exige `Razao` e limpa `Obs`. |
 | `DELETE /api/v1/clientes/{id}` | Admin, Cliente | Inativa cliente, conta e todos os vínculos, incrementa a versão do token e preserva o histórico. Cliente só inativa a própria conta. |
 
 ## Oficinas
@@ -55,7 +62,7 @@ JWTs são revalidados contra o estado atual. Inativação, mudança de perfil ou
 | `GET /api/v1/oficinas` | Admin | Lista oficinas ativas com paginação. |
 | `GET /api/v1/oficinas/{id}` | Admin, Oficina | Admin acessa qualquer oficina ativa; oficina acessa apenas a própria. |
 | `GET /api/v1/oficinas/nome/{nome}` | Admin | Pesquisa oficinas ativas pelo nome. |
-| `POST /api/v1/oficinas` | Público | Cadastra oficina, normaliza CNPJ e armazena somente o hash da senha. |
+| `POST /api/v1/oficinas` | Público | Cadastra oficina, normaliza CNPJ e armazena somente o hash da senha. A senha deve ter de 8 a 128 caracteres, com ao menos uma letra e um número. |
 | `PUT /api/v1/oficinas/{id}` | Admin, Oficina | Admin altera o cadastro administrativo. Oficina altera somente o próprio perfil permitido; funcionário não pode editar oficina. |
 | `DELETE /api/v1/oficinas/{id}` | Admin, Oficina | Inativa logicamente. Oficina só pode inativar a si mesma; funcionários vinculados deixam de autenticar enquanto a oficina estiver inativa. |
 

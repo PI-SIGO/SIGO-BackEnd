@@ -156,6 +156,8 @@ There are three login endpoints:
 | `POST /api/v1/clientes/login` | `ClienteController` | `Cliente` |
 | `POST /api/v1/funcionarios/login` | `FuncionarioController` | `Admin` or `Funcionario` |
 | `POST /api/v1/oficinas/login` | `OficinaController` | `Oficina` |
+| `POST /api/v1/auth/forgot-password` | `AuthController` | Resposta genérica, sem autenticação |
+| `POST /api/v1/auth/reset-password` | `AuthController` | Redefinição por token de uso único |
 
 Login process:
 
@@ -173,6 +175,13 @@ Login process:
 7. The token expires in 2 hours.
 
 Current client password storage behavior: the password hash is stored in `ClienteConta` and verified through the configured password hasher. The legacy `Cliente.Senha` field is not used by direct registration.
+
+Password recovery receives only an email address. The backend searches active
+`ClienteConta`, `Funcionario`, and `Oficina` records, stores only a SHA-256 hash of a
+cryptographically random reset token, and sends a frontend link through the configured
+SMTP service. Tokens expire, are single-use, and are consumed in the same database
+transaction that updates the BCrypt password hash. Client resets also increment
+`TokenVersion`.
 
 ## 4. Access Matrix
 
@@ -1014,6 +1023,7 @@ These notes describe current behavior in the codebase. They are not frontend req
 | Client ownership | Controllers use JWT `NameIdentifier` to ensure Cliente can only access own resources. |
 | Funcionario role | A funcionario becomes `Admin` only when `Cargo` is `ADMIN` or `ADMINISTRADOR`. |
 | Public registration | Client registration at `POST /api/v1/clientes/cadastros` and workshop creation are anonymous and rate-limited. Client registration links the account directly by CPF and does not verify the email. |
+| Password recovery | Anonymous, rate-limited endpoints return a generic request response, send a single-use expiring link by SMTP, and never persist the raw token. |
 
 ## 16. Practical Examples For The Frontend
 
