@@ -140,7 +140,35 @@ namespace SIGO.Services.Entities
             await AddCnpjErrors(oficinaDTO.CNPJ, errors, ignoreId);
             await AddEmailErrors(oficinaDTO.Email, errors, ignoreId);
             AddCepErrors(oficinaDTO.Cep, errors);
+            if (oficinaDTO is OficinaRequestDTO request)
+                AddPasswordErrors(request.Senha, errors, required: !ignoreId.HasValue);
             ThrowIfInvalid(errors);
+        }
+
+        private static void AddPasswordErrors(
+            string? password,
+            ICollection<ValidationError> errors,
+            bool required)
+        {
+            if (string.IsNullOrEmpty(password))
+            {
+                if (required)
+                    errors.Add(new ValidationError(nameof(OficinaRequestDTO.Senha), "Senha obrigatória."));
+                return;
+            }
+
+            if (password.Length is < 8 or > 128)
+            {
+                errors.Add(new ValidationError(
+                    nameof(OficinaRequestDTO.Senha),
+                    "Senha deve ter entre 8 e 128 caracteres."));
+            }
+            if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit))
+            {
+                errors.Add(new ValidationError(
+                    nameof(OficinaRequestDTO.Senha),
+                    "Senha deve conter ao menos uma letra e um número."));
+            }
         }
 
         private static void ValidateCep(int cep)

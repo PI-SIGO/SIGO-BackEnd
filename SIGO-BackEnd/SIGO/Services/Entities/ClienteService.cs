@@ -92,6 +92,7 @@ namespace SIGO.Services.Entities
                 throw new KeyNotFoundException($"Cliente com id {id} não encontrado.");
             }
 
+            ApplyClientTypeRules(clienteDTO);
             await ValidateCliente(clienteDTO, id);
             EnsureIdentityFieldsAreUnchanged(existingCliente, clienteDTO);
             await EnsureTelefoneIdsBelongToCliente(clienteDTO.Telefones, id);
@@ -146,6 +147,7 @@ namespace SIGO.Services.Entities
             }
 
             var profileUpdate = MapProfileUpdate(clienteDTO, clienteId);
+            ApplyClientTypeRules(profileUpdate);
             await ValidateCliente(profileUpdate, clienteId);
             EnsureIdentityFieldsAreUnchanged(existingCliente, profileUpdate);
             await EnsureTelefoneIdsBelongToCliente(profileUpdate.Telefones, clienteId);
@@ -439,6 +441,30 @@ namespace SIGO.Services.Entities
             existing.Complemento = clienteDTO.Complemento;
             existing.Sexo = (SIGO.Objects.Enums.Sexo)clienteDTO.Sexo;
             existing.TipoCliente = (SIGO.Objects.Enums.TipoCliente)clienteDTO.TipoCliente;
+        }
+
+        private void ApplyClientTypeRules(ClienteDTO clienteDTO)
+        {
+            var normalizedDocument = _cpfCnpjValidator.Normalize(clienteDTO.Cpf_Cnpj ?? string.Empty);
+            if (normalizedDocument.Length == 14)
+            {
+                if (string.IsNullOrWhiteSpace(clienteDTO.razao))
+                {
+                    throw new BusinessValidationException(new[]
+                    {
+                        new ValidationError(nameof(ClienteDTO.razao), "Razão social obrigatória para pessoa jurídica.")
+                    });
+                }
+
+                clienteDTO.TipoCliente = (int)TipoCliente.JURIDICO;
+                clienteDTO.Obs = string.Empty;
+                clienteDTO.razao = clienteDTO.razao.Trim();
+                return;
+            }
+
+            clienteDTO.TipoCliente = (int)TipoCliente.FISICO;
+            clienteDTO.razao = string.Empty;
+            clienteDTO.Obs = clienteDTO.Obs?.Trim() ?? string.Empty;
         }
 
         private static ClienteDTO MapProfileUpdate(ClienteRequestDTO request, int clienteId)

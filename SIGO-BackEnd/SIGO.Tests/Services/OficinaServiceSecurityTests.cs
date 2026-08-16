@@ -157,6 +157,34 @@ namespace SIGO.Tests.Services
             _repository.Verify(repository => repository.Add(It.IsAny<Oficina>()), Times.Never);
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("curta1")]
+        [InlineData("senhasemnumero")]
+        [InlineData("12345678")]
+        public async Task Create_DeveRejeitarSenhaForaDaPolitica(string password)
+        {
+            var request = new OficinaRequestDTO
+            {
+                CNPJ = "11222333000181",
+                Email = "oficina@example.com",
+                Senha = password,
+                Cep = 89010000
+            };
+            _cnpjValidator.Setup(validator => validator.IsValid(request.CNPJ)).Returns(true);
+            _repository
+                .Setup(repository => repository.ExistsByEmail("oficina@example.com", null))
+                .ReturnsAsync(false);
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(
+                () => CreateService().Create(request));
+
+            Assert.Contains(
+                exception.Errors,
+                error => error.Field == nameof(OficinaRequestDTO.Senha));
+            _repository.Verify(repository => repository.Add(It.IsAny<Oficina>()), Times.Never);
+        }
+
         [Fact]
         public async Task UpdateSelfProfile_DeveRejeitarCepZero()
         {

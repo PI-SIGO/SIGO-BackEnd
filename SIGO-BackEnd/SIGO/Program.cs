@@ -75,6 +75,18 @@ builder.Services.AddOptions<JwtOptions>()
         JwtOptions.IsValid,
         "Configure Jwt:Issuer, Jwt:Audience, and Jwt:Key with at least 32 bytes through environment variables or user-secrets.")
     .ValidateOnStart();
+builder.Services.AddOptions<EmailOptions>()
+    .Bind(builder.Configuration.GetSection(EmailOptions.SectionName))
+    .Validate(
+        EmailOptions.IsValid,
+        "Configure Email:Host, Email:Port, Email:FromAddress and matching Email:Username/Email:Password values through environment variables or user-secrets.")
+    .ValidateOnStart();
+builder.Services.AddOptions<PasswordRecoveryOptions>()
+    .Bind(builder.Configuration.GetSection(PasswordRecoveryOptions.SectionName))
+    .Validate(
+        PasswordRecoveryOptions.IsValid,
+        "Configure PasswordRecovery:FrontendBaseUrl and a token lifetime between 5 and 1440 minutes.")
+    .ValidateOnStart();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -183,6 +195,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.ClientePasswordChange, httpContext =>
         CreateActorIpFixedWindowLimiter(httpContext, RateLimitPolicies.ClientePasswordChange, 5, TimeSpan.FromMinutes(15)));
 
+    options.AddPolicy(RateLimitPolicies.PasswordRecovery, httpContext =>
+        CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.PasswordRecovery, 5, TimeSpan.FromMinutes(15)));
+
+    options.AddPolicy(RateLimitPolicies.PasswordReset, httpContext =>
+        CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.PasswordReset, 10, TimeSpan.FromMinutes(15)));
+
     options.AddPolicy(RateLimitPolicies.CepLookup, httpContext =>
         CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.CepLookup, 60, TimeSpan.FromMinutes(1)));
 });
@@ -194,6 +212,9 @@ builder.Services.AddScoped<IClienteIdentityRepository, ClienteIdentityRepository
 builder.Services.AddScoped<IClienteRegistrationService, ClienteRegistrationService>();
 builder.Services.AddScoped<IClienteAuthenticationService, ClienteAuthenticationService>();
 builder.Services.AddScoped<IClienteVinculoService, ClienteVinculoService>();
+builder.Services.AddScoped<IPasswordRecoveryRepository, PasswordRecoveryRepository>();
+builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddScoped<ITelefoneRepository, TelefoneRepository>();

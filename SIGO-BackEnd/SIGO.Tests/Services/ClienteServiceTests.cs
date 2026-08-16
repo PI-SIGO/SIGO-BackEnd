@@ -223,6 +223,70 @@ namespace SIGO.Tests.Services
         }
 
         [Fact]
+        public async Task UpdateForOficina_DeveLimparRazaoSocial_QuandoClienteForPessoaFisica()
+        {
+            var cliente = CreateLinkedCliente();
+            var request = CreateUpdateRequest();
+            request.Obs = "Observação válida";
+            request.razao = "Razão que não se aplica";
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
+            var service = CreateService();
+
+            await service.UpdateForOficina(request, 7, 2);
+
+            Assert.Equal(TipoCliente.FISICO, cliente.TipoCliente);
+            Assert.Equal("Observação válida", cliente.Obs);
+            Assert.Equal(string.Empty, cliente.Razao);
+        }
+
+        [Fact]
+        public async Task UpdateForOficina_DeveLimparObservacao_QuandoClienteForPessoaJuridica()
+        {
+            var cliente = CreateLinkedCliente();
+            cliente.Cpf_Cnpj = "11222333000181";
+            cliente.TipoCliente = TipoCliente.JURIDICO;
+            var request = CreateUpdateRequest();
+            request.Cpf_Cnpj = "11.222.333/0001-81";
+            request.Obs = "Observação que não se aplica";
+            request.razao = "Empresa SIGO Ltda.";
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
+            var service = CreateService();
+
+            await service.UpdateForOficina(request, 7, 2);
+
+            Assert.Equal(TipoCliente.JURIDICO, cliente.TipoCliente);
+            Assert.Equal(string.Empty, cliente.Obs);
+            Assert.Equal("Empresa SIGO Ltda.", cliente.Razao);
+        }
+
+        [Fact]
+        public async Task UpdateForOficina_DeveExigirRazaoSocial_QuandoClienteForPessoaJuridica()
+        {
+            var cliente = CreateLinkedCliente();
+            cliente.Cpf_Cnpj = "11222333000181";
+            cliente.TipoCliente = TipoCliente.JURIDICO;
+            var request = CreateUpdateRequest();
+            request.Cpf_Cnpj = "11.222.333/0001-81";
+            request.razao = string.Empty;
+            _clienteRepositoryMock
+                .Setup(repository => repository.GetByIdWithDetailsForOficina(7, 2))
+                .ReturnsAsync(cliente);
+            var service = CreateService();
+
+            var exception = await Assert.ThrowsAsync<BusinessValidationException>(() =>
+                service.UpdateForOficina(request, 7, 2));
+
+            Assert.Contains(
+                exception.Errors,
+                error => error.Field == nameof(ClienteDTO.razao));
+            _clienteRepositoryMock.Verify(repository => repository.SaveChanges(), Times.Never);
+        }
+
+        [Fact]
         public async Task UpdateForOficina_DeveFalhar_QuandoClienteNaoTemVinculoAtivo()
         {
             _clienteRepositoryMock
