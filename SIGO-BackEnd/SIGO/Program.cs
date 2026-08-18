@@ -177,8 +177,11 @@ builder.Services.AddRateLimiter(options =>
             cancellationToken: token);
     };
 
+    options.AddPolicy(RateLimitPolicies.UnifiedLogin, httpContext =>CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.UnifiedLogin,5,TimeSpan.FromMinutes(1)));
+
     options.AddPolicy(RateLimitPolicies.ClienteLogin, httpContext =>
         CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.ClienteLogin, 5, TimeSpan.FromMinutes(1)));
+
 
     options.AddPolicy(RateLimitPolicies.OficinaLogin, httpContext =>
         CreateIpFixedWindowLimiter(httpContext, RateLimitPolicies.OficinaLogin, 5, TimeSpan.FromMinutes(1)));
@@ -250,6 +253,11 @@ builder.Services.AddScoped<
     IAuditoriaFuncionarioService,
     AuditoriaFuncionarioService>();
 
+builder.Services.AddScoped<
+    IUnifiedAuthenticationService,
+    UnifiedAuthenticationService
+>();
+
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddScoped<IPedidoRepository, PedidoRepository>();
 builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
@@ -272,6 +280,7 @@ builder.Services.AddRefitClient<IViaCepIntegracaoRefit>()
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
 
+
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<IOptions<JwtOptions>>((options, jwtOptionsAccessor) =>
     {
@@ -290,6 +299,8 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtOptions.Key))
         };
+
+
 
         options.Events = new JwtBearerEvents
         {
@@ -524,6 +535,7 @@ static RateLimitPartition<string> CreateIpFixedWindowLimiter(
         });
 }
 
+
 static RateLimitPartition<string> CreateActorIpFixedWindowLimiter(
     HttpContext httpContext,
     string policyName,
@@ -546,7 +558,6 @@ static RateLimitPartition<string> CreateActorIpFixedWindowLimiter(
             Window = window
         });
 }
-
 internal sealed class DbContextReadinessHealthCheck : IHealthCheck
 {
     private readonly AppDbContext _dbContext;

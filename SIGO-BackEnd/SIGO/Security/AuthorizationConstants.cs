@@ -32,5 +32,6 @@ namespace SIGO.Security
         public const string PasswordRecovery = "PasswordRecovery";
         public const string PasswordReset = "PasswordReset";
         public const string CepLookup = "CepLookup";
+        public const string UnifiedLogin = "UnifiedLogin";
     }
 }

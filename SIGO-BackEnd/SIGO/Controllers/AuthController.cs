@@ -16,10 +16,14 @@ namespace SIGO.Controllers
             "Se existir uma conta associada a este e-mail, enviaremos as instruções para redefinição de senha.";
 
         private readonly IPasswordRecoveryService _passwordRecoveryService;
+        private readonly IUnifiedAuthenticationService _unifiedAuthenticationService;
 
-        public AuthController(IPasswordRecoveryService passwordRecoveryService)
+        public AuthController(
+            IPasswordRecoveryService passwordRecoveryService,
+            IUnifiedAuthenticationService unifiedAuthenticationService)
         {
             _passwordRecoveryService = passwordRecoveryService;
+            _unifiedAuthenticationService = unifiedAuthenticationService;
         }
 
         [HttpPost("forgot-password")]
@@ -77,6 +81,40 @@ namespace SIGO.Controllers
                 : this.ApiProblem(
                     StatusCodes.Status400BadRequest,
                     "Este link de redefinição é inválido ou expirou.");
+        }
+
+        [HttpPost("login")]
+        [AllowAnonymous]
+        [EnableRateLimiting(RateLimitPolicies.UnifiedLogin)]
+        public async Task<ActionResult<UnifiedLoginResponseDTO>> Login(
+        [FromBody] UnifiedLoginRequestDTO request,
+        CancellationToken cancellationToken)
+        {
+            if (request is null ||
+                string.IsNullOrWhiteSpace(request.Identifier) ||
+                string.IsNullOrWhiteSpace(request.Password))
+            {
+                return this.ApiValidationProblem(
+                    StatusCodes.Status400BadRequest,
+                    "request",
+                    "Informe a credencial e a senha."
+                );
+            }
+
+            var result = await _unifiedAuthenticationService.AuthenticateAsync(
+                request,
+                cancellationToken
+            );
+
+            if (result is null)
+            {
+                return this.ApiProblem(
+                    StatusCodes.Status401Unauthorized,
+                    "Credencial ou senha inválidos."
+                );
+            }
+
+            return Ok(result);
         }
     }
 }

@@ -56,18 +56,27 @@ namespace SIGO.Controllers
         }
 
         [HttpGet("{id:int}")]
-        [Authorize(Roles = $"{SystemRoles.Admin},{SystemRoles.Oficina}")]
+        [Authorize(Roles =
+            $"{SystemRoles.Admin},{SystemRoles.Oficina},{SystemRoles.Funcionario}")]
         public async Task<ActionResult<OficinaDTO>> GetById(int id)
         {
-            if (_currentUserService.IsInRole(SystemRoles.Oficina) &&
-                _currentUserService.OficinaId != id)
+            if (!_currentUserService.IsInRole(SystemRoles.Admin))
             {
-                return Forbid();
+                var currentOficinaId = _currentUserService.OficinaId;
+
+                if (!currentOficinaId.HasValue ||
+                    currentOficinaId.Value != id)
+                {
+                    return Forbid();
+                }
             }
 
             var oficina = await _oficinaService.GetById(id);
+
             return oficina is null
-                ? this.ApiProblem(StatusCodes.Status404NotFound, "Oficina não encontrada.")
+                ? this.ApiProblem(
+                    StatusCodes.Status404NotFound,
+                    "Oficina não encontrada.")
                 : Ok(oficina);
         }
 
