@@ -37,7 +37,10 @@ namespace SIGO.Data.Seed
 
         public async Task SeedAsync(CancellationToken cancellationToken = default)
         {
-            await _context.Database.MigrateAsync(cancellationToken);
+            if (_context.Database.IsRelational())
+                await _context.Database.MigrateAsync(cancellationToken);
+            else
+                await _context.Database.EnsureCreatedAsync(cancellationToken);
 
             var oficina = await SeedOficina(cancellationToken);
             var cliente = await SeedCliente(cancellationToken);

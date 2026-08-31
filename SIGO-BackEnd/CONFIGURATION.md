@@ -41,6 +41,30 @@ A migração `AddPasswordRecoveryTokens` cria a tabela segura usada pelos links 
 redefinição. O comando `dotnet run --project SIGO\SIGO.csproj -- --seed` também aplica
 as migrações antes de carregar os dados locais de demonstração.
 
+## Dados locais de demonstração
+
+Execute o seeder a partir da raiz da solução:
+
+```powershell
+dotnet run --project SIGO\SIGO.csproj -- --seed
+```
+
+O comando é idempotente: pode ser executado novamente para restaurar os dados e as
+credenciais abaixo sem duplicar os registros. Use estas contas somente em ambiente
+local:
+
+| Perfil | Login | Senha |
+|---|---|---|
+| Cliente | CPF `39053344705` | `Cliente@123` |
+| Oficina | `oficina.seed@sigo.local` | `Oficina@123` |
+| Funcionário | `funcionario.seed@sigo.local` | `Funcionario@123` |
+| Cliente (cenário completo) | CPF `11144477735` | `ClienteTeste@123` |
+| Oficina (cenário completo) | `oficina.fulltest@sigo.local` | `OficinaTeste@123` |
+| Funcionário (cenário completo) | `funcionario.fulltest@sigo.local` | `FuncionarioTeste@123` |
+
+O cenário completo inclui cliente, conta, contato, oficina, funcionário, veículo,
+telefone, marca, peça, serviço, pedido, histórico de serviço e seus vínculos.
+
 O cadastro do cliente continua direto e não exige confirmação de e-mail. SMTP é usado
 somente no fluxo de recuperação de senha. Em Development, os padrões apontam para um
 servidor SMTP local em `localhost:1025`; em outros ambientes, host, remetente e
